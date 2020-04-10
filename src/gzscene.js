@@ -1663,7 +1663,6 @@ GZ3D.Scene.prototype.loadCollada = function(uri, submesh, centerSubmesh,
     dae.updateMatrix();
     that.prepareColladaMesh(dae);
     that.meshes[uri] = dae;
-    dae = dae.clone();
     that.useSubMesh(dae, submesh, centerSubmesh);
 
     dae.name = uri;
@@ -1703,21 +1702,27 @@ GZ3D.Scene.prototype.useSubMesh = function(mesh, submesh, centerSubmesh)
   }
 
   var result;
-  var allChildren = [];
-  mesh.getDescendants(allChildren);
-  for (var i = 0; i < allChildren.length; ++i)
-  {
-    if (allChildren[i] instanceof THREE.Mesh)
+
+  // The mesh has nodes: An Object3D child for every submesh. They have a colladaId equal to the node's ID.
+  // Those Object3D children have one child of type Mesh, which contains the required geometry.
+  // We are looking for those Mesh children whose parents have a colladaId equal to the desired submesh.
+  for (var i = 0; i < mesh.children.length; ++i) {
+    var nodeObject = mesh.children[i];
+    var nodeId = nodeObject.colladaId;
+
+    // An Object3D only has one children.
+    var nodeMesh = nodeObject.children[0];
+
+    if (nodeMesh instanceof THREE.Mesh)
     {
-      if (allChildren[i].name === submesh ||
-          allChildren[i].geometry.name === submesh)
+      if (nodeId === submesh && nodeMesh.hasOwnProperty('geometry'))
       {
         if (centerSubmesh)
         {
           // obj
-          if (allChildren[i].geometry instanceof THREE.BufferGeometry)
+          if (nodeMesh.geometry instanceof THREE.BufferGeometry)
           {
-            var geomPosition = allChildren[i].geometry.attributes.position;
+            var geomPosition = nodeMesh.geometry.attributes.position;
             var dim = geomPosition.itemSize;
             var minPos = [];
             var maxPos = [];
@@ -1750,12 +1755,12 @@ GZ3D.Scene.prototype.useSubMesh = function(mesh, submesh, centerSubmesh)
                 geomPosition.array[kk + m] -= centerPos[m];
               }
             }
-            allChildren[i].geometry.attributes.position.needsUpdate = true;
+            nodeMesh.geometry.attributes.position.needsUpdate = true;
           }
           // dae
           else
           {
-            var vertices = allChildren[i].geometry.vertices;
+            var vertices = nodeMesh.geometry.vertices;
             var vMin = new THREE.Vector3();
             var vMax = new THREE.Vector3();
             vMin.x = vertices[0].x;
@@ -1787,8 +1792,8 @@ GZ3D.Scene.prototype.useSubMesh = function(mesh, submesh, centerSubmesh)
               vertices[k].z -= center.z;
             }
 
-            allChildren[i].geometry.verticesNeedUpdate = true;
-            var p = allChildren[i].parent;
+            nodeMesh.geometry.verticesNeedUpdate = true;
+            var p = nodeMesh.parent;
             while (p)
             {
               p.position.set(0, 0, 0);
@@ -1796,11 +1801,12 @@ GZ3D.Scene.prototype.useSubMesh = function(mesh, submesh, centerSubmesh)
             }
           }
         }
-        result = allChildren[i];
+        result = nodeMesh;
       }
       else
       {
-        allChildren[i].parent.remove(allChildren[i]);
+        // The nodeMesh belongs to another submesh and should be removed from the parent.
+        nodeObject.remove(nodeMesh);
       }
     }
   }
