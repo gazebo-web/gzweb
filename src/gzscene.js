@@ -88,7 +88,7 @@ GZ3D.Scene.prototype.init = function()
       this, this.getDomElement());
 
   this.simpleShapesMaterial = new THREE.MeshPhongMaterial(
-      {color:0xffffff, shading: THREE.SmoothShading} );
+      {color:0xffffff, flatShading: THREE.SmoothShading} );
 
   var that = this;
 
@@ -1479,6 +1479,8 @@ GZ3D.Scene.prototype.loadMeshFromUri = function(uri, submesh, centerSubmesh,
   var uriPath = uri.substring(0, uri.lastIndexOf('/'));
   var uriFile = uri.substring(uri.lastIndexOf('/') + 1);
 
+  // Check if the mesh has already been loaded.
+  // Use it in that case.
   if (this.meshes[uri])
   {
     var mesh = this.meshes[uri];
@@ -1663,6 +1665,7 @@ GZ3D.Scene.prototype.loadCollada = function(uri, submesh, centerSubmesh,
     dae.updateMatrix();
     that.prepareColladaMesh(dae);
     that.meshes[uri] = dae;
+    dae = dae.clone();
     that.useSubMesh(dae, submesh, centerSubmesh);
 
     dae.name = uri;
@@ -1703,113 +1706,101 @@ GZ3D.Scene.prototype.useSubMesh = function(mesh, submesh, centerSubmesh)
 
   var result;
 
-  // The mesh has nodes: An Object3D child for every submesh. They have a colladaId equal to the node's ID.
-  // Those Object3D children have one child of type Mesh, which contains the required geometry.
-  // We are looking for those Mesh children whose parents have a colladaId equal to the desired submesh.
-  for (var i = 0; i < mesh.children.length; ++i) {
-    var nodeObject = mesh.children[i];
-    var nodeId = nodeObject.colladaId;
-
-    // An Object3D only has one children.
-    var nodeMesh = nodeObject.children[0];
-
-    if (nodeMesh instanceof THREE.Mesh)
-    {
-      if (nodeId === submesh && nodeMesh.hasOwnProperty('geometry'))
+  // The mesh has children for every submesh. Those children are meshes with a name equal to the node's ID.
+  // We are looking for those Mesh children whose parents have a name equal to the desired submesh.
+  // Filter the children for the required submesh.
+  result = mesh.children.filter( function(child) {
+    if (child instanceof THREE.Mesh && child.name === submesh && child.hasOwnProperty('geometry')) {
+      if (centerSubmesh)
       {
-        if (centerSubmesh)
+        // obj
+        if (child.geometry instanceof THREE.BufferGeometry)
         {
-          // obj
-          if (nodeMesh.geometry instanceof THREE.BufferGeometry)
+          var geomPosition = child.geometry.attributes.position;
+          var dim = geomPosition.itemSize;
+          var minPos = [];
+          var maxPos = [];
+          var centerPos = [];
+          var m = 0;
+          for (m = 0; m < dim; ++m)
           {
-            var geomPosition = nodeMesh.geometry.attributes.position;
-            var dim = geomPosition.itemSize;
-            var minPos = [];
-            var maxPos = [];
-            var centerPos = [];
-            var m = 0;
-            for (m = 0; m < dim; ++m)
-            {
-              minPos[m] = geomPosition.array[m];
-              maxPos[m] = minPos[m];
-            }
-            var kk = 0;
-            for (kk = dim; kk < geomPosition.count * dim; kk+=dim)
-            {
-              for (m = 0; m < dim; ++m)
-              {
-                minPos[m] = Math.min(minPos[m], geomPosition.array[kk + m]);
-                maxPos[m] = Math.max(maxPos[m], geomPosition.array[kk + m]);
-              }
-            }
-
-            for (m = 0; m < dim; ++m)
-            {
-              centerPos[m] = minPos[m] + (0.5 * (maxPos[m] - minPos[m]));
-            }
-
-            for (kk = 0; kk < geomPosition.count * dim; kk+=dim)
-            {
-              for (m = 0; m < dim; ++m)
-              {
-                geomPosition.array[kk + m] -= centerPos[m];
-              }
-            }
-            nodeMesh.geometry.attributes.position.needsUpdate = true;
+            minPos[m] = geomPosition.array[m];
+            maxPos[m] = minPos[m];
           }
-          // dae
-          else
+          var kk = 0;
+          for (kk = dim; kk < geomPosition.count * dim; kk+=dim)
           {
-            var vertices = nodeMesh.geometry.vertices;
-            var vMin = new THREE.Vector3();
-            var vMax = new THREE.Vector3();
-            vMin.x = vertices[0].x;
-            vMin.y = vertices[0].y;
-            vMin.z = vertices[0].z;
-            vMax.x = vMin.x;
-            vMax.y = vMin.y;
-            vMax.z = vMin.z;
-
-            for (var j = 1; j < vertices.length; ++j)
+            for (m = 0; m < dim; ++m)
             {
-              vMin.x = Math.min(vMin.x, vertices[j].x);
-              vMin.y = Math.min(vMin.y, vertices[j].y);
-              vMin.z = Math.min(vMin.z, vertices[j].z);
-              vMax.x = Math.max(vMax.x, vertices[j].x);
-              vMax.y = Math.max(vMax.y, vertices[j].y);
-              vMax.z = Math.max(vMax.z, vertices[j].z);
+              minPos[m] = Math.min(minPos[m], geomPosition.array[kk + m]);
+              maxPos[m] = Math.max(maxPos[m], geomPosition.array[kk + m]);
             }
+          }
 
-            var center  = new THREE.Vector3();
-            center.x = vMin.x + (0.5 * (vMax.x - vMin.x));
-            center.y = vMin.y + (0.5 * (vMax.y - vMin.y));
-            center.z = vMin.z + (0.5 * (vMax.z - vMin.z));
+          for (m = 0; m < dim; ++m)
+          {
+            centerPos[m] = minPos[m] + (0.5 * (maxPos[m] - minPos[m]));
+          }
 
-            for (var k = 0; k < vertices.length; ++k)
+          for (kk = 0; kk < geomPosition.count * dim; kk+=dim)
+          {
+            for (m = 0; m < dim; ++m)
             {
-              vertices[k].x -= center.x;
-              vertices[k].y -= center.y;
-              vertices[k].z -= center.z;
+              geomPosition.array[kk + m] -= centerPos[m];
             }
+          }
+          child.geometry.attributes.position.needsUpdate = true;
+        }
+        // dae
+        else
+        {
+          var vertices = child.geometry.vertices;
+          var vMin = new THREE.Vector3();
+          var vMax = new THREE.Vector3();
+          vMin.x = vertices[0].x;
+          vMin.y = vertices[0].y;
+          vMin.z = vertices[0].z;
+          vMax.x = vMin.x;
+          vMax.y = vMin.y;
+          vMax.z = vMin.z;
 
-            nodeMesh.geometry.verticesNeedUpdate = true;
-            var p = nodeMesh.parent;
-            while (p)
-            {
-              p.position.set(0, 0, 0);
-              p = p.parent;
-            }
+          for (var j = 1; j < vertices.length; ++j)
+          {
+            vMin.x = Math.min(vMin.x, vertices[j].x);
+            vMin.y = Math.min(vMin.y, vertices[j].y);
+            vMin.z = Math.min(vMin.z, vertices[j].z);
+            vMax.x = Math.max(vMax.x, vertices[j].x);
+            vMax.y = Math.max(vMax.y, vertices[j].y);
+            vMax.z = Math.max(vMax.z, vertices[j].z);
+          }
+
+          var center  = new THREE.Vector3();
+          center.x = vMin.x + (0.5 * (vMax.x - vMin.x));
+          center.y = vMin.y + (0.5 * (vMax.y - vMin.y));
+          center.z = vMin.z + (0.5 * (vMax.z - vMin.z));
+
+          for (var k = 0; k < vertices.length; ++k)
+          {
+            vertices[k].x -= center.x;
+            vertices[k].y -= center.y;
+            vertices[k].z -= center.z;
+          }
+
+          child.geometry.verticesNeedUpdate = true;
+          var p = child.parent;
+          while (p)
+          {
+            p.position.set(0, 0, 0);
+            p = p.parent;
           }
         }
-        result = nodeMesh;
       }
-      else
-      {
-        // The nodeMesh belongs to another submesh and should be removed from the parent.
-        nodeObject.remove(nodeMesh);
-      }
+      return true;
     }
-  }
+  });
+
+  mesh.children = result;
+
   return result;
 };
 
