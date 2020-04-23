@@ -34,6 +34,9 @@ GZ3D.SdfParser = function(scene, gui, gziface)
   this.entityMaterial = {};
   // store meshes when loading meshes from memory.
   this.meshes = {};
+  // Used to avoid loading meshes multiple times. An array that contains:
+  // meshUri, submesh, material and the parent visual Object of the mesh.
+  this.pendingMeshes = [];
   this.mtls = {};
   this.textures = {};
 
@@ -652,47 +655,64 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent)
             }
           }
         }
+
+        // Avoid loading the mesh multiple times.
+        for (var i = 0; i < this.pendingMeshes.length; i++)
+        {
+          if (this.pendingMeshes[i].meshUri === modelUri)
+          {
+            // The mesh is already pending, but submesh and the visual object parent are different.
+            this.pendingMeshes.push({
+              meshUri: modelUri,
+              submesh: submesh,
+              parent: parent,
+              material: material
+            });
+            return;
+          }
+        }
+        this.pendingMeshes.push({
+          meshUri: modelUri,
+          submesh: submesh,
+          parent: parent,
+          material: material
+        });
+
+        // Load the mesh.
+        // Once the mesh is loaded, it will be stored on Gz3D.Scene.
         this.scene.loadMeshFromUri(modelUri, submesh, centerSubmesh,
           function (mesh)
           {
-            if (!mesh)
-            {
-              console.error('Failed to load mesh.');
-              return;
-            }
+            // Check for the pending meshes.
+            for (var i = 0; i < that.pendingMeshes.length; i++) {
+              if (that.pendingMeshes[i].meshUri === mesh.name) {
 
-            if (material)
-            {
-              // Because the stl mesh doesn't have any children we cannot set
-              // the materials like other mesh types.
-              if (ext !== '.stl')
-              {
-                var allChildren = [];
-                mesh.getDescendants(allChildren);
-                for (var c = 0; c < allChildren.length; ++c)
-                {
-                  if (allChildren[c] instanceof THREE.Mesh)
-                  {
-                    that.scene.setMaterial(allChildren[c], material);
-                    break;
+                // No submesh: Load the result.
+                if (!that.pendingMeshes[i].submesh) {
+                  loadMesh(mesh, that.pendingMeshes[i].material, that.pendingMeshes[i].parent);
+                } else {
+                  // Check if the mesh belongs to a submesh.
+                  var allChildren = [];
+                  mesh.getDescendants(allChildren);
+                  for (var c = 0; c < allChildren.length; ++c) {
+                    if (allChildren[c] instanceof THREE.Mesh) {
+                      if (allChildren[c].name === that.pendingMeshes[i].submesh) {
+                        loadMesh(mesh, that.pendingMeshes[i].material, that.pendingMeshes[i].parent);
+                      } else {
+                        // The mesh is already stored in Gz3D.Scene. The new submesh will be parsed.
+                        // Suppress linter warning.
+                        /* jshint ignore:start */
+                        that.scene.loadMeshFromUri(mesh.name, that.pendingMeshes[i].submesh, centerSubmesh, function(mesh) {
+                          loadMesh(mesh, that.pendingMeshes[i].material, that.pendingMeshes[i].parent);
+                        });
+                        /* jshint ignore:end */
+                      }
+                    }
                   }
                 }
               }
-              else
-              {
-                that.scene.setMaterial(mesh, material);
-              }
             }
-            else
-            {
-              if (ext === '.stl')
-              {
-                that.scene.setMaterial(mesh, {'ambient': [1,1,1,1]});
-              }
-            }
-          parent.add(mesh);
-          loadGeom(parent);
-        });
+          });
       }
     }
   }
@@ -740,6 +760,49 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent)
     }
     obj.updateMatrix();
     parent.add(obj);
+    loadGeom(parent);
+  }
+
+  // Callback function when the mesh is ready.
+  function loadMesh(mesh, material, parent)
+  {
+    if (!mesh)
+    {
+      console.error('Failed to load mesh.');
+      return;
+    }
+
+    if (material)
+    {
+      // Because the stl mesh doesn't have any children we cannot set
+      // the materials like other mesh types.
+      if (ext !== '.stl')
+      {
+        var allChildren = [];
+        mesh.getDescendants(allChildren);
+        for (var c = 0; c < allChildren.length; ++c)
+        {
+          if (allChildren[c] instanceof THREE.Mesh)
+          {
+            that.scene.setMaterial(allChildren[c], material);
+            break;
+          }
+        }
+      }
+      else
+      {
+        that.scene.setMaterial(mesh, material);
+      }
+    }
+    else
+    {
+      if (ext === '.stl')
+      {
+        that.scene.setMaterial(mesh, {'ambient': [1,1,1,1]});
+      }
+    }
+
+    parent.add(mesh.clone());
     loadGeom(parent);
   }
 
