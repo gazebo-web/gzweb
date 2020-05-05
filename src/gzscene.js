@@ -1843,7 +1843,82 @@ GZ3D.Scene.prototype.setMaterial = function(obj, material)
   {
     if (material)
     {
-      obj.material = new THREE.MeshPhongMaterial();
+      // If the material has a PBR tag, use a MeshStandardMaterial, which can have albedo, normal,
+      // emissive, roughness and metalness maps. Otherwise use a Phong material.
+      if (material.pbr) {
+        obj.material = new THREE.MeshStandardMaterial();
+        // Array of maps in order to facilitate the repetition and scaling process.
+        var maps = [];
+
+        if (material.pbr.metal.albedo_map) {
+          var albedoMap = this.textureLoader.load(material.pbr.metal.albedo_map);
+          obj.material.map = albedoMap;
+          maps.push(albedoMap);
+        }
+
+        if (material.pbr.metal.normal_map) {
+          var normalMap = this.textureLoader.load(material.pbr.metal.normal_map);
+          obj.material.normalMap = normalMap;
+          maps.push(normalMap);
+        }
+
+        if (material.pbr.metal.emissive_map) {
+          var emissiveMap = this.textureLoader.load(material.pbr.metal.emissive_map);
+          obj.material.emissiveMap = emissiveMap;
+          maps.push(emissiveMap);
+        }
+
+        if (material.pbr.metal.roughness_map) {
+          var roughnessMap = this.textureLoader.load(material.pbr.metal.roughness_map);
+          obj.material.roughnessMap = roughnessMap;
+          maps.push(roughnessMap);
+        }
+
+        if (material.pbr.metal.metalness_map) {
+          var metalnessMap = this.textureLoader.load(material.pbr.metal.metalness_map);
+          obj.material.metalnessMap = metalnessMap;
+          maps.push(metalnessMap);
+        }
+
+        maps.forEach(function(map) {
+          map.wrapS = map.wrapT = THREE.RepeatWrapping;
+          map.repeat.x = 1.0;
+          map.repeat.y = 1.0;
+          if (material.scale) {
+            map.repeat.x = 1.0 / material.scale[0];
+            map.repeat.y = 1.0 / material.scale[1];
+          }
+        });
+      } else {
+        obj.material = new THREE.MeshPhongMaterial();
+
+        var specular = material.specular;
+        if (specular)
+        {
+          obj.material.specular.copy(specular);
+        }
+
+        if (material.texture)
+        {
+          var texture = this.textureLoader.load(material.texture);
+          texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+          texture.repeat.x = 1.0;
+          texture.repeat.y = 1.0;
+          if (material.scale)
+          {
+            texture.repeat.x = 1.0 / material.scale[0];
+            texture.repeat.y = 1.0 / material.scale[1];
+          }
+          obj.material.map = texture;
+        }
+
+        if (material.normalMap)
+        {
+          obj.material.normalMap =
+              this.textureLoader.load(material.normalMap);
+        }
+      }
+
       var ambient = material.ambient;
       var diffuse = material.diffuse;
       if (diffuse)
@@ -1851,23 +1926,18 @@ GZ3D.Scene.prototype.setMaterial = function(obj, material)
         // threejs removed ambient from phong and lambert materials so
         // aproximate the resulting color by mixing ambient and diffuse
         var dc = [];
-        dc[0] = diffuse[0];
-        dc[1] = diffuse[1];
-        dc[2] = diffuse[2];
+        dc[0] = diffuse.r;
+        dc[1] = diffuse.g;
+        dc[2] = diffuse.b;
         if (ambient)
         {
           var a = 0.4;
           var d = 0.6;
-          dc[0] = ambient[0]*a + diffuse[0]*d;
-          dc[1] = ambient[1]*a + diffuse[1]*d;
-          dc[2] = ambient[2]*a + diffuse[2]*d;
+          dc[0] = ambient.r*a + diffuse.r*d;
+          dc[1] = ambient.g*a + diffuse.g*d;
+          dc[2] = ambient.b*a + diffuse.b*d;
         }
         obj.material.color.setRGB(dc[0], dc[1], dc[2]);
-      }
-      var specular = material.specular;
-      if (specular)
-      {
-        obj.material.specular.setRGB(specular[0], specular[1], specular[2]);
       }
       var opacity = material.opacity;
       if (opacity)
@@ -1877,23 +1947,6 @@ GZ3D.Scene.prototype.setMaterial = function(obj, material)
           obj.material.transparent = true;
           obj.material.opacity = opacity;
         }
-      }
-
-      if (material.texture)
-      {
-        var texture = this.textureLoader.load(material.texture);
-        if (material.scale)
-        {
-          texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-          texture.repeat.x = 1.0 / material.scale[0];
-          texture.repeat.y = 1.0 / material.scale[1];
-        }
-        obj.material.map = texture;
-      }
-      if (material.normalMap)
-      {
-        obj.material.normalMap =
-            this.textureLoader.load(material.normalMap);
       }
     }
   }
