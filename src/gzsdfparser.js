@@ -266,6 +266,12 @@ GZ3D.SdfParser.prototype.parsePose = function(poseStr)
     'orientation': new THREE.Quaternion()
   };
 
+  // Note: The pose might have an empty frame attribute. This is a valid XML element though.
+  // In this case, the parser outputs {@frame: "frame", #text: "pose value"}
+  if (poseStr.hasOwnProperty('@frame') && poseStr['@frame'] === '') {
+    poseStr = poseStr['#text'];
+  }
+
   if (typeof poseStr !== 'string' && !(poseStr instanceof String))
   {
     return pose;
