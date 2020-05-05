@@ -327,12 +327,29 @@ GZ3D.SdfParser.prototype.parseBool = function(boolStr)
 GZ3D.SdfParser.prototype.createMaterial = function(material)
 {
   var textureUri, texture, mat;
-  var ambient, diffuse, specular, opacity, normalMap, scale;
+  var ambient, diffuse, specular, opacity, normalMap, scale, pbr;
 
   if (!material)
   {
     return null;
   }
+
+  // At this point, the values are strings. They should be parsed to a Color array.
+  if (material.ambient) {
+    ambient = this.parseColor(material.ambient);
+  }
+
+  if (material.diffuse) {
+    diffuse = this.parseColor(material.diffuse);
+  }
+
+  if (material.specular) {
+    specular = this.parseColor(material.specular);
+  }
+
+  opacity = material.opacity;
+  normalMap = material.normalMap;
+  scale = material.scale;
 
   var script = material.script;
   if (script)
@@ -473,6 +490,119 @@ GZ3D.SdfParser.prototype.createMaterial = function(material)
     }
   }
 
+  // Set the correct URLs of the PBR-related textures, if available.
+  if (material.pbr && material.pbr.metal) {
+    // Iterator for the subsequent for loops. Used to avoid a linter warning.
+    // Loops (and all variables in general) should use let/const when ported to ES6.
+    var u;
+    if (material.pbr.metal.albedo_map) {
+      var albedoMap;
+      var albedoMapName = material.pbr.metal.albedo_map.split('/').pop();
+
+      if (this.usingFilesUrls && this.customUrls.length !== 0) {
+        for (u = 0; u < this.customUrls.length; u++) {
+          if (this.customUrls[u].indexOf(albedoMapName) > -1) {
+            albedoMap = this.customUrls[u];
+            break;
+          }
+        }
+        if (albedoMap) {
+          material.pbr.metal.albedo_map = albedoMap;
+        } else {
+          console.error('Missing Albedo Map file [' + material.pbr.metal.albedo_map + ']');
+          // Prevent the map from loading, as it hasn't been found.
+          material.pbr.metal.albedo_map = null;
+        }
+      }
+    }
+
+    if (material.pbr.metal.emissive_map) {
+      var emissiveMap;
+      var emissiveMapName = material.pbr.metal.emissive_map.split('/').pop();
+
+      if (this.usingFilesUrls && this.customUrls.length !== 0) {
+        for (u = 0; u < this.customUrls.length; u++) {
+          if (this.customUrls[u].indexOf(emissiveMapName) > -1) {
+            emissiveMap = this.customUrls[u];
+            break;
+          }
+        }
+        if (emissiveMap) {
+          material.pbr.metal.emissive_map = emissiveMap;
+        } else {
+          console.error('Missing Emissive Map file [' + material.pbr.metal.emissive_map + ']');
+          // Prevent the map from loading, as it hasn't been found.
+          material.pbr.metal.emissive_map = null;
+        }
+      }
+    }
+
+    if (material.pbr.metal.normal_map) {
+      var pbrNormalMap;
+      var pbrNormalMapName = material.pbr.metal.normal_map.split('/').pop();
+
+      if (this.usingFilesUrls && this.customUrls.length !== 0) {
+        for (u = 0; u < this.customUrls.length; u++) {
+          if (this.customUrls[u].indexOf(pbrNormalMapName) > -1) {
+            pbrNormalMap = this.customUrls[u];
+            break;
+          }
+        }
+        if (pbrNormalMap) {
+          material.pbr.metal.normal_map = pbrNormalMap;
+        } else {
+          console.error('Missing Normal Map file [' + material.pbr.metal.normal_map + ']');
+          // Prevent the map from loading, as it hasn't been found.
+          material.pbr.metal.normal_map = null;
+        }
+      }
+    }
+
+    if (material.pbr.metal.roughness_map) {
+      var roughnessMap;
+      var roughnessMapName = material.pbr.metal.roughness_map.split('/').pop();
+
+      if (this.usingFilesUrls && this.customUrls.length !== 0) {
+        for (u = 0; u < this.customUrls.length; u++) {
+          if (this.customUrls[u].indexOf(roughnessMapName) > -1) {
+            roughnessMap = this.customUrls[u];
+            break;
+          }
+        }
+        if (roughnessMap) {
+          material.pbr.metal.roughness_map = roughnessMap;
+        } else {
+          console.error('Missing Roughness Map file [' + material.pbr.metal.roughness_map + ']');
+          // Prevent the map from loading, as it hasn't been found.
+          material.pbr.metal.roughness_map = null;
+        }
+      }
+    }
+
+    if (material.pbr.metal.metalness_map) {
+      var metalnessMap;
+      var metalnessMapName = material.pbr.metal.metalness_map.split('/').pop();
+
+      if (this.usingFilesUrls && this.customUrls.length !== 0) {
+        for (u = 0; u < this.customUrls.length; u++) {
+          if (this.customUrls[u].indexOf(metalnessMapName) > -1) {
+            metalnessMap = this.customUrls[u];
+            break;
+          }
+        }
+        if (metalnessMap) {
+          material.pbr.metal.metalness_map = metalnessMap;
+        } else {
+          console.error('Missing Metalness Map file [' + material.pbr.metal.metalness_map + ']');
+          // Prevent the map from loading, as it hasn't been found.
+          material.pbr.metal.metalness_map = null;
+        }
+      }
+    }
+
+    pbr = material.pbr;
+  }
+
   return {
     texture: texture,
     normalMap: normalMap,
@@ -480,7 +610,8 @@ GZ3D.SdfParser.prototype.createMaterial = function(material)
     diffuse: diffuse,
     specular: specular,
     opacity: opacity,
-    scale: scale
+    scale: scale,
+    pbr: pbr
   };
 
 };
@@ -772,6 +903,8 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent)
       return;
     }
 
+    // Note: This material is the one created by the createMaterial method,
+    // which is the material defined by the SDF file or the material script.
     if (material)
     {
       // Because the stl mesh doesn't have any children we cannot set
@@ -784,8 +917,14 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent)
         {
           if (allChildren[c] instanceof THREE.Mesh)
           {
-            that.scene.setMaterial(allChildren[c], material);
-            break;
+            // Some Collada files load their own textures. If the mesh already has a material with
+            // a texture, we skip this step (but only if there is no PBR materials involved).
+            var isColladaWithTexture = ext === '.dae' && allChildren[c].material && allChildren[c].material.map;
+
+            if (!isColladaWithTexture || material.pbr) {
+              that.scene.setMaterial(allChildren[c], material);
+              break;
+            }
           }
         }
       }
@@ -796,6 +935,8 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent)
     }
     else
     {
+      // By default, the STL Loader creates meshes with a basic material with a random color.
+      // If no material is set via the SDF file, provide a more appropriate one.
       if (ext === '.stl')
       {
         that.scene.setMaterial(mesh, {'ambient': [1,1,1,1]});
