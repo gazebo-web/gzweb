@@ -704,153 +704,158 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent)
     if (uriType === 'file' || uriType === 'model')
     {
       var modelName = meshUri.substring(meshUri.indexOf('://') + 3);
-      if (geom.mesh.scale)
+    }
+    else
+    {
+      var modelName = meshUri;
+    }
+
+    if (geom.mesh.scale)
+    {
+      var scale = this.parseScale(geom.mesh.scale);
+      parent.scale.x = scale.x;
+      parent.scale.y = scale.y;
+      parent.scale.z = scale.z;
+    }
+
+    var modelUri = this.MATERIAL_ROOT + '/' + modelName;
+    var ext = modelUri.substr(-4).toLowerCase();
+    var materialName = parent.name + '::' + modelUri;
+    this.entityMaterial[materialName] = material;
+    var meshFileName = meshUri.substring(meshUri.lastIndexOf('/') + 1);
+
+    if (!this.usingFilesUrls)
+    {
+      var meshFile = this.meshes[meshFileName];
+      if (!meshFile)
       {
-        var scale = this.parseScale(geom.mesh.scale);
-        parent.scale.x = scale.x;
-        parent.scale.y = scale.y;
-        parent.scale.z = scale.z;
+        console.error('Missing mesh file [' + meshFileName + ']');
+        return;
       }
 
-      var modelUri = this.MATERIAL_ROOT + '/' + modelName;
-      var ext = modelUri.substr(-4).toLowerCase();
-      var materialName = parent.name + '::' + modelUri;
-      this.entityMaterial[materialName] = material;
-      var meshFileName = meshUri.substring(meshUri.lastIndexOf('/') + 1);
-
-      if (!this.usingFilesUrls)
+      if (ext === '.obj')
       {
-        var meshFile = this.meshes[meshFileName];
-        if (!meshFile)
+        var mtlFileName = meshFileName.split('.')[0]+'.mtl';
+        var mtlFile = this.mtls[mtlFileName];
+        if (!mtlFile)
         {
-          console.error('Missing mesh file [' + meshFileName + ']');
+          console.error('Missing MTL file [' + mtlFileName + ']');
           return;
         }
 
-        if (ext === '.obj')
-        {
-          var mtlFileName = meshFileName.split('.')[0]+'.mtl';
-          var mtlFile = this.mtls[mtlFileName];
-          if (!mtlFile)
+        that.scene.loadMeshFromString(modelUri, submesh, centerSubmesh,
+          function(obj)
           {
-            console.error('Missing MTL file [' + mtlFileName + ']');
-            return;
-          }
-
-          that.scene.loadMeshFromString(modelUri, submesh, centerSubmesh,
-            function(obj)
+            if (!obj)
             {
-              if (!obj)
-              {
-                console.error('Failed to load mesh.');
-                return;
-              }
+              console.error('Failed to load mesh.');
+              return;
+            }
 
-              parent.add(obj);
-              loadGeom(parent);
-            }, [meshFile, mtlFile]);
-        }
-        else if (ext === '.dae')
-        {
-          that.scene.loadMeshFromString(modelUri, submesh, centerSubmesh,
-            function(dae)
+            parent.add(obj);
+            loadGeom(parent);
+          }, [meshFile, mtlFile]);
+      }
+      else if (ext === '.dae')
+      {
+        that.scene.loadMeshFromString(modelUri, submesh, centerSubmesh,
+          function(dae)
+          {
+            if (!dae)
             {
-              if (!dae)
-              {
-                console.error('Failed to load mesh.');
-                return;
-              }
+              console.error('Failed to load mesh.');
+              return;
+            }
 
-              if (material)
+            if (material)
+            {
+              var allChildren = [];
+              dae.getDescendants(allChildren);
+              for (var c = 0; c < allChildren.length; ++c)
               {
-                var allChildren = [];
-                dae.getDescendants(allChildren);
-                for (var c = 0; c < allChildren.length; ++c)
+                if (allChildren[c] instanceof THREE.Mesh)
                 {
-                  if (allChildren[c] instanceof THREE.Mesh)
-                  {
-                    that.scene.setMaterial(allChildren[c], material);
-                    break;
-                  }
+                  that.scene.setMaterial(allChildren[c], material);
+                  break;
                 }
               }
-              parent.add(dae);
-              loadGeom(parent);
-            }, [meshFile]);
+            }
+            parent.add(dae);
+            loadGeom(parent);
+          }, [meshFile]);
+      }
+    }
+    else
+    {
+      if (this.customUrls.length !== 0)
+      {
+        for (var k = 0; k < this.customUrls.length; k++)
+        {
+          if (this.customUrls[k].indexOf(meshFileName) > -1)
+          {
+            modelUri = this.customUrls[k];
+            break;
+          }
         }
       }
-      else
+
+      // Avoid loading the mesh multiple times.
+      for (var i = 0; i < this.pendingMeshes.length; i++)
       {
-        if (this.customUrls.length !== 0)
+        if (this.pendingMeshes[i].meshUri === modelUri)
         {
-          for (var k = 0; k < this.customUrls.length; k++)
-          {
-            if (this.customUrls[k].indexOf(meshFileName) > -1)
-            {
-              modelUri = this.customUrls[k];
-              break;
-            }
-          }
+          // The mesh is already pending, but submesh and the visual object parent are different.
+          this.pendingMeshes.push({
+            meshUri: modelUri,
+            submesh: submesh,
+            parent: parent,
+            material: material
+          });
+          return;
         }
+      }
+      this.pendingMeshes.push({
+        meshUri: modelUri,
+        submesh: submesh,
+        parent: parent,
+        material: material
+      });
 
-        // Avoid loading the mesh multiple times.
-        for (var i = 0; i < this.pendingMeshes.length; i++)
+      // Load the mesh.
+      // Once the mesh is loaded, it will be stored on Gz3D.Scene.
+      this.scene.loadMeshFromUri(modelUri, submesh, centerSubmesh,
+        function (mesh)
         {
-          if (this.pendingMeshes[i].meshUri === modelUri)
-          {
-            // The mesh is already pending, but submesh and the visual object parent are different.
-            this.pendingMeshes.push({
-              meshUri: modelUri,
-              submesh: submesh,
-              parent: parent,
-              material: material
-            });
-            return;
-          }
-        }
-        this.pendingMeshes.push({
-          meshUri: modelUri,
-          submesh: submesh,
-          parent: parent,
-          material: material
-        });
+          // Check for the pending meshes.
+          for (var i = 0; i < that.pendingMeshes.length; i++) {
+            if (that.pendingMeshes[i].meshUri === mesh.name) {
 
-        // Load the mesh.
-        // Once the mesh is loaded, it will be stored on Gz3D.Scene.
-        this.scene.loadMeshFromUri(modelUri, submesh, centerSubmesh,
-          function (mesh)
-          {
-            // Check for the pending meshes.
-            for (var i = 0; i < that.pendingMeshes.length; i++) {
-              if (that.pendingMeshes[i].meshUri === mesh.name) {
-
-                // No submesh: Load the result.
-                if (!that.pendingMeshes[i].submesh) {
-                  loadMesh(mesh, that.pendingMeshes[i].material, that.pendingMeshes[i].parent);
-                } else {
-                  // Check if the mesh belongs to a submesh.
-                  var allChildren = [];
-                  mesh.getDescendants(allChildren);
-                  for (var c = 0; c < allChildren.length; ++c) {
-                    if (allChildren[c] instanceof THREE.Mesh) {
-                      if (allChildren[c].name === that.pendingMeshes[i].submesh) {
+              // No submesh: Load the result.
+              if (!that.pendingMeshes[i].submesh) {
+                loadMesh(mesh, that.pendingMeshes[i].material, that.pendingMeshes[i].parent);
+              } else {
+                // Check if the mesh belongs to a submesh.
+                var allChildren = [];
+                mesh.getDescendants(allChildren);
+                for (var c = 0; c < allChildren.length; ++c) {
+                  if (allChildren[c] instanceof THREE.Mesh) {
+                    if (allChildren[c].name === that.pendingMeshes[i].submesh) {
+                      loadMesh(mesh, that.pendingMeshes[i].material, that.pendingMeshes[i].parent);
+                    } else {
+                      // The mesh is already stored in Gz3D.Scene. The new submesh will be parsed.
+                      // Suppress linter warning.
+                      /* jshint ignore:start */
+                      that.scene.loadMeshFromUri(mesh.name, that.pendingMeshes[i].submesh, centerSubmesh, function(mesh) {
                         loadMesh(mesh, that.pendingMeshes[i].material, that.pendingMeshes[i].parent);
-                      } else {
-                        // The mesh is already stored in Gz3D.Scene. The new submesh will be parsed.
-                        // Suppress linter warning.
-                        /* jshint ignore:start */
-                        that.scene.loadMeshFromUri(mesh.name, that.pendingMeshes[i].submesh, centerSubmesh, function(mesh) {
-                          loadMesh(mesh, that.pendingMeshes[i].material, that.pendingMeshes[i].parent);
-                        });
-                        /* jshint ignore:end */
-                      }
+                      });
+                      /* jshint ignore:end */
                     }
                   }
                 }
               }
             }
-          });
-      }
+          }
+        });
     }
   }
   //TODO: how to handle height map without connecting to the server
