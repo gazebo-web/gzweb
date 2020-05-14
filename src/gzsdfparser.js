@@ -692,6 +692,7 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent)
     var meshUri = geom.mesh.uri;
     var submesh;
     var centerSubmesh;
+    var modelName;
 
 
     if (geom.mesh.submesh)
@@ -703,11 +704,11 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent)
     var uriType = meshUri.substring(0, meshUri.indexOf('://'));
     if (uriType === 'file' || uriType === 'model')
     {
-      var modelName = meshUri.substring(meshUri.indexOf('://') + 3);
+      modelName = meshUri.substring(meshUri.indexOf('://') + 3);
     }
     else
     {
-      var modelName = meshUri;
+      modelName = meshUri;
     }
 
     if (geom.mesh.scale)
@@ -1170,6 +1171,17 @@ GZ3D.SdfParser.prototype.spawnModelFromSDF = function(sdfObj)
       {
         modelObj.add(nestedModelObj);
       }
+    }
+  }
+
+  // Emit an event for each included model.
+  // TODO(germanmas): Gz3D should handle Fuel-related models and files internally.
+  if (sdfObj.model.include) {
+    if (!(sdfObj.model.include instanceof Array)) {
+      sdfObj.model.include = [sdfObj.model.include];
+    }
+    for (i = 0; i < sdfObj.model.include.length; i++) {
+      this.emitter.emit('includeModel', sdfObj.model.include[i]);
     }
   }
 
