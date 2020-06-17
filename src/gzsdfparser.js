@@ -352,7 +352,11 @@ GZ3D.SdfParser.prototype.parseScale = function(scaleInput)
  */
 GZ3D.SdfParser.prototype.parseBool = function(boolStr)
 {
-  return JSON.parse(boolStr);
+  if (boolStr !== undefined) {
+    return JSON.parse(boolStr);
+  }
+
+  return false;
 };
 
 /**
