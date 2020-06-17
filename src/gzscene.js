@@ -324,8 +324,11 @@ GZ3D.Scene.prototype.init = function()
   geometry = new THREE.SphereGeometry(1, 32, 32);
 
   mesh = new THREE.Mesh(geometry);
-  this.setMaterial(mesh, {'ambient':[0.5,0.5,0.5,1.000000],
+
+  // \todo: This should be fixed to point to a correct material.
+  /*this.setMaterial(mesh, {'ambient':[0.5,0.5,0.5,1.000000],
     'texture':'assets/media/materials/textures/com.png'});
+    */
   mesh.name = 'COM_VISUAL';
   mesh.rotation.z = -Math.PI/2;
   this.COMvisual.add(mesh);
