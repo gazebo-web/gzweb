@@ -12,6 +12,8 @@ GZ3D.SdfParser = function(scene, gui, gziface)
 
   // set the sdf version
   this.SDF_VERSION = 1.5;
+  this.FUEL_HOST = 'fuel.ignitionrobotics.org';
+  this.FUEL_VERSION = '1.0';
   this.MATERIAL_ROOT = gziface ?
       gziface.protocol + '//' + gziface.url + '/assets' : 'assets';
   // true for using URLs to load files.
@@ -144,15 +146,25 @@ GZ3D.SdfParser.prototype.onConnectionError = function()
 };
 
 /**
- * Parses string which denotes the color
- * @param {string} colorStr - string which denotes the color where every value
- * should be separated with single white space
- * @returns {object} color - color object having r,g,b and alpha values
+ * Parses a color, which may come from an object or string.
+ * @param {string|object} colorInput - A string which denotes the color where every value
+ * should be separated with single white space, or an object containing rgba values
+ * @returns {object} color - color object having r, g, b and alpha values
  */
-GZ3D.SdfParser.prototype.parseColor = function(colorStr)
+GZ3D.SdfParser.prototype.parseColor = function(colorInput)
 {
   var color = {};
-  var values = colorStr.split(/\s+/);
+  var values = [];
+  if (typeof colorInput === 'string') {
+    values = colorInput.split(/\s+/);
+  } else {
+    values = [
+      colorInput['r'] || 0,
+      colorInput['g'] || 0,
+      colorInput['b'] || 0,
+      colorInput['a'] || 1
+    ];
+  }
 
   color.r = parseFloat(values[0]);
   color.g = parseFloat(values[1]);
@@ -164,14 +176,23 @@ GZ3D.SdfParser.prototype.parseColor = function(colorStr)
 
 /**
  * Parses string which is a 3D vector
- * @param {string} vectorStr - string which denotes the vector where every value
- * should be separated with single white space
+ * @param {string|object} vectorInput - string which denotes the vector where every value
+ * should be separated with single white space, or an object containing x, y, z values.
  * @returns {object} vector3D - vector having x, y, z values
  */
-GZ3D.SdfParser.prototype.parse3DVector = function(vectorStr)
+GZ3D.SdfParser.prototype.parse3DVector = function(vectorInput)
 {
   var vector3D = {};
-  var values = vectorStr.split(/\s+/);
+  var values = [];
+  if (typeof vectorInput === 'string') {
+    values = vectorInput.split(/\s+/);
+  } else {
+    values = [
+      vectorInput['x'] || 0,
+      vectorInput['y'] || 0,
+      vectorInput['z'] || 0
+    ];
+  }
   vector3D.x = parseFloat(values[0]);
   vector3D.y = parseFloat(values[1]);
   vector3D.z = parseFloat(values[2]);
@@ -189,7 +210,7 @@ GZ3D.SdfParser.prototype.parse3DVector = function(vectorStr)
 GZ3D.SdfParser.prototype.spawnLightFromSDF = function(sdfObj)
 {
   var light = sdfObj.light;
-  var name = light['@name'];
+  var name = light['@name'] || light['name'];
   var diffuse = this.parseColor(light.diffuse);
   var specular = this.parseColor(light.specular);
   var pose = this.parsePose(light.pose);
@@ -252,32 +273,36 @@ GZ3D.SdfParser.prototype.spawnLightFromSDF = function(sdfObj)
 
 /**
  * Parses a string which is a 3D vector
- * @param {string} poseStr - string which denotes the pose of the object
+ * @param {string|object} poseInput - string which denotes the pose of the object
  * where every value should be separated with single white space and
  * first three denotes x,y,z and values of the pose,
- * and following three denotes euler rotation around x,y,z
+ * and following three denotes euler rotation around x,y,z, or an object
+ * containing pose and orientation.
  * @returns {object} pose - pose object having position (x,y,z)(THREE.Vector3)
  * and orientation (THREE.Quaternion) properties
  */
-GZ3D.SdfParser.prototype.parsePose = function(poseStr)
+GZ3D.SdfParser.prototype.parsePose = function(poseInput)
 {
   var pose = {
     'position': new THREE.Vector3(),
     'orientation': new THREE.Quaternion()
   };
 
-  // Note: The pose might have an empty frame attribute. This is a valid XML element though.
-  // In this case, the parser outputs {@frame: "frame", #text: "pose value"}
-  if (poseStr.hasOwnProperty('@frame') && poseStr['@frame'] === '') {
-    poseStr = poseStr['#text'];
-  }
-
-  if (typeof poseStr !== 'string' && !(poseStr instanceof String))
-  {
+  if (poseInput.hasOwnProperty('position') && poseInput.hasOwnProperty('orientation')) {
+    pose = {
+      'position': new THREE.Vector3(poseInput['position']['x'], poseInput['position']['y'], poseInput['position']['z']),
+      'orientation': new THREE.Quaternion(poseInput['orientation']['x'], poseInput['orientation']['y'], poseInput['orientation']['z'], poseInput['orientation']['w'])
+    };
     return pose;
   }
 
-  var values = poseStr.split(/\s+/);
+  // Note: The pose might have an empty frame attribute. This is a valid XML element though.
+  // In this case, the parser outputs {@frame: "frame", #text: "pose value"}
+  if (poseInput.hasOwnProperty('@frame') && poseInput['@frame'] === '') {
+    poseInput = poseInput['#text'];
+  }
+
+  var values = poseInput.split(/\s+/);
 
   var position = new THREE.Vector3(parseFloat(values[0]),
           parseFloat(values[1]), parseFloat(values[2]));
@@ -296,14 +321,24 @@ GZ3D.SdfParser.prototype.parsePose = function(poseStr)
 
 /**
  * Parses a string which is a 3D vector
- * @param {string} scaleStr - string which denotes scaling in x,y,z
- * where every value should be separated with single white space
+ * @param {string|object} scaleInput - string which denotes scaling in x,y,z
+ * where every value should be separated with single white space, or an object
+ * containing x, y, z values.
  * @returns {THREE.Vector3} scale - THREE Vector3 object
  * which denotes scaling of an object in x,y,z
  */
-GZ3D.SdfParser.prototype.parseScale = function(scaleStr)
+GZ3D.SdfParser.prototype.parseScale = function(scaleInput)
 {
-  var values = scaleStr.split(/\s+/);
+  var values = [];
+  if (typeof scaleInput === 'string') {
+    values = scaleInput.split(/\s+/);
+  } else {
+    values = [
+      scaleInput['x'] || 1,
+      scaleInput['y'] || 1,
+      scaleInput['z'] || 1
+    ];
+  }
   var scale = new THREE.Vector3(parseFloat(values[0]), parseFloat(values[1]),
           parseFloat(values[2]));
   return scale;
@@ -340,7 +375,6 @@ GZ3D.SdfParser.prototype.createMaterial = function(material)
     return null;
   }
 
-  // At this point, the values are strings. They should be parsed to a Color array.
   if (material.ambient) {
     ambient = this.parseColor(material.ambient);
   }
@@ -624,15 +658,22 @@ GZ3D.SdfParser.prototype.createMaterial = function(material)
 
 /**
  * Parses a string which is a size of an object
- * @param {string} sizeStr - string which denotes size in x,y,z
- * where every value should be separated with single white space
+ * @param {string|object} sizeInput - string which denotes size in x,y,z
+ * where every value should be separated with single white space, or an object
+ * containing x, y, z values.
  * @returns {object} size - size object which denotes
  * size of an object in x,y,z
  */
-GZ3D.SdfParser.prototype.parseSize = function(sizeStr)
+GZ3D.SdfParser.prototype.parseSize = function(sizeInput)
 {
   var sizeObj;
-  var values = sizeStr.split(/\s+/);
+  var values = [];
+  if (typeof sizeInput === 'string') {
+    values = sizeInput.split(/\s+/);
+  } else {
+    values = [sizeInput.x, sizeInput.y, sizeInput.z];
+  }
+
   var x = parseFloat(values[0]);
   var y = parseFloat(values[1]);
   var z = parseFloat(values[2]);
@@ -689,7 +730,7 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent)
   }
   else if (geom.mesh)
   {
-    var meshUri = geom.mesh.uri;
+    var meshUri = geom.mesh.uri || geom.mesh.filename;
     var submesh;
     var centerSubmesh;
     var modelName;
@@ -724,6 +765,17 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent)
     var materialName = parent.name + '::' + modelUri;
     this.entityMaterial[materialName] = material;
     var meshFileName = meshUri.substring(meshUri.lastIndexOf('/') + 1);
+
+    // Check if the local model points to a Fuel Server resource.
+    // TODO: The resource should have the Server URL.
+    if (uriType === 'file' && modelName.indexOf(this.FUEL_HOST) > 0) {
+      var modelNameArray = modelName.split('/');
+      modelNameArray.splice(0, modelNameArray.indexOf(this.FUEL_HOST));
+      modelNameArray.splice(modelNameArray.indexOf(''), 1);
+      modelNameArray.splice(1, 0, this.FUEL_VERSION);
+      modelNameArray.splice(6, 0, 'files');
+      modelUri = 'https://' + modelNameArray.join('/');
+    }
 
     if (!this.usingFilesUrls)
     {
@@ -1006,7 +1058,7 @@ GZ3D.SdfParser.prototype.createVisual = function(visual)
   if (visual.geometry)
   {
     var visualObj = new THREE.Object3D();
-    visualObj.name = visual['@name'];
+    visualObj.name = visual['@name'] || visual['name'];
 
     if (visual.pose)
     {
@@ -1022,6 +1074,29 @@ GZ3D.SdfParser.prototype.createVisual = function(visual)
 
   return null;
 
+};
+
+/**
+ * Parses an object and spawns the given 3D object.
+ * @param {object} obj - The object, obtained after parsing the SDF or from
+ * a world message.
+ * @returns {THREE.Object3D} object - 3D object which is created from the
+ * given object.
+ */
+GZ3D.SdfParser.prototype.spawnFromObj = function(obj)
+{
+  if (obj.model)
+  {
+    return this.spawnModelFromSDF(obj);
+  }
+  else if (obj.light)
+  {
+    return this.spawnLightFromSDF(obj);
+  }
+  else if (obj.world)
+  {
+    return this.spawnWorldFromSDF(obj);
+  }
 };
 
 /**
@@ -1054,18 +1129,7 @@ GZ3D.SdfParser.prototype.spawnFromSDF = function(sdf)
     return;
   }
 
-  if (sdfObj.model)
-  {
-    return this.spawnModelFromSDF(sdfObj);
-  }
-  else if (sdfObj.light)
-  {
-    return this.spawnLightFromSDF(sdfObj);
-  }
-  else if (sdfObj.world)
-  {
-    return this.spawnWorldFromSDF(sdfObj);
-  }
+  return this.spawnFromObj(sdfObj);
 };
 
 /**
@@ -1126,7 +1190,7 @@ GZ3D.SdfParser.prototype.spawnModelFromSDF = function(sdfObj)
 {
   // create the model
   var modelObj = new THREE.Object3D();
-  modelObj.name = sdfObj.model['@name'];
+  modelObj.name = sdfObj.model['@name'] || sdfObj.model['name'];
   //TODO: is that needed
   //modelObj.userData = sdfObj.model.@id;
 
@@ -1304,7 +1368,7 @@ GZ3D.SdfParser.prototype.createLink = function(link)
 {
   var linkPose, visualObj;
   var linkObj = new THREE.Object3D();
-  linkObj.name = link['@name'];
+  linkObj.name = link['@name'] || link['name'];
 
   if (link.inertial)
   {
