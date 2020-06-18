@@ -1194,9 +1194,7 @@ GZ3D.SdfParser.prototype.spawnModelFromSDF = function(sdfObj)
 {
   // create the model
   var modelObj = new THREE.Object3D();
-  modelObj.name = sdfObj.model['@name'] || sdfObj.model['name'];
-  //TODO: is that needed
-  //modelObj.userData = sdfObj.model.@id;
+  modelObj.name = this.createUniqueName(sdfObj.model);
 
   var pose;
   var i, j, k;
@@ -1372,7 +1370,7 @@ GZ3D.SdfParser.prototype.createLink = function(link)
 {
   var linkPose, visualObj;
   var linkObj = new THREE.Object3D();
-  linkObj.name = link['@name'] || link['name'];
+  linkObj.name = this.createUniqueName(link);
 
   if (link.inertial)
   {
@@ -1601,6 +1599,19 @@ GZ3D.SdfParser.prototype.createCylinderSDF = function(translation, euler)
           + '</cylinder>';
 
   return this.createSimpleShapeSDF('cylinder', translation, euler, geomSDF);
+};
+
+/**
+ * Creates an unique name for the resource, which is the name plus it's ID
+ * @param {object} object - the object that contains the name and ID.
+ * @returns {string} uniqueName - A concatenation of the name and ID of the object.
+ */
+GZ3D.SdfParser.prototype.createUniqueName = function(obj)
+{
+  var objectName = obj['name'] || obj['@name'] || '';
+  var objectId = obj['id'] || obj['@id'] || '';
+
+  return objectName + objectId;
 };
 
 /**
