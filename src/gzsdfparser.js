@@ -772,10 +772,9 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent)
 
     // Check if the local model points to a Fuel Server resource.
     // TODO: The resource should have the Server URL.
-    if (uriType === 'file' && modelName.indexOf(this.FUEL_HOST) > 0) {
-      var modelNameArray = modelName.split('/');
+    if (modelName.indexOf(this.FUEL_HOST) > 0) {
+      var modelNameArray = modelName.split('/').filter(function(element) { return element !== ''; });
       modelNameArray.splice(0, modelNameArray.indexOf(this.FUEL_HOST));
-      modelNameArray.splice(modelNameArray.indexOf(''), 1);
       modelNameArray.splice(1, 0, this.FUEL_VERSION);
       modelNameArray.splice(6, 0, 'files');
       modelUri = 'https://' + modelNameArray.join('/');
