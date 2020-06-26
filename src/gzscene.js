@@ -102,7 +102,7 @@ GZ3D.Scene.prototype.init = function()
   this.getDomElement().addEventListener( 'DOMMouseScroll',
       function(event) {that.onMouseScroll(event);}, false ); //firefox
 
-  this.getDomElement().addEventListener( 'mousewheel',
+  this.getDomElement().addEventListener( 'wheel',
       function(event) {that.onMouseScroll(event);}, false );
 
   this.getDomElement().addEventListener( 'touchstart',
@@ -117,9 +117,19 @@ GZ3D.Scene.prototype.init = function()
 
   this.timeDown = null;
 
+  // Create a ray caster
+  this.ray = new THREE.Raycaster();
+
   this.controls = new THREE.OrbitControls(this.camera,
       this.getDomElement());
-  this.scene.add(this.controls.targetIndicator);
+  this.controls.mouseButtons = {
+    LEFT: THREE.MOUSE.PAN,
+    MIDDLE: THREE.MOUSE.ROTATE,
+    RIGHT: THREE.MOUSE.DOLLY
+  };
+  // an animation loop is required with damping
+  this.controls.enableDamping = false;
+  this.controls.screenSpacePanning = true;
 
   // Bounding Box
   var indices = new Uint16Array(
@@ -129,7 +139,7 @@ GZ3D.Scene.prototype.init = function()
   var positions = new Float32Array(8 * 3);
   var boxGeometry = new THREE.BufferGeometry();
   boxGeometry.setIndex(new THREE.BufferAttribute( indices, 1 ));
-  boxGeometry.addAttribute( 'position',
+  boxGeometry.setAttribute( 'position',
       new THREE.BufferAttribute(positions, 3));
   this.boundingBox = new THREE.LineSegments(boxGeometry,
       new THREE.LineBasicMaterial({color: 0xffffff}));
@@ -569,18 +579,15 @@ GZ3D.Scene.prototype.onKeyDown = function(event)
  */
 GZ3D.Scene.prototype.getRayCastModel = function(pos, intersect)
 {
-  var vector = new THREE.Vector3(
-      ((pos.x - this.getDomElement().offsetLeft)
-      / this.getDomElement().width) * 2 - 1,
-      -((pos.y - this.getDomElement().offsetTop)
-      / this.getDomElement().height) * 2 + 1, 1);
-  vector.unproject(this.camera);
-  var ray = new THREE.Raycaster( this.camera.position,
-      vector.sub(this.camera.position).normalize() );
+  var rect = this.getDomElement().getBoundingClientRect();
+  var vector = new THREE.Vector2(
+    ((pos.x - rect.x) / rect.width) * 2 - 1,
+    -((pos.y - rect.y) / rect.height) * 2 + 1);
+  this.ray.setFromCamera(vector, this.camera);
 
   var allObjects = [];
   this.scene.getDescendants(allObjects);
-  var objects = ray.intersectObjects(allObjects);
+  var objects = this.ray.intersectObjects(allObjects);
 
   var model;
   var point;
@@ -606,7 +613,7 @@ GZ3D.Scene.prototype.getRayCastModel = function(pos, intersect)
 
       if (model.name === 'grid' || model.name === 'boundingBox' ||
           model.name === 'JOINT_VISUAL' || model.name === 'INERTIA_VISUAL'
-	  || model.name === 'COM_VISUAL')
+        || model.name === 'COM_VISUAL')
       {
         point = objects[i].point;
         model = null;
@@ -680,19 +687,20 @@ GZ3D.Scene.prototype.render = function()
   // -using radial menu
   // -pointer over menus
   // -spawning
-  if (this.modelManipulator.hovered ||
+  /* Disabling this for now so that mouse control stays enabled when the
+   * mouse leaves the viewport.
+   * if (this.modelManipulator.hovered ||
       (this.radialMenu && this.radialMenu.showing) ||
       this.pointerOnMenu ||
       this.spawnModel.active)
   {
     this.controls.enabled = false;
-    this.controls.update();
   }
   else
   {
     this.controls.enabled = true;
-    this.controls.update();
-  }
+  }*/
+  this.controls.update();
 
   this.modelManipulator.update();
   if (this.radialMenu)
