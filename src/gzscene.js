@@ -13,6 +13,119 @@ GZ3D.Scene = function(shaders)
   this.emitter = globalEmitter || new EventEmitter2({verboseMemoryLeak: true});
   this.shaders = shaders;
   this.init();
+
+  /**
+   * @member {string} selectEntity 
+   * The select entity event name.
+   */
+  this.selectEntityEvent = 'select_entity';
+
+  /**
+   * @member {string} followEntity 
+   * The follow entity event name.
+   */
+  this.followEntityEvent = 'follow_entity';
+
+  /**
+   * @member {string} moveToEntity 
+   * The move to entity event name.
+   */
+  this.moveToEntityEvent = 'move_to_entity';
+
+  var that = this;
+
+  /**
+   * Handle entity selection signal ('select_entity').
+   * @param {string} entityName The name of the entity to select.
+   */
+  this.emitter.on(this.selectEntityEvent, function(entityName) {
+    var object = that.scene.getObjectByName(entityName);
+    if (object !== undefined && object !== null) {
+      that.selectEntity(object);
+    }
+  });
+
+  /**
+   * Handle the follow entity follow signal ('follow_entity').
+   * @param {string} entityName Name of the entity. Pass in null or an empty
+   * string to stop following.
+   */
+  this.emitter.on(this.followEntityEvent, function(entityName) {
+
+    // Turn off following if `entity` is null.
+    if (entityName === undefined || entityName === null) {
+      that.cameraMode = '';
+      return;
+    }
+
+    var object = that.scene.getObjectByName(entityName);
+
+    if (object !== undefined && object !== null) {
+      // Set the object to track.
+      that.cameraTrackObject =  object;
+
+      // Set the camera mode.
+      that.cameraMode = that.followEntityEvent;
+    }
+  });
+
+  /**
+   * Handle move to entity signal ('move_to_entity').
+   * @param {string} entityName: Name of the entity.
+   */
+  this.emitter.on(this.moveToEntityEvent, function(entityName) {
+    var obj = that.scene.getObjectByName(entityName);
+    if (obj === undefined || obj === null) {
+      return;
+    }
+
+    // Starting position of the camera.
+    var startPos = new THREE.Vector3();
+    that.camera.getWorldPosition(startPos);
+
+    // Center of the target to move to.
+    var targetCenter = new THREE.Vector3();
+    obj.getWorldPosition(targetCenter);
+
+    // Calculate  direction from start to target
+    var dir = new THREE.Vector3();
+    dir.subVectors(targetCenter, startPos);
+    dir.normalize();
+
+    // Distance from start to target.
+    var dist = startPos.distanceTo(targetCenter);
+
+    // Get the bounding box size of the target object.
+    var bboxSize = new THREE.Vector3();
+    var bbox = new THREE.Box3().setFromObject(obj);
+    bbox.getSize(bboxSize);
+    var max = Math.max(bboxSize.x, bboxSize.y, bboxSize.z);
+
+    // Compute an offset such that the object's bounding box will fix in the
+    // view. I've padded this out a bit by multiplying `max` by 0.75 instead
+    // of 0.5
+    var offset = (max * 0.75) / Math.tan((that.camera.fov * Math.PI/180.0) / 2.0);
+    var endPos = dir.clone().multiplyScalar(dist-offset);
+    endPos.add(startPos);
+
+    // Make sure that the end position is above the object so that the
+    // camera will look down at it.
+    if (endPos.z <= (targetCenter.z + max)) {
+      endPos.z += max;
+    }
+
+    // Compute the end orientation.
+    var endRotMat = new THREE.Matrix4();
+    endRotMat.lookAt(endPos, targetCenter, new THREE.Vector3(0, 0, 1));
+
+    // Start the camera moving.
+    that.cameraMode = that.moveToEntityEvent;
+    that.cameraMoveToClock.start();
+    that.cameraLerpStart.copy(startPos);
+    that.cameraLerpEnd.copy(endPos);
+    that.camera.getWorldQuaternion(that.cameraSlerpStart);
+    that.cameraSlerpEnd.setFromRotationMatrix(endRotMat);
+  });
 };
 
 /**
@@ -56,6 +169,23 @@ GZ3D.Scene.prototype.init = function()
   this.camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 1000);
   this.defaultCameraPosition = new THREE.Vector3(0, -5, 5);
   this.resetView();
+
+  // Clock used to time the camera 'move_to' motion.
+  this.cameraMoveToClock = new THREE.Clock(false);
+
+  // Start position of the camera's move_to
+  this.cameraLerpStart = new THREE.Vector3();
+  // End position of the camera's move_to
+  this.cameraLerpEnd = new THREE.Vector3();
+  // Start orientation of the camera's move_to
+  this.cameraSlerpStart = new THREE.Quaternion();
+  // End orientation of the camera's move_to
+  this.cameraSlerpEnd = new THREE.Quaternion();
+
+  // Object the camera should track.
+  this.cameraTrackObject = null;
+  // Current camera mode. Empty indicats standard orbit camera. 
+  this.cameraMode = '';
 
   // Ortho camera and scene for rendering sprites
   // Currently only used for the radial menu
@@ -701,6 +831,37 @@ GZ3D.Scene.prototype.render = function()
     this.controls.enabled = true;
   }*/
   this.controls.update();
+
+  // If 'follow' mode, then track the specifiec object.
+  if (this.cameraMode === this.followEntityEvent) {
+    // Using a hard-coded offset for now.
+    var relativeCameraOffset = new THREE.Vector3(-5,0,2);
+    this.cameraTrackObject.updateMatrixWorld();
+    var cameraOffset = relativeCameraOffset.applyMatrix4(
+      this.cameraTrackObject.matrixWorld);
+
+    this.camera.position.lerp(cameraOffset, 0.1);
+    this.camera.lookAt(this.cameraTrackObject.position);
+
+  } else if (this.cameraMode === this.moveToEntityEvent) {
+    // Move the camera if "lerping" to an object.
+    // Compute the lerp factor.
+    var lerp = this.cameraMoveToClock.getElapsedTime() / 2.0;
+
+    // Stop the clock if the camera has reached it's target
+    //if (Math.abs(1.0 - lerp) <= 0.005) {
+    if (lerp >= 1.0) {
+      this.cameraMoveToClock.stop();
+      this.cameraMode = '';
+    } else {
+      // Move the camera's position.
+      this.camera.position.lerpVectors(this.cameraLerpStart, this.cameraLerpEnd,
+        lerp);
+
+      // Move the camera's orientation.
+      THREE.Quaternion.slerp(this.cameraSlerpStart, this.cameraSlerpEnd, this.camera.quaternion, lerp);
+    }
+  }
 
   this.modelManipulator.update();
   if (this.radialMenu)
