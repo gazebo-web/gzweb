@@ -1,11 +1,24 @@
 /**
  * @author mrdoob / http://mrdoob.com/
  * @author Mugen87 / https://github.com/Mugen87
+ *
+ *
+ * Modified by German Mas:
+ * The Collada Loader caches the textures of meshes by default.
+ * To disable:
+ *   const loader = new THREE.ColladaLoader();
+ *   loader.enableTexturesCache = false;
  */
 
 THREE.ColladaLoader = function ( manager ) {
 
 	this.manager = ( manager !== undefined ) ? manager : THREE.DefaultLoadingManager;
+
+	// Cache textures enabled by default.
+	this.enableTexturesCache = true;
+
+	// The Map used to cache textures.
+	this.texturesCache = new Map();
 
 };
 
@@ -1527,7 +1540,15 @@ THREE.ColladaLoader.prototype = {
 
 					if ( loader !== undefined ) {
 
-						var texture = loader.load( image );
+						var texture;
+
+						// Check against the cache, if enabled.
+						if (scope.enableTexturesCache && scope.texturesCache.has(image)) {
+							texture = scope.texturesCache.get(image);
+							return texture;
+						} else {
+							texture = loader.load( image );
+						}
 
 						var extra = textureObject.extra;
 
@@ -1546,6 +1567,11 @@ THREE.ColladaLoader.prototype = {
 							texture.wrapS = THREE.RepeatWrapping;
 							texture.wrapT = THREE.RepeatWrapping;
 
+						}
+
+						// Add the texture to the Cache map, if enabled.
+						if (scope.enableTexturesCache) {
+							scope.texturesCache.set(image, texture);
 						}
 
 						return texture;
@@ -3802,6 +3828,10 @@ THREE.ColladaLoader.prototype = {
 		console.log( 'THREE.ColladaLoader: File version', version );
 
 		var asset = parseAsset( getElementsByTagName( collada, 'asset' )[ 0 ] );
+
+		// Allows internal methods to access the cache.
+		var scope = this;
+
 		var textureLoader = new THREE.TextureLoader( this.manager );
 		textureLoader.setPath( path ).setCrossOrigin( this.crossOrigin );
 
