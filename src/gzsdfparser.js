@@ -867,6 +867,20 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent)
             parent: parent,
             material: material
           });
+
+          // Attempt to get the mesh.
+          var mesh = this.scene.meshes[modelUri];
+
+          // If the mesh exists, then create another version and add it to
+          // the parent object.
+          if (mesh !== null && mesh !== undefined) {
+            if (parent.getObjectByName(mesh['name']) === undefined) {
+              mesh = mesh.clone();
+              this.scene.useSubMesh(mesh, submesh, centerSubmesh);
+              parent.add(mesh);
+              loadGeom(parent);
+            }
+          }
           return;
         }
       }
