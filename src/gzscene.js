@@ -15,19 +15,19 @@ GZ3D.Scene = function(shaders)
   this.init();
 
   /**
-   * @member {string} selectEntity 
+   * @member {string} selectEntity
    * The select entity event name.
    */
   this.selectEntityEvent = 'select_entity';
 
   /**
-   * @member {string} followEntity 
+   * @member {string} followEntity
    * The follow entity event name.
    */
   this.followEntityEvent = 'follow_entity';
 
   /**
-   * @member {string} moveToEntity 
+   * @member {string} moveToEntity
    * The move to entity event name.
    */
   this.moveToEntityEvent = 'move_to_entity';
@@ -184,7 +184,7 @@ GZ3D.Scene.prototype.init = function()
 
   // Object the camera should track.
   this.cameraTrackObject = null;
-  // Current camera mode. Empty indicats standard orbit camera. 
+  // Current camera mode. Empty indicates standard orbit camera.
   this.cameraMode = '';
 
   // Ortho camera and scene for rendering sprites
@@ -3219,4 +3219,54 @@ GZ3D.Scene.prototype.createFromSdf = function(sdf)
   obj.add(mesh);
 
   return obj;
+};
+
+/**
+ * Dispose all the resources used by the scene.
+ *
+ * This should be called whenever the visualization stops, in order to free resources.
+ * See: https://threejs.org/docs/index.html#manual/en/introduction/How-to-dispose-of-objects
+ */
+GZ3D.Scene.prototype.cleanup = function()
+{
+  var objects = [];
+  this.scene.getDescendants(objects);
+
+  objects.forEach(function(obj) {
+    this.scene.remove(obj);
+
+    // Dispose geometries.
+    if (obj.geometry) {
+      obj.geometry.dispose();
+    }
+
+    // Dispose materials and their textures.
+    if (obj.material) {
+      // Materials can be an array. If there is only one, convert it to an array for easier handling.
+      if (!(obj.material instanceof Array)) {
+        obj.material = [obj.material];
+      }
+
+      // Materials can have different texture maps, depending on their type.
+      // We check each property of the Material and dispose them if they are Textures.
+      obj.material.forEach(function(material) {
+        Object.keys(material).forEach(function(property) {
+          if (material[property] instanceof THREE.Texture) {
+            material[property].dispose();
+          }
+        });
+
+        material.dispose();
+      });
+    }
+  });
+
+  // Clean scene and renderer.
+  this.scene.dispose();
+  this.scene = null;
+  this.camera = null;
+
+  this.renderer.renderLists.dispose();
+  this.renderer.dispose();
+  this.renderer = null;
 };
