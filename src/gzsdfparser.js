@@ -298,7 +298,10 @@ GZ3D.SdfParser.prototype.parsePose = function(poseInput)
 
   // Note: The pose might have an empty frame attribute. This is a valid XML element though.
   // In this case, the parser outputs {@frame: "frame", #text: "pose value"}
-  if (poseInput.hasOwnProperty('@frame') && poseInput['@frame'] === '') {
+  if (poseInput.hasOwnProperty('@frame')) {
+    if (poseInput['@frame'] !== '') {
+      console.warn('SDFParser does not support frame semantics.');
+    }
     poseInput = poseInput['#text'];
   }
 
@@ -865,7 +868,8 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent)
             meshUri: modelUri,
             submesh: submesh,
             parent: parent,
-            material: material
+            material: material,
+            centerSubmesh: centerSubmesh
           });
 
           // Attempt to get the mesh.
@@ -888,7 +892,8 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent)
         meshUri: modelUri,
         submesh: submesh,
         parent: parent,
-        material: material
+        material: material,
+        centerSubmesh: centerSubmesh
       });
 
       // Load the mesh.
@@ -915,7 +920,7 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent)
                       // The mesh is already stored in Gz3D.Scene. The new submesh will be parsed.
                       // Suppress linter warning.
                       /* jshint ignore:start */
-                      that.scene.loadMeshFromUri(mesh.name, that.pendingMeshes[i].submesh, centerSubmesh, function(mesh) {
+                      that.scene.loadMeshFromUri(mesh.name, that.pendingMeshes[i].submesh, that.pendingMeshes[i].centerSubmesh, function(mesh) {
                         loadMesh(mesh, that.pendingMeshes[i].material, that.pendingMeshes[i].parent);
                       });
                       /* jshint ignore:end */

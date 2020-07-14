@@ -1922,6 +1922,15 @@ GZ3D.Scene.prototype.useSubMesh = function(mesh, submesh, centerSubmesh)
             }
           }
           child.geometry.attributes.position.needsUpdate = true;
+
+          // Center the position.
+          child.position.set(0, 0, 0);
+          var childParent = child.parent;
+          while (childParent)
+          {
+            childParent.position.set(0, 0, 0);
+            childParent = childParent.parent;
+          }
         }
         // dae
         else
