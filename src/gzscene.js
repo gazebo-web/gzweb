@@ -3241,8 +3241,9 @@ GZ3D.Scene.prototype.cleanup = function()
   var objects = [];
   this.scene.getDescendants(objects);
 
+  var that = this;
   objects.forEach(function(obj) {
-    this.scene.remove(obj);
+    that.scene.remove(obj);
 
     // Dispose geometries.
     if (obj.geometry) {
