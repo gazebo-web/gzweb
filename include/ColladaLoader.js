@@ -8,6 +8,15 @@
  * To disable:
  *   const loader = new THREE.ColladaLoader();
  *   loader.enableTexturesCache = false;
+ *
+ * Modified by Nate Koenig. Added the following to the 'parse' function:
+ *
+ * // A name or id could be a string enclosed by angle brackets like
+ * // "<name>". A name like this will not be parsed correctly by the
+ * // DOMParser, so we remove the angle brackets.
+ * text = text.replace(/"\<(.*?)\>"/g, '"$1" ');
+ * // Single quote version
+ * text = text.replace(/'\<(.*?)\>'/g, '"$1" ');
  */
 
 THREE.ColladaLoader = function ( manager ) {
@@ -3817,6 +3826,13 @@ THREE.ColladaLoader.prototype = {
 			return { scene: new THREE.Scene() };
 
 		}
+
+    // A name or id could be a string enclosed by angle brackets like
+    // "<name>". A name like this will not be parsed correctly by the
+    // DOMParser, so we remove the angle brackets.
+    text = text.replace(/"\<(.*?)\>"/g, '"$1" ');
+    // Single quote version
+    text = text.replace(/'\<(.*?)\>'/g, '"$1" ');
 
 		var xml = new DOMParser().parseFromString( text, 'application/xml' );
 
