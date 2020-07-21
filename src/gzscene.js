@@ -1044,26 +1044,35 @@ GZ3D.Scene.prototype.createBox = function(width, height, depth)
   for (var i = 0; i < faceUVFixA.length; ++i)
   {
     var idx = faceUVFixA[i]*2;
-    var uva = geometry.faceVertexUvs[0][idx][0];
-    geometry.faceVertexUvs[0][idx][0] = geometry.faceVertexUvs[0][idx][1];
-    geometry.faceVertexUvs[0][idx][1] = geometry.faceVertexUvs[0][idx+1][1];
-    geometry.faceVertexUvs[0][idx][2] = uva;
+    // Make sure that the index is valid. A threejs box geometry may not
+    // have all of the faces if a dimension is sufficiently small.
+    if (idx + 1 < geometry.faceVertexUvs.length) {
+      var uva = geometry.faceVertexUvs[0][idx][0];
+      geometry.faceVertexUvs[0][idx][0] = geometry.faceVertexUvs[0][idx][1];
+      geometry.faceVertexUvs[0][idx][1] = geometry.faceVertexUvs[0][idx+1][1];
+      geometry.faceVertexUvs[0][idx][2] = uva;
 
-    geometry.faceVertexUvs[0][idx+1][0] = geometry.faceVertexUvs[0][idx+1][1];
-    geometry.faceVertexUvs[0][idx+1][1] = geometry.faceVertexUvs[0][idx+1][2];
-    geometry.faceVertexUvs[0][idx+1][2] = geometry.faceVertexUvs[0][idx][2];
+      geometry.faceVertexUvs[0][idx+1][0] = geometry.faceVertexUvs[0][idx+1][1];
+      geometry.faceVertexUvs[0][idx+1][1] = geometry.faceVertexUvs[0][idx+1][2];
+      geometry.faceVertexUvs[0][idx+1][2] = geometry.faceVertexUvs[0][idx][2];
+    }
   }
   for (var ii = 0; ii < faceUVFixB.length; ++ii)
   {
     var idxB = faceUVFixB[ii]*2;
-    var uvc = geometry.faceVertexUvs[0][idxB][0];
-    geometry.faceVertexUvs[0][idxB][0] = geometry.faceVertexUvs[0][idxB][2];
-    geometry.faceVertexUvs[0][idxB][1] = uvc;
-    geometry.faceVertexUvs[0][idxB][2] =  geometry.faceVertexUvs[0][idxB+1][1];
 
-    geometry.faceVertexUvs[0][idxB+1][2] = geometry.faceVertexUvs[0][idxB][2];
-    geometry.faceVertexUvs[0][idxB+1][1] = geometry.faceVertexUvs[0][idxB+1][0];
-    geometry.faceVertexUvs[0][idxB+1][0] = geometry.faceVertexUvs[0][idxB][1];
+    // Make sure that the index is valid. A threejs box geometry may not
+    // have all of the faces if a dimension is sufficiently small.
+    if (idxB+1 < geometry.faceVertexUvs.length) {
+      var uvc = geometry.faceVertexUvs[0][idxB][0];
+      geometry.faceVertexUvs[0][idxB][0] = geometry.faceVertexUvs[0][idxB][2];
+      geometry.faceVertexUvs[0][idxB][1] = uvc;
+      geometry.faceVertexUvs[0][idxB][2] = geometry.faceVertexUvs[0][idxB+1][1];
+
+      geometry.faceVertexUvs[0][idxB+1][2] = geometry.faceVertexUvs[0][idxB][2];
+      geometry.faceVertexUvs[0][idxB+1][1] = geometry.faceVertexUvs[0][idxB+1][0];
+      geometry.faceVertexUvs[0][idxB+1][0] = geometry.faceVertexUvs[0][idxB][1];
+    }
   }
   geometry.uvsNeedUpdate = true;
 
