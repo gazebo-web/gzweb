@@ -1197,6 +1197,7 @@ GZ3D.SdfParser.prototype.loadSDF = function(sdfName)
 
   var sdf = this.fileFromUrl(filename);
   if (!sdf) {
+    console.log('Error: Failed to get the SDF file. The XML is likely invalid.');
     return;
   }
   return this.spawnFromSDF(sdf);
@@ -1657,5 +1658,6 @@ GZ3D.SdfParser.prototype.fileFromUrl = function(url)
     console.log('Failed to get URL [' + url + ']');
     return;
   }
+
   return xhttp.responseXML;
 };

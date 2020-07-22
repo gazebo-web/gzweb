@@ -40,6 +40,7 @@ GZ3D.OBJLoader = function(_scene, _uri, _submesh, _centerSubmesh, _callback,
   if (!this.usingRawFiles)
   {
     var baseUrl = this.uri.substr(0, this.uri.lastIndexOf('/') + 1);
+    this.mtlLoader.setResourcePath(baseUrl);
     this.mtlLoader.setPath(baseUrl);
   }
 
@@ -179,12 +180,12 @@ GZ3D.OBJLoader.prototype.loadMTL = function(_text)
     return;
   }
 
-  var newText;
+  var newText = '';
   for (var i in lines)
   {
     var line = lines[i];
 
-    if (line === undefined)
+    if (line === undefined || line.indexOf('#') === 0)
     {
       continue;
     }
