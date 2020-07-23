@@ -742,11 +742,20 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent)
     var centerSubmesh;
     var modelName;
 
-
     if (geom.mesh.submesh)
     {
-      submesh = geom.mesh.submesh.name;
-      centerSubmesh = this.parseBool(geom.mesh.submesh.center);
+      // Submesh information coming from protobuf messages is slightly
+      // different than submesh information coming from an SDF file.
+      //
+      // * protobuf message has 'submesh' and 'center_submesh'
+      // * SDF file has 'submesh.name' and 'submesh.center'
+      if (geom.mesh.center_submesh !== undefined) {
+        submesh = geom.mesh.submesh;
+        centerSubmesh = this.parseBool(geom.mesh.center_submesh);
+      } else {
+        submesh = geom.mesh.submesh.name;
+        centerSubmesh = this.parseBool(geom.mesh.submesh.center);
+      }
     }
 
     var uriType = meshUri.substring(0, meshUri.indexOf('://'));
