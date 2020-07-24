@@ -1885,19 +1885,25 @@ GZ3D.Scene.prototype.useSubMesh = function(mesh, submesh, centerSubmesh)
     return null;
   }
 
+  // The mesh has children for every submesh. Those children are either meshes or groups that contain meshes.
+  // We need to modify the mesh, so only the required submesh is contained in it.
+  // Note: If a submesh is contained in a group, we need to preserve that group, as it may apply matrix transformations
+  // required by the submesh.
+
   var result;
 
-  // The mesh has children for every submesh. Those children are meshes with a name equal to the node's ID.
-  // We are looking for those Mesh children whose parents have a name equal to the desired submesh.
-  // Filter the children for the required submesh.
-  result = mesh.children.filter( function(child) {
-    if (child instanceof THREE.Mesh && child.name === submesh && child.hasOwnProperty('geometry')) {
-      if (centerSubmesh)
-      {
-        // obj
-        if (child.geometry instanceof THREE.BufferGeometry)
-        {
-          var geomPosition = child.geometry.attributes.position;
+  // Auxiliary function used to look for the required submesh.
+  // Checks if the given submesh is the one we look for. If it's a Group, look for it within its children.
+  // It returns the submesh, if found.
+  function lookForSubmesh(obj, parent) {
+    if (obj instanceof THREE.Mesh && obj.name === submesh && obj.hasOwnProperty('geometry')) {
+      // Found the submesh.
+
+      // Center the submesh.
+      if (centerSubmesh) {
+        // obj file
+        if (obj.geometry instanceof THREE.BufferGeometry) {
+          var geomPosition = obj.geometry.attributes.position;
           var dim = geomPosition.itemSize;
           var minPos = [];
           var maxPos = [];
@@ -1930,21 +1936,21 @@ GZ3D.Scene.prototype.useSubMesh = function(mesh, submesh, centerSubmesh)
               geomPosition.array[kk + m] -= centerPos[m];
             }
           }
-          child.geometry.attributes.position.needsUpdate = true;
+          obj.geometry.attributes.position.needsUpdate = true;
 
           // Center the position.
-          child.position.set(0, 0, 0);
-          var childParent = child.parent;
+          obj.position.set(0, 0, 0);
+          var childParent = obj.parent;
           while (childParent)
           {
             childParent.position.set(0, 0, 0);
             childParent = childParent.parent;
           }
         }
-        // dae
+        // dae file
         else
         {
-          var vertices = child.geometry.vertices;
+          var vertices = obj.geometry.vertices;
           var vMin = new THREE.Vector3();
           var vMax = new THREE.Vector3();
           vMin.x = vertices[0].x;
@@ -1976,8 +1982,8 @@ GZ3D.Scene.prototype.useSubMesh = function(mesh, submesh, centerSubmesh)
             vertices[k].z -= center.z;
           }
 
-          child.geometry.verticesNeedUpdate = true;
-          var p = child.parent;
+          obj.geometry.verticesNeedUpdate = true;
+          var p = obj.parent;
           while (p)
           {
             p.position.set(0, 0, 0);
@@ -1985,11 +1991,34 @@ GZ3D.Scene.prototype.useSubMesh = function(mesh, submesh, centerSubmesh)
           }
         }
       }
-      return true;
-    }
-  });
 
-  mesh.children = result;
+      // Filter the children of the parent. Only the required submesh needs to be there.
+      parent.children = [obj];
+      return obj;
+    } else {
+      if (obj instanceof THREE.Group) {
+        for (var i = 0; i < obj.children.length; i++) {
+          result = lookForSubmesh(obj.children[i], obj);
+          if (result) {
+            // This keeps the Group (obj), and modifies it's children to contain only the submesh.
+            obj.children = [result];
+            return obj;
+          }
+        }
+      }
+    }
+  }
+
+  // Look for the submesh in the children of the mesh.
+  for (var i = 0; i < mesh.children.length; i++) {
+    result = lookForSubmesh(mesh.children[i], mesh);
+    if (result) {
+      mesh.children = [ result ];
+      break;
+    }
+  }
+
+  result = mesh.children;
 
   return result;
 };
