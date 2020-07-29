@@ -776,21 +776,26 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent)
       parent.scale.z = scale.z;
     }
 
-    var modelUri = this.MATERIAL_ROOT + '/' + modelName;
+    var modelUri = '';
+
+    // Check to see if the modelName points to the Fuel server.
+    if (modelName.indexOf('https://' + this.FUEL_HOST) === 0) {
+      modelUri = modelName;
+    } else {
+      modelUri = this.MATERIAL_ROOT + '/' + modelName;
+
+      if (modelName.indexOf(this.FUEL_HOST) > 0) {
+        var modelNameArray = modelName.split('/').filter(function(element) { return element !== ''; });
+        modelNameArray.splice(0, modelNameArray.indexOf(this.FUEL_HOST));
+        modelNameArray.splice(1, 0, this.FUEL_VERSION);
+        modelNameArray.splice(6, 0, 'files');
+        modelUri = 'https://' + modelNameArray.join('/');
+      }
+    }
     var ext = modelUri.substr(-4).toLowerCase();
     var materialName = parent.name + '::' + modelUri;
     this.entityMaterial[materialName] = material;
     var meshFileName = meshUri.substring(meshUri.lastIndexOf('/') + 1);
-
-    // Check if the local model points to a Fuel Server resource.
-    // TODO: The resource should have the Server URL.
-    if (modelName.indexOf(this.FUEL_HOST) > 0) {
-      var modelNameArray = modelName.split('/').filter(function(element) { return element !== ''; });
-      modelNameArray.splice(0, modelNameArray.indexOf(this.FUEL_HOST));
-      modelNameArray.splice(1, 0, this.FUEL_VERSION);
-      modelNameArray.splice(6, 0, 'files');
-      modelUri = 'https://' + modelNameArray.join('/');
-    }
 
     if (!this.usingFilesUrls)
     {
