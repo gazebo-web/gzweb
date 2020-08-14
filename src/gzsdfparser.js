@@ -39,8 +39,24 @@ GZ3D.SdfParser = function(scene, gui, gziface)
   // Used to avoid loading meshes multiple times. An array that contains:
   // meshUri, submesh, material and the parent visual Object of the mesh.
   this.pendingMeshes = [];
+
+  // This map is used to handle included models and avoid duplicated requests.
+  // The key is the model's URI.
+  // The value is an object that has a models array, which contains the pending models,
+  // and it also contains the sdf, if it was read.
+  // The value is an array of objects that contain the models that use the same uri and
+  // their parents.
+  // Models have a different name and pose that needs to be set once the model files resolve.
+  // Map is not available in es5, so we need to suppress the linter warnings.
+  /* jshint ignore:start */
+  this.pendingModels = new Map();
+  /* jshint ignore:end */
+
   this.mtls = {};
   this.textures = {};
+
+  // Flag to control the usage of PBR materials (enabled by default).
+  this.enablePBR = true;
 
   // Should contain model files URLs if not using gzweb model files hierarchy.
   this.customUrls = [];
@@ -49,6 +65,9 @@ GZ3D.SdfParser = function(scene, gui, gziface)
   this.emitter.on('material', function(mat) {
     that.materials = Object.assign(that.materials, mat);
   });
+
+  // Used for communication with Fuel Servers.
+  this.fuelServer = new GZ3D.FuelServer('fuel.ignitionrobotics.org', '1.0');
 };
 
 /**
@@ -100,7 +119,10 @@ GZ3D.SdfParser.prototype.addUrl = function(url)
     return;
   }
 
-  this.customUrls.push(url);
+  // Avoid duplicated URLs.
+  if (this.customUrls.indexOf(url) === -1) {
+    this.customUrls.push(url);
+  }
 };
 
 /**
@@ -538,7 +560,7 @@ GZ3D.SdfParser.prototype.createMaterial = function(material)
   }
 
   // Set the correct URLs of the PBR-related textures, if available.
-  if (material.pbr && material.pbr.metal) {
+  if (material.pbr && material.pbr.metal && this.enablePBR) {
     // Iterator for the subsequent for loops. Used to avoid a linter warning.
     // Loops (and all variables in general) should use let/const when ported to ES6.
     var u;
@@ -716,7 +738,11 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent)
 
   if (geom.box)
   {
-    size = this.parseSize(geom.box.size);
+    if (geom.box.size) {
+      size = this.parseSize(geom.box.size);
+    } else {
+      size = {x: 1, y: 1, z: 1};
+    }
     obj = this.scene.createBox(size.x, size.y, size.z);
   }
   else if (geom.cylinder)
@@ -731,8 +757,16 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent)
   }
   else if (geom.plane)
   {
-    normal = this.parseSize(geom.plane.normal);
-    size = this.parseSize(geom.plane.size);
+    if (geom.plane.normal) {
+      normal = this.parseSize(geom.plane.normal);
+    } else {
+      normal = {x: 0, y: 0, z: 1};
+    }
+    if (geom.plane.size) {
+      size = this.parseSize(geom.plane.size);
+    } else {
+      size = {x: 1, y: 1};
+    }
     obj = this.scene.createPlane(normal.x, normal.y, normal.z, size.x, size.y);
   }
   else if (geom.mesh)
@@ -1136,12 +1170,23 @@ GZ3D.SdfParser.prototype.spawnFromObj = function(obj)
 };
 
 /**
- * Parses SDF XML string or SDF XML DOM object
+ * Parses SDF XML string or SDF XML DOM object and return the created Object3D
  * @param {object} sdf - It is either SDF XML string or SDF XML DOM object
  * @returns {THREE.Object3D} object - 3D object which is created from the
  * given SDF.
  */
 GZ3D.SdfParser.prototype.spawnFromSDF = function(sdf)
+{
+  var sdfObj = this.parseSDF(sdf);
+  return this.spawnFromObj(sdfObj);
+};
+
+/**
+ * Parses SDF XML string or SDF XML DOM object
+ * @param {object} sdf - It is either SDF XML string or SDF XML DOM object
+ * @returns {object} object - The parsed SDF object.
+ */
+GZ3D.SdfParser.prototype.parseSDF = function(sdf)
 {
   // Parse sdfXML
   var sdfXML;
@@ -1165,7 +1210,7 @@ GZ3D.SdfParser.prototype.spawnFromSDF = function(sdf)
     return;
   }
 
-  return this.spawnFromObj(sdfObj);
+  return sdfObj;
 };
 
 /**
@@ -1273,15 +1318,19 @@ GZ3D.SdfParser.prototype.spawnModelFromSDF = function(sdfObj)
     }
   }
 
-  // Emit an event for each included model.
-  // TODO(germanmas): Gz3D should handle Fuel-related models and files internally.
+  // Parse included models.
   if (sdfObj.model.include) {
+    // Convert to array.
     if (!(sdfObj.model.include instanceof Array)) {
       sdfObj.model.include = [sdfObj.model.include];
     }
-    for (i = 0; i < sdfObj.model.include.length; i++) {
-      this.emitter.emit('includeModel', sdfObj.model.include[i]);
-    }
+
+    // Ignore linter warnings. We use arrow functions to avoid binding 'this'.
+    /* jshint ignore:start */
+    sdfObj.model.include.forEach((includedModel) => {
+      this.includeModel(includedModel, modelObj);
+    });
+    /* jshint ignore:end */
   }
 
   return modelObj;
@@ -1303,55 +1352,6 @@ GZ3D.SdfParser.prototype.spawnWorldFromSDF = function(sdfObj)
   if (sun)
   {
     this.scene.remove(sun);
-  }
-
-  // parse includes
-  if (sdfObj.world.include)
-  {
-    // convert object to array
-    if (!(sdfObj.world.include instanceof Array))
-    {
-      sdfObj.world.include = [sdfObj.world.include];
-    }
-
-    var modelPrefix = 'model://';
-    var urlPrefix = 'http';
-    for (var i = 0; i < sdfObj.world.include.length; ++i)
-    {
-      var incObj = sdfObj.world.include[i];
-      if (incObj.uri && incObj.uri.startsWith(modelPrefix))
-      {
-        var modelName = incObj.uri.substr(modelPrefix.length);
-        for (var u = 0; u < this.customUrls.length; ++u)
-        {
-          var urlObj = new URL(this.customUrls[u]);
-          if (urlObj.pathname.indexOf(modelName) > 0 &&
-              urlObj.pathname.toLowerCase().endsWith('.sdf'))
-          {
-            var incSDF = this.fileFromUrl(this.customUrls[u]);
-            if (!incSDF)
-            {
-              console.log('Failed to spawn model: ' + modelName);
-            }
-            else
-            {
-              var obj = this.spawnFromSDF(incSDF);
-              if (incObj.name)
-              {
-                obj.name = incObj.name;
-              }
-              if (incObj.pose)
-              {
-                var pose = this.parsePose(incObj.pose);
-                this.scene.setPose(obj, pose.position, pose.orientation);
-              }
-              worldObj.add(obj);
-            }
-            break;
-          }
-        }
-      }
-    }
   }
 
   // parse models
@@ -1388,9 +1388,116 @@ GZ3D.SdfParser.prototype.spawnWorldFromSDF = function(sdfObj)
     }
   }
 
+  // Parse included models.
+  if (sdfObj.world.include) {
+    // Convert to array.
+    if (!(sdfObj.world.include instanceof Array)) {
+      sdfObj.world.include = [sdfObj.world.include];
+    }
+
+    // Ignore linter warnings. We use arrow functions to avoid binding 'this'.
+    /* jshint ignore:start */
+    sdfObj.world.include.forEach((includedModel) => {
+      this.includeModel(includedModel, worldObj);
+    });
+    /* jshint ignore:end */
+  }
+
   return worldObj;
 };
 
+/**
+ * Auxiliary function to get and parse an included model.
+ * To render an included model, we need to request its files to the Server.
+ * A cache map is used to avoid making duplicated requests and reuse the obtained SDF.
+ * @param {object} model - The included model.
+ * @param {THREE.Object3D} parent - The parent that is including the given model.
+ */
+GZ3D.SdfParser.prototype.includeModel = function(model, parent) {
+  // Suppress linter warnings. This shouldn't be necessary after switching to es6 or more.
+  /* jshint ignore:start */
+
+  // The parent is stored in the model, so we don't lose their context once the model's
+  // Object3D is created.
+  model.parent = parent;
+
+  // We need to request the files of the model to the Server.
+  // In order to avoid duplicated requests, we store the model in an array until their files
+  // are available.
+  if (!this.pendingModels.has(model.uri)) {
+    // The URI is not in the cache map. We have to make the request to the Server.
+    // Add the model to the models array of the map, to use them once the request resolves.
+    this.pendingModels.set(model.uri, { models: [model] });
+
+    // Request the files from the server, and create the pending models on it's callback.
+    this.fuelServer.getFiles(model.uri, (files) => {
+      // The files were obtained.
+      let sdfUrl;
+      files.forEach((file) => {
+        if (file.endsWith('model.sdf')) {
+          sdfUrl = file;
+          return;
+        }
+        this.addUrl(file);
+      });
+
+      // Read the SDF.
+      const sdf = this.fileFromUrl(sdfUrl);
+      if (!sdf) {
+        console.log('Error: Failed to get the SDF file. The XML is likely invalid.');
+        return;
+      }
+
+      const entry = this.pendingModels.get(model.uri);
+
+      entry.models.forEach((pendingModel) => {
+        // Create the Object3D.
+        const sdfObj = this.parseSDF(sdf);
+        const modelObj = this.spawnFromObj(sdfObj);
+
+        if (!entry.sdf) {
+          entry.sdf = sdfObj;
+        }
+
+        pendingModel.parent.add(modelObj);
+        if (pendingModel.name) {
+          modelObj.name = pendingModel.name;
+        }
+        if (pendingModel.pose) {
+          const pose = this.parsePose(pendingModel.pose);
+          this.scene.setPose(modelObj, pose.position, pose.orientation);
+        }
+      });
+
+      // Cleanup: Remove the list of models.
+      entry.models = [];
+    });
+  } else {
+    // The URI was received already. Push the model into the pending models array.
+    const entry = this.pendingModels.get(model.uri);
+    entry.models.push(model);
+
+    // If the SDF was already obtained, apply it to this model.
+    if (entry.sdf) {
+      entry.models.forEach((pendingModel) => {
+        const sdfObj = entry.sdf;
+        const modelObj = this.spawnFromObj(sdfObj);
+
+        pendingModel.parent.add(modelObj);
+
+        if (pendingModel.name) {
+          modelObj.name = pendingModel.name;
+        }
+
+        if (pendingModel.pose) {
+          const pose = this.parsePose(pendingModel.pose);
+          this.scene.setPose(modelObj, pose.position, pose.orientation);
+        }
+      });
+    }
+  }
+  /* jshint ignore:end */
+};
 
 /**
  * Creates a link 3D object of the model. A model consists of links
