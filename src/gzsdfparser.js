@@ -258,6 +258,9 @@ GZ3D.SdfParser.prototype.spawnLightFromSDF = function(sdfObj)
   var attLin = null;
   var attQuad= null;
   var direction = null;
+  var innerAngle = null;
+  var outerAngle = null;
+  var falloff = null;
   var type = 1;
 
   if (light.attenuation)
@@ -277,6 +280,18 @@ GZ3D.SdfParser.prototype.spawnLightFromSDF = function(sdfObj)
     if (light.attenuation.quadratic)
     {
       attQuad = parseFloat(light.attenuation.quadratic);
+    }
+    if (light.spot.inner_angle)
+    {
+      innerAngle = parseFloat(light.spot.inner_angle);
+    }
+    if (light.spot.outer_angle)
+    {
+      outerAngle = parseFloat(light.spot.outer_angle);
+    }
+    if (light.spot.falloff)
+    {
+      falloff = parseFloat(light.spot.falloff);
     }
   }
   // equation taken from
@@ -304,7 +319,7 @@ GZ3D.SdfParser.prototype.spawnLightFromSDF = function(sdfObj)
   }
   var lightObj = this.scene.createLight(type, diffuse, intensity, pose,
       distance, castShadows, name, direction, specular,
-      attConst, attLin, attQuad);
+      attConst, attLin, attQuad, innerAngle, outerAngle, falloff);
 
   return lightObj;
 };
@@ -341,7 +356,10 @@ GZ3D.SdfParser.prototype.spawnLightFromProto = function(light)
     light.specular,
     light.attenuation_constant,
     light.attenuation_linear,
-    light.attenuation_quadratic);
+    light.attenuation_quadratic,
+    light.spot_inner_angle,
+    light.spot_outer_angle,
+    light.spot_falloff);
 
   return lightObj;
 };

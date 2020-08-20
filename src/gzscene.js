@@ -1093,7 +1093,7 @@ GZ3D.Scene.prototype.createBox = function(width, height, depth)
  */
 GZ3D.Scene.prototype.createLight = function(type, diffuse, intensity, pose,
     distance, cast_shadows, name, direction, specular, attenuation_constant,
-    attenuation_linear, attenuation_quadratic)
+    attenuation_linear, attenuation_quadratic, inner_angle, outer_angle, falloff)
 {
   var obj = new THREE.Object3D();
   var color = new THREE.Color();
@@ -1132,7 +1132,7 @@ GZ3D.Scene.prototype.createLight = function(type, diffuse, intensity, pose,
   else if (type === 2)
   {
     elements = this.createSpotLight(obj, diffuse, intensity,
-        distance, cast_shadows);
+        distance, cast_shadows, inner_angle, outer_angle, falloff);
   }
   else if (type === 3)
   {
@@ -1228,7 +1228,7 @@ GZ3D.Scene.prototype.createPointLight = function(obj, color, intensity,
  * @returns {Object.<THREE.Light, THREE.Mesh>}
  */
 GZ3D.Scene.prototype.createSpotLight = function(obj, color, intensity,
-    distance, cast_shadows)
+    distance, cast_shadows, inner_angle, outer_angle, falloff)
 {
   if (typeof(intensity) === 'undefined')
   {
@@ -1239,9 +1239,18 @@ GZ3D.Scene.prototype.createSpotLight = function(obj, color, intensity,
     distance = 20;
   }
 
-  var lightObj = new THREE.SpotLight(color, intensity);
-  lightObj.distance = distance;
+  var lightObj = new THREE.SpotLight(color, intensity, distance);
   lightObj.position.set(0,0,0);
+
+  if (inner_angle !== null && outer_angle !== null) {
+    lightObj.angle = outer_angle;
+    lightObj.penumbra = Math.max(1,
+      (outer_angle - inner_angle) / ((inner_angle + outer_angle) / 2.0));
+  }
+
+  if (falloff !== null) {
+    lightObj.decay = falloff;
+  }
 
   if (cast_shadows)
   {
