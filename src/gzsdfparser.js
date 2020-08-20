@@ -222,6 +222,22 @@ GZ3D.SdfParser.prototype.parse3DVector = function(vectorInput)
 };
 
 /**
+ * Creates a light from either a protobuf object or SDF object.
+ * @param {object} light - A light represented by a Protobuf or SDF object.
+ * @returns {THREE.Light} lightObj - THREE light object created
+ * according to given properties. The type of light object is determined
+ * according to light type
+ */
+GZ3D.SdfParser.prototype.spawnLight = function(light)
+{
+  if (light.type !== undefined && !(light.type instanceof String)) {
+    return this.spawnLightFromProto(light);
+  } else {
+    return this.spawnLightFromSDF({light: light});
+  }
+};
+
+/**
  * Creates THREE light object according to properties of sdf object
  * which is parsed from sdf model of the light
  * @param {object} sdfObj - object which is parsed from the sdf string
@@ -289,6 +305,43 @@ GZ3D.SdfParser.prototype.spawnLightFromSDF = function(sdfObj)
   var lightObj = this.scene.createLight(type, diffuse, intensity, pose,
       distance, castShadows, name, direction, specular,
       attConst, attLin, attQuad);
+
+  return lightObj;
+};
+
+/**
+ * Creates THREE light object according to properties of protobuf object
+ * @param {object} pbObj - object which is parsed from a Protobuf string
+ * @returns {THREE.Light} lightObj - THREE light object created
+ * according to given properties. The type of light object is determined
+ * according to light type
+ */
+GZ3D.SdfParser.prototype.spawnLightFromProto = function(light)
+{
+  // equation taken from
+  // eslint-disable-next-line
+  // https://docs.blender.org/manual/en/dev/render/blender_render/lighting/lights/light_attenuation.html
+  var E = 1;
+  var D = 1;
+  var r = 1;
+  var L = light.attenuation_linear;
+  var Q = light.attenuation_quadratic;
+  var intensity = E*(D/(D+L*r))*(Math.pow(D,2)/(Math.pow(D,2)+Q*Math.pow(r,2)));
+
+  var lightObj = this.scene.createLight(
+    // Protobuf light type starts at zero.
+    light.type + 1,
+    light.diffuse,
+    intensity,
+    light.pose,
+    light.range,
+    light.cast_shadows,
+    light.name,
+    light.direction,
+    light.specular,
+    light.attenuation_constant,
+    light.attenuation_linear,
+    light.attenuation_quadratic);
 
   return lightObj;
 };
@@ -1150,22 +1203,25 @@ GZ3D.SdfParser.prototype.createVisual = function(visual)
  * Parses an object and spawns the given 3D object.
  * @param {object} obj - The object, obtained after parsing the SDF or from
  * a world message.
+ * @param {boolean} enableLights - True to have lights visible when the
+ * object is created. False to create the lights, but set them to invisible
+ * (off).
  * @returns {THREE.Object3D} object - 3D object which is created from the
  * given object.
  */
-GZ3D.SdfParser.prototype.spawnFromObj = function(obj)
+GZ3D.SdfParser.prototype.spawnFromObj = function(obj, enableLights)
 {
   if (obj.model)
   {
-    return this.spawnModelFromSDF(obj);
+    return this.spawnModelFromSDF(obj, enableLights);
   }
   else if (obj.light)
   {
-    return this.spawnLightFromSDF(obj);
+    return this.spawnLight(obj);
   }
   else if (obj.world)
   {
-    return this.spawnWorldFromSDF(obj);
+    return this.spawnWorldFromSDF(obj, enableLights);
   }
 };
 
@@ -1178,7 +1234,7 @@ GZ3D.SdfParser.prototype.spawnFromObj = function(obj)
 GZ3D.SdfParser.prototype.spawnFromSDF = function(sdf)
 {
   var sdfObj = this.parseSDF(sdf);
-  return this.spawnFromObj(sdfObj);
+  return this.spawnFromObj(sdfObj, true);
 };
 
 /**
@@ -1265,10 +1321,13 @@ GZ3D.SdfParser.prototype.loadSDF = function(sdfName)
 /**
  * Creates 3D object from parsed model SDF
  * @param {object} sdfObj - parsed SDF object
+ * @param {boolean} enableLights - True to have lights visible when the
+ * object is created. False to create the lights, but set them to invisible
+ * (off).
  * @returns {THREE.Object3D} modelObject - 3D object which is created
  * according to SDF model object.
  */
-GZ3D.SdfParser.prototype.spawnModelFromSDF = function(sdfObj)
+GZ3D.SdfParser.prototype.spawnModelFromSDF = function(sdfObj, enableLights)
 {
   // create the model
   var modelObj = new THREE.Object3D();
@@ -1293,7 +1352,7 @@ GZ3D.SdfParser.prototype.spawnModelFromSDF = function(sdfObj)
 
   for (i = 0; i < sdfObj.model.link.length; ++i)
   {
-    linkObj = this.createLink(sdfObj.model.link[i]);
+    linkObj = this.createLink(sdfObj.model.link[i], enableLights);
     if (linkObj)
     {
       modelObj.add(linkObj);
@@ -1310,7 +1369,7 @@ GZ3D.SdfParser.prototype.spawnModelFromSDF = function(sdfObj)
     for (i = 0; i < sdfObj.model.model.length; ++i)
     {
       var tmpModelObj = {model:sdfObj.model.model[i]};
-      var nestedModelObj = this.spawnModelFromSDF(tmpModelObj);
+      var nestedModelObj = this.spawnModelFromSDF(tmpModelObj, enableLights);
       if (nestedModelObj)
       {
         modelObj.add(nestedModelObj);
@@ -1339,10 +1398,13 @@ GZ3D.SdfParser.prototype.spawnModelFromSDF = function(sdfObj)
 /**
  * Creates 3D object from parsed world SDF
  * @param {object} sdfObj - parsed SDF object
+ * @param {boolean} enableLights - True to have lights visible when the
+ * object is created. False to create the lights, but set them to invisible
+ * (off).
  * @returns {THREE.Object3D} worldObject - 3D object which is created
  * according to SDF world object.
  */
-GZ3D.SdfParser.prototype.spawnWorldFromSDF = function(sdfObj)
+GZ3D.SdfParser.prototype.spawnWorldFromSDF = function(sdfObj, enableLights)
 {
   var worldObj = new THREE.Object3D();
 
@@ -1382,9 +1444,11 @@ GZ3D.SdfParser.prototype.spawnWorldFromSDF = function(sdfObj)
 
     for (var k = 0; k < sdfObj.world.light.length; ++k)
     {
-      var tmpLightObj = {light: sdfObj.world.light[k]};
-      var lightObj = this.spawnLightFromSDF(tmpLightObj);
-      worldObj.add(lightObj);
+      var lightObj = this.spawnLight(sdfObj.world.light[k]);
+      if (lightObj !== null && lightObj !== undefined) {
+        lightObj.visible = enableLights;
+        worldObj.add(lightObj);
+      }
     }
   }
 
@@ -1504,9 +1568,12 @@ GZ3D.SdfParser.prototype.includeModel = function(model, parent) {
  * these links are 3D objects. The function creates only visual elements
  * of the link by createLink function
  * @param {object} link - parsed SDF link object
+ * @param {boolean} enableLights - True to have lights visible when the
+ * object is created. False to create the lights, but set them to invisible
+ * (off).
  * @returns {THREE.Object3D} linkObject - 3D link object
  */
-GZ3D.SdfParser.prototype.createLink = function(link)
+GZ3D.SdfParser.prototype.createLink = function(link, enableLights)
 {
   var linkPose, visualObj;
   var linkObj = new THREE.Object3D();
@@ -1574,6 +1641,23 @@ GZ3D.SdfParser.prototype.createLink = function(link)
         visualObj.receiveShadow = false;
         visualObj.visible = this.scene.showCollisions;
         linkObj.add(visualObj);
+      }
+    }
+  }
+
+  if (link.light)
+  {
+    if (!(link.light instanceof Array))
+    {
+      link.light = [link.light];
+    }
+    for (var k = 0; k < link.light.length; ++k)
+    {
+      var light = this.spawnLight(link.light[k]);
+      if (light !== null && light !== undefined) {
+        light.visible = enableLights;
+        light.userData = {type: 'light'};
+        linkObj.add(light);
       }
     }
   }
