@@ -159,8 +159,9 @@ GZ3D.Scene.prototype.init = function()
   // this.renderer.shadowMapEnabled = true;
   // this.renderer.shadowMapSoft = true;
 
-  // lights
-  this.ambient = new THREE.AmbientLight( 0x666666 );
+  // Add a default ambient value. This is equivalent to
+  // {r: 0.1, g: 0.1, b: 0.1}.
+  this.ambient = new THREE.AmbientLight( 0x191919 );
   this.scene.add(this.ambient);
 
   // camera
@@ -477,13 +478,6 @@ GZ3D.Scene.prototype.init = function()
 GZ3D.Scene.prototype.initScene = function()
 {
   this.emitter.emit('show_grid', 'show');
-
-  // create a sun light
-  var obj = this.createLight(3, new THREE.Color(0.8, 0.8, 0.8), 0.9,
-       {position: {x:0, y:0, z:10}, orientation: {x:0, y:0, z:0, w:1}},
-       null, true, 'sun', {x: 0.5, y: 0.1, z: -0.9});
-
-  this.add(obj);
 };
 
 GZ3D.Scene.prototype.setSDFParser = function(sdfParser)
@@ -1180,7 +1174,10 @@ GZ3D.Scene.prototype.createLight = function(type, diffuse, intensity, pose,
   obj.serverProperties.attenuation_quadratic = attenuation_quadratic;
 
   obj.add(lightObj);
-  obj.add(helper);
+
+  // Suppress light shape visualization. Renable this when visualization
+  // controls are in place
+  // obj.add(helper);
   return obj;
 };
 
@@ -2261,6 +2258,37 @@ GZ3D.Scene.prototype.attachManipulator = function(model,mode)
 };
 
 /**
+ * Toggle light visibility for the given entity. This will turn on/off
+ * all lights that are children of the provided entity.
+ * @param {string} Name of a THREE.Object3D.
+ */
+GZ3D.Scene.prototype.toggleLights = function(entityName)
+{
+  // Turn off following if `entity` is null.
+  if (entityName === undefined || entityName === null) {
+    return;
+  }
+
+  /* Helper function to enable all child lights */
+  function enableLightsHelper(obj) {
+    if (obj === null || obj === undefined) {
+      return;
+    }
+
+    if (obj.userData.hasOwnProperty('type') &&
+        obj.userData.type === 'light') {
+      obj.visible = !obj.visible;
+    }
+  }
+
+  // Find the object and set the lights.
+  var object = this.scene.getObjectByName(entityName);
+  if (object !== null && object !== undefined) {
+    object.traverse(enableLightsHelper);
+  }
+};
+
+/**
  * Reset view
  */
 GZ3D.Scene.prototype.resetView = function()
@@ -3257,6 +3285,95 @@ GZ3D.Scene.prototype.createFromSdf = function(sdf)
   obj.add(mesh);
 
   return obj;
+};
+
+/**
+ * Adds a lighting setup that is great for single model visualization. This
+ * will not alter existing lights.
+ */
+GZ3D.Scene.prototype.addModelLighting = function()
+{
+  this.ambient.color = new THREE.Color(0x666666);
+
+  // And light1. Upper back fill light.
+  var light1 = this.createLight(3,
+    // Diffuse
+    new THREE.Color(0.2, 0.2, 0.2),
+    // Intensity
+    0.5,
+    // Pose
+    {position: {x: 0, y: 10, z: 10}, orientation: {x: 0, y: 0, z: 0, w: 1}},
+    // Distance
+    null,
+    // Cast shadows
+    true,
+    // Name
+    '__model_light1__',
+    // Direction
+    {x: 0, y: -0.707, z: -0.707},
+    // Specular
+    new THREE.Color(0.3, 0.3, 0.3));
+  this.add(light1);
+
+  // And light2. Lower back fill light
+  var light2 = this.createLight(3,
+    // Diffuse
+    new THREE.Color(0.4, 0.4, 0.4),
+    // Intensity
+    0.5,
+    // Pose
+    {position: {x: 0, y: 10, z: -10}, orientation: {x: 0, y: 0, z: 0, w: -1}},
+    // Distance
+    null,
+    // Cast shadows
+    true,
+    // Name
+    '__model_light2__',
+    // Direction
+    {x: 0, y: -0.707, z: 0.707},
+    // Specular
+    new THREE.Color(0.3, 0.3, 0.3));
+  this.add(light2);
+
+  // And light3. Front fill light.
+  var light3 = this.createLight(3,
+    // Diffuse
+    new THREE.Color(0.5, 0.5, 0.5),
+    // Intensity
+    0.4,
+    // Pose
+    {position: {x: -10, y: -10, z: 10}, orientation: {x: 0, y: 0, z: 0, w: 1}},
+    // Distance
+    null,
+    // Cast shadows
+    true,
+    // Name
+    '__model_light2__',
+    // Direction
+    {x: 0.707, y: 0.707, z: 0},
+    // Specular
+    new THREE.Color(0.3, 0.3, 0.3));
+  this.add(light3);
+
+  // And light4. Front key light.
+  var light4 = this.createLight(3,
+    // Diffuse
+    new THREE.Color(1, 1, 1),
+    // Intensity
+    0.8,
+    // Pose
+    {position: {x: 10, y: -10, z: 10}, orientation: {x: 0, y: 0, z: 0, w: 1}},
+    // Distance
+    null,
+    // Cast shadows
+    true,
+    // Name
+    '__model_light2__',
+    // Direction
+    {x: -0.707, y: 0.707, z: 0},
+    // Specular
+    new THREE.Color(0.8, 0.8, 0.8));
+  this.add(light4);
 };
 
 /**
