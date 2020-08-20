@@ -1345,18 +1345,20 @@ GZ3D.SdfParser.prototype.spawnModelFromSDF = function(sdfObj, enableLights)
   }
 
   //convert link object to link array
-  if (!(sdfObj.model.link instanceof Array))
-  {
-    sdfObj.model.link = [sdfObj.model.link];
-  }
+  if (sdfObj.model.link) {
+      if (!(sdfObj.model.link instanceof Array))
+      {
+        sdfObj.model.link = [sdfObj.model.link];
+      }
 
-  for (i = 0; i < sdfObj.model.link.length; ++i)
-  {
-    linkObj = this.createLink(sdfObj.model.link[i], enableLights);
-    if (linkObj)
-    {
-      modelObj.add(linkObj);
-    }
+      for (i = 0; i < sdfObj.model.link.length; ++i)
+      {
+        linkObj = this.createLink(sdfObj.model.link[i], enableLights);
+        if (linkObj)
+        {
+          modelObj.add(linkObj);
+        }
+      }
   }
 
   //convert nested model objects to model array
