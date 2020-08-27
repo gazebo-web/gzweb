@@ -113,15 +113,16 @@ GZ3D.SdfParser.prototype.init = function()
  */
 GZ3D.SdfParser.prototype.addUrl = function(url)
 {
-  if (url === undefined || url.indexOf('http') !== 0)
+  var trimmedUrl = url && url.trim();
+  if (trimmedUrl === undefined || trimmedUrl.indexOf('http') !== 0)
   {
     console.log('Trying to add invalid URL');
     return;
   }
 
   // Avoid duplicated URLs.
-  if (this.customUrls.indexOf(url) === -1) {
-    this.customUrls.push(url);
+  if (this.customUrls.indexOf(trimmedUrl) === -1) {
+    this.customUrls.push(trimmedUrl);
   }
 };
 
@@ -900,7 +901,7 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent)
     var ext = modelUri.substr(-4).toLowerCase();
     var materialName = parent.name + '::' + modelUri;
     this.entityMaterial[materialName] = material;
-    var meshFileName = meshUri.substring(meshUri.lastIndexOf('/') + 1);
+    var meshFileName = meshUri.substring(meshUri.lastIndexOf('/'));
 
     if (!this.usingFilesUrls)
     {
@@ -1494,16 +1495,17 @@ GZ3D.SdfParser.prototype.spawnWorldFromSDF = function(sdfObj, enableLights)
  * Auxiliary function to get and parse an included model.
  * To render an included model, we need to request its files to the Server.
  * A cache map is used to avoid making duplicated requests and reuse the obtained SDF.
- * @param {object} model - The included model.
+ * @param {object} includedModel - The included model.
  * @param {THREE.Object3D} parent - The parent that is including the given model.
  */
-GZ3D.SdfParser.prototype.includeModel = function(model, parent) {
+GZ3D.SdfParser.prototype.includeModel = function(includedModel, parent) {
   // Suppress linter warnings. This shouldn't be necessary after switching to es6 or more.
   /* jshint ignore:start */
 
+  // The included model is copied. This allows the SDF to be reused without modifications.
   // The parent is stored in the model, so we don't lose their context once the model's
   // Object3D is created.
-  model.parent = parent;
+  const model = {...includedModel, parent: parent};
 
   // We need to request the files of the model to the Server.
   // In order to avoid duplicated requests, we store the model in an array until their files
@@ -1525,32 +1527,34 @@ GZ3D.SdfParser.prototype.includeModel = function(model, parent) {
         this.addUrl(file);
       });
 
-      // Read the SDF.
+      // Read and parse the SDF.
       const sdf = this.fileFromUrl(sdfUrl);
       if (!sdf) {
         console.log('Error: Failed to get the SDF file. The XML is likely invalid.');
         return;
       }
+      const sdfObj = this.parseSDF(sdf);
 
       const entry = this.pendingModels.get(model.uri);
+      entry.sdf = sdfObj;
 
       entry.models.forEach((pendingModel) => {
         // Create the Object3D.
-        const sdfObj = this.parseSDF(sdf);
         const modelObj = this.spawnFromObj(sdfObj);
 
-        if (!entry.sdf) {
-          entry.sdf = sdfObj;
-        }
-
-        pendingModel.parent.add(modelObj);
+        // Set name.
         if (pendingModel.name) {
           modelObj.name = pendingModel.name;
         }
+
+        // Set pose.
         if (pendingModel.pose) {
           const pose = this.parsePose(pendingModel.pose);
           this.scene.setPose(modelObj, pose.position, pose.orientation);
         }
+
+        // Add to parent.
+        pendingModel.parent.add(modelObj);
       });
 
       // Cleanup: Remove the list of models.
@@ -1567,17 +1571,23 @@ GZ3D.SdfParser.prototype.includeModel = function(model, parent) {
         const sdfObj = entry.sdf;
         const modelObj = this.spawnFromObj(sdfObj);
 
-        pendingModel.parent.add(modelObj);
-
+        // Set name.
         if (pendingModel.name) {
           modelObj.name = pendingModel.name;
         }
 
+        // Set pose.
         if (pendingModel.pose) {
           const pose = this.parsePose(pendingModel.pose);
           this.scene.setPose(modelObj, pose.position, pose.orientation);
         }
+
+        // Add to parent.
+        pendingModel.parent.add(modelObj);
       });
+
+      // Cleanup: Remove the list of models.
+      entry.models = [];
     }
   }
   /* jshint ignore:end */
