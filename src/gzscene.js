@@ -1123,6 +1123,8 @@ GZ3D.Scene.prototype.createLight = function(type, diffuse, intensity, pose,
     obj.matrixWorldNeedsUpdate = true;
   }
 
+  var dir = new THREE.Vector3(0, 0, -1);
+
   var elements;
   if (type === 1)
   {
@@ -1138,6 +1140,12 @@ GZ3D.Scene.prototype.createLight = function(type, diffuse, intensity, pose,
   {
     elements = this.createDirectionalLight(obj, diffuse, intensity,
         cast_shadows);
+    if (direction)
+    {
+      dir.x = direction.x;
+      dir.y = direction.y;
+      dir.z = direction.z;
+    }
   }
 
   var lightObj = elements[0];
@@ -1150,15 +1158,7 @@ GZ3D.Scene.prototype.createLight = function(type, diffuse, intensity, pose,
     helper.name = name + '_lightHelper';
   }
 
-  var dir = new THREE.Vector3(0, 0, -1);
-  if (direction)
-  {
-    dir.x = direction.x;
-    dir.y = direction.y;
-    dir.z = direction.z;
-  }
   obj.direction = new THREE.Vector3(dir.x, dir.y, dir.z);
-
   var targetObj = new THREE.Object3D();
   lightObj.add(targetObj);
 
@@ -1260,12 +1260,15 @@ GZ3D.Scene.prototype.createSpotLight = function(obj, color, intensity,
   var helperGeometry = new THREE.CylinderGeometry(0, 0.3, 0.2, 4, 1, true);
   helperGeometry.applyMatrix(new THREE.Matrix4().makeRotationX(Math.PI/2));
   helperGeometry.applyMatrix(new THREE.Matrix4().makeRotationZ(Math.PI/4));
+
+  // Offset the helper so that the frustum vertex is at the spot light
+  // source. This is half the height of the THREE.CylinderGeometry.
+  helperGeometry.applyMatrix(new THREE.Matrix4().makeTranslation(0, 0, -0.1));
   var helperMaterial = new THREE.MeshBasicMaterial(
         {wireframe: true, color: 0x00ff00});
   var helper = new THREE.Mesh(helperGeometry, helperMaterial);
 
   return [lightObj, helper];
-
 };
 
 /**
