@@ -799,8 +799,13 @@ GZ3D.SdfParser.prototype.parseSize = function(sizeInput)
  * @param {object} mat - SDF material object which is going to be parsed
  * by createMaterial function
  * @param {object} parent - parent 3D object
+ * @param {object} options - Options to send to the creation process. It can include:
+ *                 - enableLights - True to have lights visible when the object is created.
+ *                                  False to create the lights, but set them to invisible (off).
+ *                 - fuelName - Name of the resource in Fuel. Helps to match URLs to the correct path. Requires 'fuelOwner'.
+ *                 - fuelOwner - Name of the resource's owner in Fuel. Helps to match URLs to the correct path. Requires 'fuelName'.
  */
-GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent)
+GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent, options)
 {
   var that = this;
   var obj;
@@ -972,8 +977,22 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent)
         {
           if (this.customUrls[k].indexOf(meshFileName) > -1)
           {
-            modelUri = this.customUrls[k];
-            break;
+            // If we have Fuel name and owner information, make sure the path includes them.
+            if (options && options.fuelName && options.fuelOwner)
+            {
+              if (this.customUrls[k].indexOf(options.fuelName) > -1 &&
+                  this.customUrls[k].indexOf(options.fuelOwner) > -1)
+              {
+                modelUri = this.customUrls[k];
+                break;
+              }
+            }
+            else
+            {
+              // No Fuel name and owner provided. Use the filename.
+              modelUri = this.customUrls[k];
+              break;
+            }
           }
         }
       }
@@ -1190,10 +1209,15 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent)
  * Parses SDF visual element and creates THREE 3D object by parsing
  * geometry element using createGeom function
  * @param {object} visual - SDF visual element
+ * @param {object} options - Options to send to the creation process. It can include:
+ *                 - enableLights - True to have lights visible when the object is created.
+ *                                  False to create the lights, but set them to invisible (off).
+ *                 - fuelName - Name of the resource in Fuel. Helps to match URLs to the correct path. Requires 'fuelOwner'.
+ *                 - fuelOwner - Name of the resource's owner in Fuel. Helps to match URLs to the correct path. Requires 'fuelName'.
  * @returns {THREE.Object3D} visualObj - 3D object which is created
  * according to SDF visual element.
  */
-GZ3D.SdfParser.prototype.createVisual = function(visual)
+GZ3D.SdfParser.prototype.createVisual = function(visual, options)
 {
   //TODO: handle these node values
   // cast_shadow, receive_shadows
@@ -1209,7 +1233,7 @@ GZ3D.SdfParser.prototype.createVisual = function(visual)
         .setPose(visualObj, visualPose.position, visualPose.orientation);
     }
 
-    this.createGeom(visual.geometry, visual.material, visualObj);
+    this.createGeom(visual.geometry, visual.material, visualObj, options);
 
     return visualObj;
   }
@@ -1222,17 +1246,19 @@ GZ3D.SdfParser.prototype.createVisual = function(visual)
  * Parses an object and spawns the given 3D object.
  * @param {object} obj - The object, obtained after parsing the SDF or from
  * a world message.
- * @param {boolean} enableLights - True to have lights visible when the
- * object is created. False to create the lights, but set them to invisible
- * (off).
+ * @param {object} options - Options to send to the creation process. It can include:
+ *                 - enableLights - True to have lights visible when the object is created.
+ *                                  False to create the lights, but set them to invisible (off).
+ *                 - fuelName - Name of the resource in Fuel. Helps to match URLs to the correct path. Requires 'fuelOwner'.
+ *                 - fuelOwner - Name of the resource's owner in Fuel. Helps to match URLs to the correct path. Requires 'fuelName'.
  * @returns {THREE.Object3D} object - 3D object which is created from the
  * given object.
  */
-GZ3D.SdfParser.prototype.spawnFromObj = function(obj, enableLights)
+GZ3D.SdfParser.prototype.spawnFromObj = function(obj, options)
 {
   if (obj.model)
   {
-    return this.spawnModelFromSDF(obj, enableLights);
+    return this.spawnModelFromSDF(obj, options);
   }
   else if (obj.light)
   {
@@ -1240,7 +1266,7 @@ GZ3D.SdfParser.prototype.spawnFromObj = function(obj, enableLights)
   }
   else if (obj.world)
   {
-    return this.spawnWorldFromSDF(obj, enableLights);
+    return this.spawnWorldFromSDF(obj, options);
   }
 };
 
@@ -1253,7 +1279,9 @@ GZ3D.SdfParser.prototype.spawnFromObj = function(obj, enableLights)
 GZ3D.SdfParser.prototype.spawnFromSDF = function(sdf)
 {
   var sdfObj = this.parseSDF(sdf);
-  return this.spawnFromObj(sdfObj, true);
+  return this.spawnFromObj(sdfObj, {
+    enableLights: true
+  });
 };
 
 /**
@@ -1340,13 +1368,15 @@ GZ3D.SdfParser.prototype.loadSDF = function(sdfName)
 /**
  * Creates 3D object from parsed model SDF
  * @param {object} sdfObj - parsed SDF object
- * @param {boolean} enableLights - True to have lights visible when the
- * object is created. False to create the lights, but set them to invisible
- * (off).
+ * @param {object} options - Options to send to the creation process. It can include:
+ *                 - enableLights - True to have lights visible when the object is created.
+ *                                  False to create the lights, but set them to invisible (off).
+ *                 - fuelName - Name of the resource in Fuel. Helps to match URLs to the correct path. Requires 'fuelOwner'.
+ *                 - fuelOwner - Name of the resource's owner in Fuel. Helps to match URLs to the correct path. Requires 'fuelName'.
  * @returns {THREE.Object3D} modelObject - 3D object which is created
  * according to SDF model object.
  */
-GZ3D.SdfParser.prototype.spawnModelFromSDF = function(sdfObj, enableLights)
+GZ3D.SdfParser.prototype.spawnModelFromSDF = function(sdfObj, options)
 {
   // create the model
   var modelObj = new THREE.Object3D();
@@ -1372,7 +1402,7 @@ GZ3D.SdfParser.prototype.spawnModelFromSDF = function(sdfObj, enableLights)
 
       for (i = 0; i < sdfObj.model.link.length; ++i)
       {
-        linkObj = this.createLink(sdfObj.model.link[i], enableLights);
+        linkObj = this.createLink(sdfObj.model.link[i], options);
         if (linkObj)
         {
           modelObj.add(linkObj);
@@ -1390,7 +1420,7 @@ GZ3D.SdfParser.prototype.spawnModelFromSDF = function(sdfObj, enableLights)
     for (i = 0; i < sdfObj.model.model.length; ++i)
     {
       var tmpModelObj = {model:sdfObj.model.model[i]};
-      var nestedModelObj = this.spawnModelFromSDF(tmpModelObj, enableLights);
+      var nestedModelObj = this.spawnModelFromSDF(tmpModelObj, options);
       if (nestedModelObj)
       {
         modelObj.add(nestedModelObj);
@@ -1419,13 +1449,15 @@ GZ3D.SdfParser.prototype.spawnModelFromSDF = function(sdfObj, enableLights)
 /**
  * Creates 3D object from parsed world SDF
  * @param {object} sdfObj - parsed SDF object
- * @param {boolean} enableLights - True to have lights visible when the
- * object is created. False to create the lights, but set them to invisible
- * (off).
+ * @param {object} options - Options to send to the creation process. It can include:
+ *                 - enableLights - True to have lights visible when the object is created.
+ *                                  False to create the lights, but set them to invisible (off).
+ *                 - fuelName - Name of the resource in Fuel. Helps to match URLs to the correct path. Requires 'fuelOwner'.
+ *                 - fuelOwner - Name of the resource's owner in Fuel. Helps to match URLs to the correct path. Requires 'fuelName'.
  * @returns {THREE.Object3D} worldObject - 3D object which is created
  * according to SDF world object.
  */
-GZ3D.SdfParser.prototype.spawnWorldFromSDF = function(sdfObj, enableLights)
+GZ3D.SdfParser.prototype.spawnWorldFromSDF = function(sdfObj, options)
 {
   var worldObj = new THREE.Object3D();
 
@@ -1449,7 +1481,7 @@ GZ3D.SdfParser.prototype.spawnWorldFromSDF = function(sdfObj, enableLights)
     for (var j = 0; j < sdfObj.world.model.length; ++j)
     {
       var tmpModelObj = {model: sdfObj.world.model[j]};
-      var modelObj = this.spawnModelFromSDF(tmpModelObj);
+      var modelObj = this.spawnModelFromSDF(tmpModelObj, options);
       worldObj.add(modelObj);
     }
   }
@@ -1467,7 +1499,9 @@ GZ3D.SdfParser.prototype.spawnWorldFromSDF = function(sdfObj, enableLights)
     {
       var lightObj = this.spawnLight(sdfObj.world.light[k]);
       if (lightObj !== null && lightObj !== undefined) {
-        lightObj.visible = enableLights;
+        if (options && options.enableLights) {
+          lightObj.visible = options.enableLights;
+        }
         worldObj.add(lightObj);
       }
     }
@@ -1538,9 +1572,20 @@ GZ3D.SdfParser.prototype.includeModel = function(includedModel, parent) {
       const entry = this.pendingModels.get(model.uri);
       entry.sdf = sdfObj;
 
+      // Extract Fuel owner and name. Used to match the correct URL.
+      let options;
+      if (model.uri.startsWith('https://') || model.uri.startsWith('file://')) {
+        const uriSplit = model.uri.split('/');
+        const modelsIndex = uriSplit.indexOf('models');
+        options = {
+          fuelOwner: uriSplit[modelsIndex - 1],
+          fuelName: uriSplit[modelsIndex + 1],
+        }
+      }
+
       entry.models.forEach((pendingModel) => {
         // Create the Object3D.
-        const modelObj = this.spawnFromObj(sdfObj);
+        const modelObj = this.spawnFromObj(sdfObj, options);
 
         // Set name.
         if (pendingModel.name) {
@@ -1567,9 +1612,20 @@ GZ3D.SdfParser.prototype.includeModel = function(includedModel, parent) {
 
     // If the SDF was already obtained, apply it to this model.
     if (entry.sdf) {
+      // Extract Fuel owner and name. Used to match the correct URL.
+      let options;
+      if (model.uri.startsWith('https://') || model.uri.startsWith('file://')) {
+        const uriSplit = model.uri.split('/');
+        const modelsIndex = uriSplit.indexOf('models');
+        options = {
+          fuelOwner: uriSplit[modelsIndex - 1],
+          fuelName: uriSplit[modelsIndex + 1],
+        }
+      }
+
       entry.models.forEach((pendingModel) => {
         const sdfObj = entry.sdf;
-        const modelObj = this.spawnFromObj(sdfObj);
+        const modelObj = this.spawnFromObj(sdfObj, options);
 
         // Set name.
         if (pendingModel.name) {
@@ -1598,12 +1654,14 @@ GZ3D.SdfParser.prototype.includeModel = function(includedModel, parent) {
  * these links are 3D objects. The function creates only visual elements
  * of the link by createLink function
  * @param {object} link - parsed SDF link object
- * @param {boolean} enableLights - True to have lights visible when the
- * object is created. False to create the lights, but set them to invisible
- * (off).
+ * @param {object} options - Options to send to the creation process. It can include:
+ *                 - enableLights - True to have lights visible when the object is created.
+ *                                  False to create the lights, but set them to invisible (off).
+ *                 - fuelName - Name of the resource in Fuel. Helps to match URLs to the correct path. Requires 'fuelOwner'.
+ *                 - fuelOwner - Name of the resource's owner in Fuel. Helps to match URLs to the correct path. Requires 'fuelName'.
  * @returns {THREE.Object3D} linkObject - 3D link object
  */
-GZ3D.SdfParser.prototype.createLink = function(link, enableLights)
+GZ3D.SdfParser.prototype.createLink = function(link, options)
 {
   var linkPose, visualObj;
   var linkObj = new THREE.Object3D();
@@ -1647,7 +1705,7 @@ GZ3D.SdfParser.prototype.createLink = function(link, enableLights)
 
     for (var i = 0; i < link.visual.length; ++i)
     {
-      visualObj = this.createVisual(link.visual[i]);
+      visualObj = this.createVisual(link.visual[i], options);
       if (visualObj && !visualObj.parent)
       {
         linkObj.add(visualObj);
@@ -1664,7 +1722,7 @@ GZ3D.SdfParser.prototype.createLink = function(link, enableLights)
 
     for (var j = 0; j < link.collision.length; ++j)
     {
-      visualObj = this.createVisual(link.collision[j]);
+      visualObj = this.createVisual(link.collision[j], options);
       if (visualObj && !visualObj.parent)
       {
         visualObj.castShadow = false;
@@ -1685,7 +1743,9 @@ GZ3D.SdfParser.prototype.createLink = function(link, enableLights)
     {
       var light = this.spawnLight(link.light[k]);
       if (light !== null && light !== undefined) {
-        light.visible = enableLights;
+        if (options && options.enableLights !== undefined) {
+          light.visible = options.enableLights;
+        }
         light.userData = {type: 'light'};
         linkObj.add(light);
       }
