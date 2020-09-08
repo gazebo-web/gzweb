@@ -18,7 +18,7 @@ GZ3D.FuelServer.prototype.getFiles = function(uri, callback) {
   // We still handle the response in a callback.
   // TODO(germanmas): We should update and use async/await instead throughout the library.
   /* jshint ignore:start */
-  const filesUrl = `${uri}/tip/files`;
+  const filesUrl = `${uri.trim()}/tip/files`;
 
   // Make the request to get the files.
   fetch(filesUrl)
