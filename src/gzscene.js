@@ -6,12 +6,29 @@
  *
  * @param shaders GZ3D.Shaders instance, if not provided, custom shaders will
  *                not be set.
+ * @param defaultCameraPosition THREE.Vector3 Default, and starting, camera
+ *                              position. A value of [0, -5, 5] will be used
+ *                              if this is undefined.
+ * @param defaultCameraLookAt THREE.Vector3 Default, and starting, camera
+ *                            lookAt position. A value of [0, 0, 0] will
+ *                            be used if this is undefined.
  * @constructor
  */
-GZ3D.Scene = function(shaders)
+GZ3D.Scene = function(shaders, defaultCameraPosition, defaultCameraLookAt)
 {
   this.emitter = globalEmitter || new EventEmitter2({verboseMemoryLeak: true});
   this.shaders = shaders;
+
+  this.defaultCameraPosition = new THREE.Vector3(0, -5, 5);
+  if (defaultCameraPosition) {
+    this.defaultCameraPosition.copy(defaultCameraPosition);
+  }
+
+  this.defaultCameraLookAt = new THREE.Vector3(0, 0, 0);
+  if (defaultCameraLookAt) {
+    this.defaultCameraLookAt.copy(defaultCameraLookAt);
+  }
+
   this.init();
 
   /**
@@ -31,6 +48,7 @@ GZ3D.Scene = function(shaders)
    * The move to entity event name.
    */
   this.moveToEntityEvent = 'move_to_entity';
+
 
   var that = this;
 
@@ -168,7 +186,6 @@ GZ3D.Scene.prototype.init = function()
   var width = this.getDomElement().width;
   var height = this.getDomElement().height;
   this.camera = new THREE.PerspectiveCamera(60, width / height, 0.01, 1000);
-  this.defaultCameraPosition = new THREE.Vector3(0, -5, 5);
   this.resetView();
 
   // Clock used to time the camera 'move_to' motion.
@@ -2307,7 +2324,7 @@ GZ3D.Scene.prototype.resetView = function()
 {
   this.camera.position.copy(this.defaultCameraPosition);
   this.camera.up = new THREE.Vector3(0, 0, 1);
-  this.camera.lookAt(new THREE.Vector3( 0, 0, 0 ));
+  this.camera.lookAt(this.defaultCameraLookAt);
   this.camera.updateMatrix();
 };
 
