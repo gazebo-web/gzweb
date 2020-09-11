@@ -12,9 +12,11 @@
  * @param defaultCameraLookAt THREE.Vector3 Default, and starting, camera
  *                            lookAt position. A value of [0, 0, 0] will
  *                            be used if this is undefined.
+ * @param backgroundColor THREE.Color The background color. A value of
+ *                        0xb2b2b2 will be used if undefined.
  * @constructor
  */
-GZ3D.Scene = function(shaders, defaultCameraPosition, defaultCameraLookAt)
+GZ3D.Scene = function(shaders, defaultCameraPosition, defaultCameraLookAt, backgroundColor)
 {
   this.emitter = globalEmitter || new EventEmitter2({verboseMemoryLeak: true});
   this.shaders = shaders;
@@ -27,6 +29,11 @@ GZ3D.Scene = function(shaders, defaultCameraPosition, defaultCameraLookAt)
   this.defaultCameraLookAt = new THREE.Vector3(0, 0, 0);
   if (defaultCameraLookAt) {
     this.defaultCameraLookAt.copy(defaultCameraLookAt);
+  }
+
+  this.backgroundColor = new THREE.Color(0xb2b2b2);
+  if (backgroundColor) {
+    this.backgroundColor.copy(backgroundColor);
   }
 
   this.init();
@@ -172,7 +179,7 @@ GZ3D.Scene.prototype.init = function()
 
   this.renderer = new THREE.WebGLRenderer({antialias: true});
   this.renderer.setPixelRatio(window.devicePixelRatio);
-  this.renderer.setClearColor(0xb2b2b2, 1);
+  this.renderer.setClearColor(this.backgroundColor);
   this.renderer.autoClear = false;
   // this.renderer.shadowMapEnabled = true;
   // this.renderer.shadowMapSoft = true;
