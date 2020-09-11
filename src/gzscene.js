@@ -8,10 +8,11 @@
  *                not be set.
  * @constructor
  */
-GZ3D.Scene = function(shaders)
+GZ3D.Scene = function(shaders, jwt)
 {
   this.emitter = globalEmitter || new EventEmitter2({verboseMemoryLeak: true});
   this.shaders = shaders;
+  this.jwt = jwt;
   this.init();
 
   /**
@@ -149,7 +150,90 @@ GZ3D.Scene.prototype.init = function()
   // loaders
   this.textureLoader = new THREE.TextureLoader();
   this.textureLoader.crossOrigin = '';
-  this.colladaLoader = new THREE.ColladaLoader();
+  this.textureLoader.setRequestHeader({'Authorization': 'Bearer ' + this.jwt});
+  this.textureLoader.load = function(url, onLoad, onProgress, onError) {
+      var scope = this;
+
+      var fileLoader = new THREE.FileLoader(scope.manager);
+      fileLoader.setPath(scope.path);
+      fileLoader.setResponseType('blob');
+      fileLoader.setRequestHeader(scope.requestHeader);
+			var texture = new THREE.Texture();
+      
+      fileLoader.load(url,
+        function (blob) {
+          /*if (this.path !== undefined) {
+            url = this.path + url;
+          }
+          url = this.manager.resolveURL( url );
+
+
+          var cached = Cache.get( url );
+          if (cached !== undefined) {
+            scope.manager.itemStart( url );
+
+            setTimeout(function() {
+              if (onLoad) {
+                onLoad(cached);
+              }
+              scope.manager.itemEnd( url );
+            }, 0);
+
+            return cached;
+          }*/
+
+          texture.image  = document.createElementNS( 'http://www.w3.org/1999/xhtml', 'img' );
+          /*
+          function onImageLoad() {
+            image.removeEventListener('load', onImageLoad, false);
+            image.removeEventListener('error', onImageError, false);
+
+            Cache.add(url, this);
+
+            if (onLoad) { onLoad( this ); }
+
+            scope.manager.itemEnd( url );
+          }
+
+			    function onImageError( event ) {
+
+			    	image.removeEventListener( 'load', onImageLoad, false );
+			    	image.removeEventListener( 'error', onImageError, false );
+
+			    	if ( onError ) { onError( event ); }
+
+			    	scope.manager.itemError( url );
+			    	scope.manager.itemEnd( url );
+			    }
+
+			    image.addEventListener( 'load', onImageLoad, false );
+			    image.addEventListener( 'error', onImageError, false );
+          */
+
+			    if (url.substr( 0, 5 ) !== 'data:' ) {
+			    	if ( this.crossOrigin !== undefined ) {
+              texture.image.crossOrigin = this.crossOrigin;
+            }
+			    }
+
+			    scope.manager.itemStart( url );
+
+          texture.image.src = URL.createObjectURL(blob);
+				// JPEGs can't have an alpha channel, so memory can be saved by storing them as RGB.
+				  var isJPEG = url.search( /\.jpe?g($|\?)/i ) > 0 || url.search( /^data\:image\/jpeg/ ) === 0;
+
+				  texture.format = isJPEG ? THREE.RGBFormat : THREE.RGBAFormat;
+				  texture.needsUpdate = false;
+
+				  if (onLoad !== undefined) {
+				  	onLoad(texture);
+				  }
+
+        }, onProgress, onError);
+      return texture;
+    };
+
+  this.colladaLoader = new THREE.ColladaLoader(undefined, this.jwt);
   this.stlLoader = new THREE.STLLoader();
 
   this.renderer = new THREE.WebGLRenderer({antialias: true});
@@ -2042,7 +2126,7 @@ GZ3D.Scene.prototype.loadSTL = function(uri, submesh, centerSubmesh,
 {
   var mesh = null;
   var that = this;
-  this.stlLoader.load(uri, function(geometry)
+  this.stlLoader.load(uri, this.jwt, function(geometry)
   {
     mesh = new THREE.Mesh( geometry );
     mesh.castShadow = true;

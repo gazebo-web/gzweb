@@ -432,11 +432,12 @@ THREE.OBJLoader = ( function () {
 
 		constructor: OBJLoader,
 
-		load: function ( url, onLoad, onProgress, onError ) {
+		load: function ( url, jwt, onLoad, onProgress, onError ) {
 
 			var scope = this;
 
 			var loader = new THREE.FileLoader( scope.manager );
+      loader.setRequestHeader({'Authorization': 'Bearer ' + jwt});
 			loader.setPath( this.path );
 			loader.setRequestHeader( this.requestHeader );
 			loader.load( url, function ( text ) {

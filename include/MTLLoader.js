@@ -28,13 +28,14 @@ THREE.MTLLoader.prototype = Object.assign( Object.create( THREE.Loader.prototype
 	 * @note In order for relative texture references to resolve correctly
 	 * you must call setResourcePath() explicitly prior to load.
 	 */
-	load: function ( url, onLoad, onProgress, onError ) {
+	load: function ( url, jwt, onLoad, onProgress, onError ) {
 
 		var scope = this;
 
 		var path = ( this.path === '' ) ? THREE.LoaderUtils.extractUrlBase( url ) : this.path;
 
 		var loader = new THREE.FileLoader( this.manager );
+    loader.setRequestHeader({'Authorization': 'Bearer ' + jwt});
 		loader.setPath( this.path );
 		loader.setRequestHeader( this.requestHeader );
 		loader.load( url, function ( text ) {

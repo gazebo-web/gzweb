@@ -40,11 +40,12 @@ THREE.STLLoader.prototype = {
 
 	constructor: THREE.STLLoader,
 
-	load: function ( url, onLoad, onProgress, onError ) {
+	load: function ( url, jwt, onLoad, onProgress, onError ) {
 
 		var scope = this;
 
 		var loader = new THREE.FileLoader( scope.manager );
+    loader.setRequestHeader({'Authorization': 'Bearer ' + jwt});
 		loader.setResponseType( 'arraybuffer' );
 		loader.load( url, function ( text ) {
 

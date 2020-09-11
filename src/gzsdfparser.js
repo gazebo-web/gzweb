@@ -6,7 +6,7 @@
  * @param {object} gziface [optional] - the gz3d gziface object, if not gziface
  * object was provided, sdfParser wont try to connect to gzserver.
  **/
-GZ3D.SdfParser = function(scene, gui, gziface)
+GZ3D.SdfParser = function(scene, gui, gziface, jwt)
 {
   this.emitter = globalEmitter || new EventEmitter2({verboseMemoryLeak: true});
 
@@ -29,6 +29,7 @@ GZ3D.SdfParser = function(scene, gui, gziface)
   this.scene.setSDFParser(this);
   this.gui = gui;
   this.gziface = gziface;
+  this.jwt = jwt;
   this.init();
 
   // cache materials if more than one model needs them
@@ -1293,7 +1294,7 @@ GZ3D.SdfParser.prototype.parseSDF = function(sdf)
  * @returns {THREE.Object3D} sdfObject - 3D object which is created
  * according to SDF.
  */
-GZ3D.SdfParser.prototype.loadSDF = function(sdfName)
+GZ3D.SdfParser.prototype.loadSDF = function(sdfName, jwt)
 {
   if (!sdfName)
   {
@@ -1328,7 +1329,7 @@ GZ3D.SdfParser.prototype.loadSDF = function(sdfName)
     return;
   }
 
-  var sdf = this.fileFromUrl(filename);
+  var sdf = this.fileFromUrl(filename, jwt);
   if (!sdf) {
     console.log('Error: Failed to get the SDF file. The XML is likely invalid.');
     return;
@@ -1867,6 +1868,10 @@ GZ3D.SdfParser.prototype.fileFromUrl = function(url)
   var xhttp = new XMLHttpRequest();
   xhttp.overrideMimeType('text/xml');
   xhttp.open('GET', url, false);
+  if (this.jwt !== undefined && this.jwt !== null) {
+    console.log('Setting jwt', this.jwt);
+    xhttp.setRequestHeader('Authorization', 'Bearer ' + this.jwt);
+  }
 
   try
   {

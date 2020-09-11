@@ -19,8 +19,9 @@
  * text = text.replace(/'\<(.*?)\>'/g, '"$1" ');
  */
 
-THREE.ColladaLoader = function ( manager ) {
+THREE.ColladaLoader = function ( manager, jwt ) {
 
+  this.jwt = jwt;
 	this.manager = ( manager !== undefined ) ? manager : THREE.DefaultLoadingManager;
 
 	// Cache textures enabled by default.
@@ -44,6 +45,7 @@ THREE.ColladaLoader.prototype = {
 		var path = scope.path === undefined ? THREE.LoaderUtils.extractUrlBase( url ) : scope.path;
 
 		var loader = new THREE.FileLoader( scope.manager );
+    loader.setRequestHeader({'Authorization': 'Bearer ' + scope.jwt});
 		loader.load( url, function ( text ) {
 
 			onLoad( scope.parse( text, path ) );
@@ -1522,7 +1524,7 @@ THREE.ColladaLoader.prototype = {
 
 			material.name = data.name;
 
-			function getTexture( textureObject ) {
+			function getTexture( textureObject, onLoad ) {
 
 				var sampler = effect.profile.samplers[ textureObject.id ];
 				var image = null;
@@ -1544,46 +1546,44 @@ THREE.ColladaLoader.prototype = {
 				// create texture if image is avaiable
 
 				if ( image !== null ) {
+          function onLoadTexture(texture) {
+            var extra = textureObject.extra;
+
+            if (extra !== undefined && extra.technique !== undefined && isEmpty( extra.technique) === false ) {
+
+              var technique = extra.technique;
+
+              texture.wrapS = technique.wrapU ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
+              texture.wrapT = technique.wrapV ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
+
+              texture.offset.set( technique.offsetU || 0, technique.offsetV || 0 );
+              texture.repeat.set( technique.repeatU || 1, technique.repeatV || 1 );
+
+            } else {
+              texture.wrapS = THREE.RepeatWrapping;
+              texture.wrapT = THREE.RepeatWrapping;
+            }
+
+            // Add the texture to the Cache map, if enabled.
+            if (scope.enableTexturesCache) {
+              scope.texturesCache.set(image, texture);
+            }
+            onLoad(texture);
+          }
 
 					var loader = getTextureLoader( image );
 
 					if ( loader !== undefined ) {
 
-						var texture;
+					//	var texture;
 
 						// Check against the cache, if enabled.
 						if (scope.enableTexturesCache && scope.texturesCache.has(image)) {
 							texture = scope.texturesCache.get(image);
 							return texture;
 						} else {
-							texture = loader.load( image );
+							loader.load(image, onLoadTexture); 
 						}
-
-						var extra = textureObject.extra;
-
-						if ( extra !== undefined && extra.technique !== undefined && isEmpty( extra.technique ) === false ) {
-
-							var technique = extra.technique;
-
-							texture.wrapS = technique.wrapU ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
-							texture.wrapT = technique.wrapV ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
-
-							texture.offset.set( technique.offsetU || 0, technique.offsetV || 0 );
-							texture.repeat.set( technique.repeatU || 1, technique.repeatV || 1 );
-
-						} else {
-
-							texture.wrapS = THREE.RepeatWrapping;
-							texture.wrapT = THREE.RepeatWrapping;
-
-						}
-
-						// Add the texture to the Cache map, if enabled.
-						if (scope.enableTexturesCache) {
-							scope.texturesCache.set(image, texture);
-						}
-
-						return texture;
 
 					} else {
 
@@ -1600,7 +1600,6 @@ THREE.ColladaLoader.prototype = {
 					return null;
 
 				}
-
 			}
 
 			var parameters = technique.parameters;
@@ -1613,20 +1612,34 @@ THREE.ColladaLoader.prototype = {
 
 					case 'diffuse':
 						if ( parameter.color ) material.color.fromArray( parameter.color );
-						if ( parameter.texture ) material.map = getTexture( parameter.texture );
+						if ( parameter.texture ) {
+              getTexture( parameter.texture, function(texture) {
+                console.log('material.map', texture);
+                material.map = texture;
+              });
+            }
 						break;
 					case 'specular':
 						if ( parameter.color && material.specular ) material.specular.fromArray( parameter.color );
-						if ( parameter.texture ) material.specularMap = getTexture( parameter.texture );
+						if ( parameter.texture ) {
+              getTexture( parameter.texture, function(texture) {
+                console.log('material.pecularMap');
+                material.specularMap = texture;
+              });
+            }
 						break;
 					case 'shininess':
 						if ( parameter.float && material.shininess ) material.shininess = parameter.float;
 						break;
 					case 'emission':
 						if ( parameter.color && material.emissive ) material.emissive.fromArray( parameter.color );
-						if ( parameter.texture ) material.emissiveMap = getTexture( parameter.texture );
+						if ( parameter.texture ) {
+              getTexture(parameter.texture, function(texture) {
+                console.log('material.emissive');
+                material.emissiveMap =  texture;
+              });
+            }
 						break;
-
 				}
 
 			}
@@ -3849,7 +3862,92 @@ THREE.ColladaLoader.prototype = {
 		var scope = this;
 
 		var textureLoader = new THREE.TextureLoader( this.manager );
+    textureLoader.setRequestHeader({'Authorization': 'Bearer ' + this.jwt});
 		textureLoader.setPath( path ).setCrossOrigin( this.crossOrigin );
+
+    textureLoader.load = function(url, onLoad, onProgress, onError) {
+      var scope = this;
+
+      console.log("Texture loader load", url);
+
+      var fileLoader = new THREE.FileLoader(scope.manager);
+      fileLoader.setPath(scope.path);
+      fileLoader.setResponseType('blob');
+      fileLoader.setRequestHeader(scope.requestHeader);
+			var texture = new THREE.Texture();
+      
+      fileLoader.load(url,
+        function (blob) {
+          /*if (this.path !== undefined) {
+            url = this.path + url;
+          }
+          url = this.manager.resolveURL( url );
+
+
+          var cached = Cache.get( url );
+          if (cached !== undefined) {
+            scope.manager.itemStart( url );
+
+            setTimeout(function() {
+              if (onLoad) {
+                onLoad(cached);
+              }
+              scope.manager.itemEnd( url );
+            }, 0);
+
+            return cached;
+          }*/
+
+          texture.image  = document.createElementNS( 'http://www.w3.org/1999/xhtml', 'img' );
+          /*
+          function onImageLoad() {
+            image.removeEventListener('load', onImageLoad, false);
+            image.removeEventListener('error', onImageError, false);
+
+            Cache.add(url, this);
+
+            if (onLoad) { onLoad( this ); }
+
+            scope.manager.itemEnd( url );
+          }
+
+			    function onImageError( event ) {
+
+			    	image.removeEventListener( 'load', onImageLoad, false );
+			    	image.removeEventListener( 'error', onImageError, false );
+
+			    	if ( onError ) { onError( event ); }
+
+			    	scope.manager.itemError( url );
+			    	scope.manager.itemEnd( url );
+			    }
+
+			    image.addEventListener( 'load', onImageLoad, false );
+			    image.addEventListener( 'error', onImageError, false );
+          */
+
+			    if (url.substr( 0, 5 ) !== 'data:' ) {
+			    	if ( this.crossOrigin !== undefined ) {
+              texture.image.crossOrigin = this.crossOrigin;
+            }
+			    }
+
+			    scope.manager.itemStart( url );
+
+          texture.image.src = URL.createObjectURL(blob);
+				// JPEGs can't have an alpha channel, so memory can be saved by storing them as RGB.
+				  var isJPEG = url.search( /\.jpe?g($|\?)/i ) > 0 || url.search( /^data\:image\/jpeg/ ) === 0;
+
+				  texture.format = isJPEG ? THREE.RGBFormat : THREE.RGBAFormat;
+				  texture.needsUpdate = false;
+
+				  if (onLoad !== undefined) {
+				  	onLoad(texture);
+				  }
+
+        }, onProgress, onError);
+      return texture;
+    };
 
 		var tgaLoader;
 
@@ -3857,7 +3955,7 @@ THREE.ColladaLoader.prototype = {
 
 			tgaLoader = new THREE.TGALoader( this.manager );
 			tgaLoader.setPath( path );
-
+      tgaLoader.setRequestHeader({'Authorization': 'Bearer ' + this.jwt});
 		}
 
 		//

@@ -2,8 +2,9 @@
  * Converts an Ogre material script into JSON
  * @constructor
  */
-GZ3D.Ogre2Json = function()
+GZ3D.Ogre2Json = function(jwt)
 {
+  this.jwt = jwt;
   this.emitter = globalEmitter || new EventEmitter2({verboseMemoryLeak: true});
 
   // Keeps the whole material file as an Object
@@ -23,6 +24,7 @@ GZ3D.Ogre2Json = function()
 GZ3D.Ogre2Json.prototype.LoadFromUrl = function(_url)
 {
   var fileLoader = new THREE.FileLoader();
+  fileLoader.setRequestHeader({'Authorization': 'Bearer ' + this.jwt});
   var xhr = fileLoader.load(_url, function(){});
 
 // TODO: remove this when whole code has been migrated to ES6
