@@ -6,6 +6,7 @@
 GZ3D.FuelServer = function(host, version) {
   this.host = host;
   this.version = version;
+  this.requestHeader = {};
 };
 
 /**
@@ -21,7 +22,7 @@ GZ3D.FuelServer.prototype.getFiles = function(uri, callback) {
   const filesUrl = `${uri.trim()}/tip/files`;
 
   // Make the request to get the files.
-  fetch(filesUrl)
+  fetch(filesUrl, { headers: this.requestHeader })
     .then(res => res.json())
     .then(json => {
       const files = prepareURLs(json['file_tree'], filesUrl);
@@ -65,4 +66,17 @@ GZ3D.FuelServer.prototype.getFiles = function(uri, callback) {
       }
     }
   }
+};
+
+/**
+ * Set a request header for internal requests.
+ *
+ * @param {string} header - The header to send in the request.
+ * @param {string} value - The value to set to the header.
+ */
+GZ3D.FuelServer.prototype.setRequestHeader = function(header, value) {
+  // ES6 syntax for computed object keys.
+  /* jshint ignore:start */
+  this.requestHeader = { [header]: value };
+  /* jshint ignore:end */
 };

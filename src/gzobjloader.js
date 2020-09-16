@@ -36,6 +36,11 @@ GZ3D.OBJLoader = function(_scene, _uri, _submesh, _centerSubmesh, _callback,
   this.mtlLoader = new THREE.MTLLoader();
   this.mtlLoader.setCrossOrigin('');
 
+  if (this.scene.requestHeader) {
+    this.objLoader.setRequestHeader(this.scene.requestHeader);
+    this.mtlLoader.setRequestHeader(this.scene.requestHeader);
+  }
+
   // Assume .mtl is in the same path as .obj
   if (!this.usingRawFiles)
   {
@@ -258,6 +263,7 @@ GZ3D.OBJLoader.prototype.onObjLoaded = function(_container)
 
       var fileLoader = new THREE.FileLoader(this.mtlLoader.manager);
       fileLoader.setPath(this.mtlLoader.path);
+      fileLoader.setRequestHeader(this.mtlLoader.requestHeader);
       fileLoader.load(mtlPath, onMtlLoaded);
     }
   }
@@ -267,4 +273,3 @@ GZ3D.OBJLoader.prototype.onObjLoaded = function(_container)
     this.loadMTL(this.files[1]);
   }
 };
-

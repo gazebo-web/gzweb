@@ -13,6 +13,21 @@ GZ3D.Ogre2Json = function()
   this.materials = {};
 };
 
+
+/**
+ * Set a request header for internal requests.
+ *
+ * @param {string} header - The header to send in the request.
+ * @param {string} value - The value to set to the header.
+ */
+GZ3D.Ogre2Json.prototype.setRequestHeader = function(header, value)
+{
+  // ES6 syntax for computed object keys.
+  /* jshint ignore:start */
+  this.requestHeader = { [header]: value };
+  /* jshint ignore:end */
+};
+
 /**
  * Load materials from a .material file
  * @param _url Full URL to .material file
@@ -23,6 +38,9 @@ GZ3D.Ogre2Json = function()
 GZ3D.Ogre2Json.prototype.LoadFromUrl = function(_url)
 {
   var fileLoader = new THREE.FileLoader();
+  if (this.requestHeader) {
+    fileLoader.setRequestHeader(this.requestHeader);
+  }
   var xhr = fileLoader.load(_url, function(){});
 
 // TODO: remove this when whole code has been migrated to ES6
