@@ -1550,6 +1550,9 @@ GZ3D.SdfParser.prototype.includeModel = function(includedModel, parent) {
     this.pendingModels.set(model.uri, { models: [model] });
 
     // Request the files from the server, and create the pending models on it's callback.
+    if (this.requestHeaderKey && this.requestHeaderValue) {
+      this.fuelServer.setRequestHeader(this.requestHeaderKey, this.requestHeaderValue);
+    }
     this.fuelServer.getFiles(model.uri, (files) => {
       // The files were obtained.
       let sdfUrl;
@@ -1929,6 +1932,19 @@ GZ3D.SdfParser.prototype.createUniqueName = function(obj)
 };
 
 /**
+ * Set a request header for internal requests.
+ * Parser uses XMLHttpRequest, which handle headers with key-value pairs instead of an object (like THREE uses).
+ *
+ * @param {string} header - The header to send in the request.
+ * @param {string} value - The value to set to the header.
+ */
+GZ3D.SdfParser.prototype.setRequestHeader = function(header, value)
+{
+  this.requestHeaderKey = header;
+  this.requestHeaderValue = value;
+};
+
+/**
  * Download a file from url.
  * @param {string} url - full URL to an SDF file.
  */
@@ -1937,6 +1953,10 @@ GZ3D.SdfParser.prototype.fileFromUrl = function(url)
   var xhttp = new XMLHttpRequest();
   xhttp.overrideMimeType('text/xml');
   xhttp.open('GET', url, false);
+
+  if (this.requestHeaderKey && this.requestHeaderValue) {
+    xhttp.setRequestHeader(this.requestHeaderKey, this.requestHeaderValue);
+  }
 
   try
   {

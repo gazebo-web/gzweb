@@ -3,6 +3,13 @@ console.warn( "THREE.MTLLoader: As part of the transition to ES6 Modules, the fi
  * Loads a Wavefront .mtl file specifying materials
  *
  * @author angelxuanchang
+ *
+ * Modified by German Mas:
+ *
+ * The MTL Material Creator now has access to request header. This makes it possible to use file
+ * loader instead of the texture loader in order to get texture files with an authorization
+ * header.
+ * See https://github.com/mrdoob/three.js/issues/10439
  */
 
 THREE.MTLLoader = function ( manager ) {
@@ -136,6 +143,7 @@ THREE.MTLLoader.prototype = Object.assign( Object.create( THREE.Loader.prototype
 		materialCreator.setCrossOrigin( this.crossOrigin );
 		materialCreator.setManager( this.manager );
 		materialCreator.setMaterials( materialsInfo );
+		materialCreator.setRequestHeader(this.requestHeader);
 		return materialCreator;
 
 	}
@@ -187,6 +195,12 @@ THREE.MTLLoader.MaterialCreator.prototype = {
 	setManager: function ( value ) {
 
 		this.manager = value;
+
+	},
+
+	setRequestHeader: function ( value ) {
+
+		this.requestHeader = value;
 
 	},
 
@@ -540,6 +554,47 @@ THREE.MTLLoader.MaterialCreator.prototype = {
 		}
 
 		if ( loader.setCrossOrigin ) loader.setCrossOrigin( this.crossOrigin );
+
+		// Change the texture loader, if the requestHeader is present.
+		// Texture Loaders use an Image Loader internally, instead of a File Loader.
+		// Image Loader uses an img tag, and their src request doesn't accept custom headers.
+		// See https://github.com/mrdoob/three.js/issues/10439
+		if (this.requestHeader && Object.keys(this.requestHeader).length > 0) {
+			var scope = this;
+			loader.load = function(url, onLoad, onProgress, onError) {
+				var fileLoader = new THREE.FileLoader();
+				fileLoader.setResponseType('blob');
+				fileLoader.setRequestHeader(scope.requestHeader);
+				var texture = new THREE.Texture();
+				var image = document.createElementNS( 'http://www.w3.org/1999/xhtml', 'img' );
+
+				// Once the image is loaded, we need to revoke the ObjectURL.
+				image.onload = function () {
+					image.onload = null;
+					URL.revokeObjectURL( image.src );
+					if (onLoad) {
+						onLoad( image );
+					}
+				};
+
+				image.onerror = onError;
+
+				// Once the image is loaded, we need to revoke the ObjectURL.
+				fileLoader.load(
+					url,
+					function(blob) {
+						image.src = URL.createObjectURL(blob);
+						texture.image = image;
+						texture.needsUpdate = true;
+					},
+					onProgress,
+					onError
+				);
+
+				return texture;
+			};
+		}
+
 		texture = loader.load( url, onLoad, onProgress, onError );
 
 		if ( mapping !== undefined ) texture.mapping = mapping;

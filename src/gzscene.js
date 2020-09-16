@@ -2095,6 +2095,45 @@ GZ3D.Scene.prototype.setMaterial = function(obj, material)
   {
     if (material)
     {
+      // Change the texture loader, if the requestHeader is present.
+      // Texture Loaders use an Image Loader internally, instead of a File Loader.
+      // Image Loader uses an img tag, and their src request doesn't accept custom headers.
+      // See https://github.com/mrdoob/three.js/issues/10439
+      if (this.requestHeader) {
+        this.textureLoader.load = function(url, onLoad, onProgress, onError) {
+          var fileLoader = new THREE.FileLoader();
+          fileLoader.setResponseType('blob');
+          fileLoader.setRequestHeader(this.requestHeader);
+          var texture = new THREE.Texture();
+          var image = document.createElementNS( 'http://www.w3.org/1999/xhtml', 'img' );
+
+          // Once the image is loaded, we need to revoke the ObjectURL.
+          image.onload = function () {
+            image.onload = null;
+            URL.revokeObjectURL( image.src );
+            if (onLoad) {
+              onLoad( image );
+            }
+          };
+
+          image.onerror = onError;
+
+          // Once the image is loaded, we need to revoke the ObjectURL.
+          fileLoader.load(
+            url,
+            function(blob) {
+              image.src = URL.createObjectURL(blob);
+              texture.image = image;
+              texture.needsUpdate = true;
+            },
+            onProgress,
+            onError
+          );
+
+          return texture;
+        };
+      }
+
       // If the material has a PBR tag, use a MeshStandardMaterial, which can have albedo, normal,
       // emissive, roughness and metalness maps. Otherwise use a Phong material.
       if (material.pbr) {
@@ -3461,4 +3500,24 @@ GZ3D.Scene.prototype.cleanup = function()
   this.renderer.renderLists.dispose();
   this.renderer.dispose();
   this.renderer = null;
+};
+
+/**
+ * Set a request header for internal requests.
+ *
+ * @param {string} header - The header to send in the request.
+ * @param {string} value - The value to set to the header.
+ */
+GZ3D.Scene.prototype.setRequestHeader = function(header, value)
+{
+  // ES6 syntax for computed object keys.
+  /* jshint ignore:start */
+  const headerObject = { [header]: value };
+
+  this.textureLoader.requestHeader = headerObject;
+  this.colladaLoader.requestHeader = headerObject;
+  this.stlLoader.requestHeader = headerObject;
+
+  this.requestHeader = headerObject;
+  /* jshint ignore:end */
 };
