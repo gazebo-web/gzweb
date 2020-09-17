@@ -1460,6 +1460,7 @@ GZ3D.SdfParser.prototype.spawnModelFromSDF = function(sdfObj, options)
 GZ3D.SdfParser.prototype.spawnWorldFromSDF = function(sdfObj, options)
 {
   var worldObj = new THREE.Object3D();
+  worldObj.name = this.createUniqueName(sdfObj.world);
 
   // remove default sun before adding objects
   // we will let the world file create its own light
