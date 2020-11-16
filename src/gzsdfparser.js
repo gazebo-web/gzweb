@@ -282,6 +282,9 @@ GZ3D.SdfParser.prototype.spawnLightFromSDF = function(sdfObj)
     {
       attQuad = parseFloat(light.attenuation.quadratic);
     }
+  }
+  if (light.spot)
+  {
     if (light.spot.inner_angle)
     {
       innerAngle = parseFloat(light.spot.inner_angle);
