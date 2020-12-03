@@ -2375,6 +2375,29 @@ GZ3D.Scene.prototype.resetView = function()
 };
 
 /**
+ * Take a screenshot of the canvas and save it.
+ *
+ * @param {string} filename - The filename of the screenshot. PNG extension is appended to it.
+ */
+GZ3D.Scene.prototype.saveScreenshot = function(filename)
+{
+  // An explicit call to render is required. Otherwise the obtained image will be black.
+  // See https://threejsfundamentals.org/threejs/lessons/threejs-tips.html, "Taking A Screenshot of the Canvas"
+  this.render();
+
+  this.getDomElement().toBlob(function(blob) {
+    var url = URL.createObjectURL(blob);
+    var linkElement = document.createElement('a');
+    linkElement.href = url;
+    linkElement.download = filename + '.png';
+    document.body.appendChild(linkElement);
+    linkElement.dispatchEvent(new MouseEvent('click'));
+    document.body.removeChild(linkElement);
+    URL.revokeObjectURL(url);
+  });
+};
+
+/**
  * Show radial menu
  * @param {} event
  */
