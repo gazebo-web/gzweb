@@ -643,6 +643,10 @@ GZ3D.SdfParser.prototype.createMaterial = function(material)
       var albedoMap;
       var albedoMapName = material.pbr.metal.albedo_map.split('/').pop();
 
+      if (material.pbr.metal.albedo_map.startsWith('https://')) {
+        this.addUrl(material.pbr.metal.albedo_map);
+      }
+
       if (this.usingFilesUrls && this.customUrls.length !== 0) {
         for (u = 0; u < this.customUrls.length; u++) {
           if (this.customUrls[u].indexOf(albedoMapName) > -1) {
@@ -663,6 +667,10 @@ GZ3D.SdfParser.prototype.createMaterial = function(material)
     if (material.pbr.metal.emissive_map) {
       var emissiveMap;
       var emissiveMapName = material.pbr.metal.emissive_map.split('/').pop();
+
+      if (material.pbr.metal.emissive_map.startsWith('https://')) {
+        this.addUrl(material.pbr.metal.emissive_map);
+      }
 
       if (this.usingFilesUrls && this.customUrls.length !== 0) {
         for (u = 0; u < this.customUrls.length; u++) {
@@ -685,6 +693,10 @@ GZ3D.SdfParser.prototype.createMaterial = function(material)
       var pbrNormalMap;
       var pbrNormalMapName = material.pbr.metal.normal_map.split('/').pop();
 
+      if (material.pbr.metal.normal_map.startsWith('https://')) {
+        this.addUrl(material.pbr.metal.normal_map);
+      }
+
       if (this.usingFilesUrls && this.customUrls.length !== 0) {
         for (u = 0; u < this.customUrls.length; u++) {
           if (this.customUrls[u].indexOf(pbrNormalMapName) > -1) {
@@ -706,6 +718,10 @@ GZ3D.SdfParser.prototype.createMaterial = function(material)
       var roughnessMap;
       var roughnessMapName = material.pbr.metal.roughness_map.split('/').pop();
 
+      if (material.pbr.metal.roughness_map.startsWith('https://')) {
+        this.addUrl(material.pbr.metal.roughness_map);
+      }
+
       if (this.usingFilesUrls && this.customUrls.length !== 0) {
         for (u = 0; u < this.customUrls.length; u++) {
           if (this.customUrls[u].indexOf(roughnessMapName) > -1) {
@@ -726,6 +742,10 @@ GZ3D.SdfParser.prototype.createMaterial = function(material)
     if (material.pbr.metal.metalness_map) {
       var metalnessMap;
       var metalnessMapName = material.pbr.metal.metalness_map.split('/').pop();
+
+      if (material.pbr.metal.metalness_map.startsWith('https://')) {
+        this.addUrl(material.pbr.metal.metalness_map);
+      }
 
       if (this.usingFilesUrls && this.customUrls.length !== 0) {
         for (u = 0; u < this.customUrls.length; u++) {
