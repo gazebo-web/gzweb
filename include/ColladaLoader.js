@@ -1582,7 +1582,14 @@ THREE.ColladaLoader.prototype = Object.assign( Object.create( THREE.Loader.proto
 							texture = scope.texturesCache.get(image);
 							return texture;
 						} else {
+							savedPath = loader.path;
+							// Remove the path if the image has a full URL.
+							if (image.startsWith('https://')) {
+								loader.path = undefined;
+							}
 							texture = loader.load( image );
+							// Restore the path.
+							loader.path = savedPath;
 						}
 
 						var extra = textureObject.extra;
