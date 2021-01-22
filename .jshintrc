@@ -4,6 +4,7 @@
     "EventEmitter2": true,
     "ROSLIB": true,
     "THREE": true,
+    "JSZip": true,
     "ColladaLoader2": true,
     "requestAnimationFrame": true,
     "xml2json": true,
