@@ -177,6 +177,23 @@ GZ3D.Scene.prototype.init = function()
   this.colladaLoader = new THREE.ColladaLoader();
   this.stlLoader = new THREE.STLLoader();
 
+  // Progress and Load events.
+  /* jshint ignore:start */
+  const progress = (url, items, total) => {
+    this.emitter.emit('load_progress', url, items, total);
+  };
+  this.textureLoader.manager.onProgress = progress;
+  this.colladaLoader.manager.onProgress = progress;
+  this.stlLoader.manager.onProgress = progress;
+
+  const load = () => {
+    this.emitter.emit('load_finished');
+  }
+  this.textureLoader.manager.onLoad = load;
+  this.colladaLoader.manager.onLoad = load;
+  this.stlLoader.manager.onLoad = load;
+  /* jshint ignore:end */
+
   this.renderer = new THREE.WebGLRenderer({antialias: true});
   this.renderer.setPixelRatio(window.devicePixelRatio);
   this.renderer.setClearColor(this.backgroundColor);
@@ -2395,6 +2412,125 @@ GZ3D.Scene.prototype.saveScreenshot = function(filename)
     document.body.removeChild(linkElement);
     URL.revokeObjectURL(url);
   });
+};
+
+/**
+ * Generate thumbnails of the scene.
+ *
+ * The models on the scene should be previously scaled so that their maximum dimension equals 1.
+ *
+ * @param {string} filename - The filename of the generated zip file.
+ * @param {THREE.Vector3} center - The point where the camera will point to.
+ */
+GZ3D.Scene.prototype.createThumbnails = function(filename, center)
+{
+  // Auxiliary method to return the canvas as a Promise.
+  // This allows us to download all the images when they are ready.
+  // Note: jshint is ignored as we use Promises.
+  /* jshint ignore:start */
+  function getCanvasBlob(canvas) {
+    return new Promise(function(resolve, reject) {
+      canvas.toBlob(function(blob) {
+        resolve(blob);
+      });
+    });
+  }
+
+  const zip = new JSZip();
+  const canvas = this.getDomElement();
+  const promises = [];
+
+  // Directional light and target.
+  const lightTarget = new THREE.Object3D();
+  lightTarget.name = 'thumbnails_light_target';
+  lightTarget.position.copy(center);
+  this.scene.add(lightTarget);
+
+  const light = new THREE.DirectionalLight( 0xffffff, 1.0 );
+  light.name = 'thumbnails_light';
+  this.scene.add(light);
+  light.target = lightTarget;
+
+  // Note: An explicit call to render is required for each image. Otherwise the obtained image will be black.
+  // See https://threejsfundamentals.org/threejs/lessons/threejs-tips.html, "Taking A Screenshot of the Canvas"
+
+  // Perspective
+  this.camera.position.copy(center);
+  this.camera.position.add(new THREE.Vector3(1.6, -1.6, 1.2));
+  this.camera.lookAt(center);
+  light.position.copy(this.camera.position);
+  this.render();
+  const perspective = getCanvasBlob(canvas);
+  perspective.then(function(blob) {
+    zip.file('thumbnails/1.png', blob);
+  });
+  promises.push(perspective);
+
+  // Top
+  this.camera.position.copy(center);
+  this.camera.position.add(new THREE.Vector3(0, 0, 2.2));
+  this.camera.rotation.copy(new THREE.Euler(0, 0, -90 * Math.PI / 180));
+  light.position.copy(this.camera.position);
+  this.render();
+  const top = getCanvasBlob(canvas);
+  top.then(function(blob) {
+    zip.file('thumbnails/2.png', blob);
+  });
+  promises.push(top);
+
+  // Front
+  this.camera.position.copy(center);
+  this.camera.position.add(new THREE.Vector3(2.2, 0, 0));
+  this.camera.rotation.copy(new THREE.Euler(0, 90 * Math.PI / 180, 90 * Math.PI / 180));
+  light.position.copy(this.camera.position);
+  this.render();
+  const front = getCanvasBlob(canvas);
+  front.then(function(blob) {
+    zip.file('thumbnails/3.png', blob);
+  });
+  promises.push(front);
+
+  // Side
+  this.camera.position.copy(center);
+  this.camera.position.add(new THREE.Vector3(0, 2.2, 0));
+  this.camera.rotation.copy(new THREE.Euler(-90 * Math.PI / 180, 0, 180 * Math.PI / 180));
+  light.position.copy(this.camera.position);
+  this.render();
+  const side = getCanvasBlob(canvas);
+  side.then(function(blob) {
+    zip.file('thumbnails/4.png', blob);
+  });
+  promises.push(side);
+
+  // Back
+  this.camera.position.copy(center);
+  this.camera.position.add(new THREE.Vector3(-2.2, 0, 0));
+  this.camera.rotation.copy(new THREE.Euler(90 * Math.PI / 180, -90 * Math.PI / 180, 0));
+  light.position.copy(this.camera.position);
+  light.position.add(new THREE.Vector3(-2000, 0, 0));
+  this.render();
+  const back = getCanvasBlob(canvas);
+  back.then(function(blob) {
+    zip.file('thumbnails/5.png', blob);
+  });
+  promises.push(back);
+
+  Promise.all(promises).then(() => {
+    zip.generateAsync({type: 'blob'}).then(function(content) {
+      const url = URL.createObjectURL(content);
+      const linkElement = document.createElement('a');
+      linkElement.href = url;
+      linkElement.download = filename + '.zip';
+      document.body.appendChild(linkElement);
+      linkElement.dispatchEvent(new MouseEvent('click'));
+      document.body.removeChild(linkElement);
+      URL.revokeObjectURL(url);
+    });
+
+    this.scene.remove(light);
+    this.scene.remove(lightTarget);
+  });
+  /* jshint ignore:end */
 };
 
 /**
