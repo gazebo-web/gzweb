@@ -402,7 +402,7 @@ GZ3D.SdfParser.prototype.parsePose = function(poseInput)
     poseInput = poseInput['#text'];
   }
 
-  var values = poseInput.split(/\s+/);
+  var values = poseInput.trim().split(/\s+/);
 
   var position = new THREE.Vector3(parseFloat(values[0]),
           parseFloat(values[1]), parseFloat(values[2]));
