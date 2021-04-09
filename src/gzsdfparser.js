@@ -1237,6 +1237,7 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent, options)
  *                                  False to create the lights, but set them to invisible (off).
  *                 - fuelName - Name of the resource in Fuel. Helps to match URLs to the correct path. Requires 'fuelOwner'.
  *                 - fuelOwner - Name of the resource's owner in Fuel. Helps to match URLs to the correct path. Requires 'fuelName'.
+ *                 - scopedName - Scoped name of the element's parent. Used to create the element's scoped name.
  * @returns {THREE.Object3D} visualObj - 3D object which is created
  * according to SDF visual element.
  */
@@ -1248,6 +1249,12 @@ GZ3D.SdfParser.prototype.createVisual = function(visual, options)
   {
     var visualObj = new THREE.Object3D();
     visualObj.name = visual['@name'] || visual['name'];
+    visualObj.scopedName = this.createScopedName(visual, options['scopedName']);
+
+    // Create an unique name to disambiguate from topic messages.
+    if (visual['id'] !== undefined) {
+      visualObj.uniqueName = this.createUniqueName(visual);
+    }
 
     if (visual.pose)
     {
@@ -1263,6 +1270,36 @@ GZ3D.SdfParser.prototype.createVisual = function(visual, options)
 
   return null;
 
+};
+
+/**
+ * Parses SDF sensor element and creates THREE 3D object
+ * @param {object} sensor - SDF sensor element
+ * @param {object} options - Options to send to the creation process. It can include:
+ *                 - fuelName - Name of the resource in Fuel. Helps to match URLs to the correct path. Requires 'fuelOwner'.
+ *                 - fuelOwner - Name of the resource's owner in Fuel. Helps to match URLs to the correct path. Requires 'fuelName'.
+ *                 - scopedName - Scoped name of the element's parent. Used to create the element's scoped name.
+ * @returns {THREE.Object3D} sensorObj - 3D object which is created
+ * according to SDF sensor element.
+ */
+GZ3D.SdfParser.prototype.createSensor = function(sensor, options)
+{
+  var sensorObj = new THREE.Object3D();
+  sensorObj.name = sensor['name'] || sensor['@name'] || '';
+  sensorObj.scopedName = this.createScopedName(sensor, options['scopedName']);
+
+  // Create an unique name to disambiguate from topic messages.
+  if (sensor['id'] !== undefined) {
+    sensorObj.uniqueName = this.createUniqueName(sensor);
+  }
+
+  if (sensor.pose)
+  {
+    var sensorPose = this.parsePose(sensor.pose);
+    this.scene.setPose(sensorObj, sensorPose.position, sensorPose.orientation);
+  }
+
+  return sensorObj;
 };
 
 /**
@@ -1403,7 +1440,16 @@ GZ3D.SdfParser.prototype.spawnModelFromSDF = function(sdfObj, options)
 {
   // create the model
   var modelObj = new THREE.Object3D();
-  modelObj.name = this.createUniqueName(sdfObj.model);
+  modelObj.name = sdfObj.model['name'] || sdfObj.model['@name'];
+  modelObj.uniqueName = this.createUniqueName(sdfObj.model);
+
+  if (options['scopedName'] !== undefined) {
+    modelObj.scopedName = options.scopedName;
+  } else {
+    modelObj.scopedName = modelObj.name;
+  }
+
+  options.scopedName = modelObj.scopedName;
 
   var pose;
   var i, j, k;
@@ -1442,6 +1488,7 @@ GZ3D.SdfParser.prototype.spawnModelFromSDF = function(sdfObj, options)
     }
     for (i = 0; i < sdfObj.model.model.length; ++i)
     {
+      options.scopedName = this.createScopedName(sdfObj.model.model[i], modelObj.scopedName);
       var tmpModelObj = {model:sdfObj.model.model[i]};
       var nestedModelObj = this.spawnModelFromSDF(tmpModelObj, options);
       if (nestedModelObj)
@@ -1607,6 +1654,7 @@ GZ3D.SdfParser.prototype.includeModel = function(includedModel, parent) {
         options = {
           fuelOwner: uriSplit[modelsIndex - 1],
           fuelName: uriSplit[modelsIndex + 1],
+          scopedName: parent.scopedName
         }
       }
 
@@ -1647,6 +1695,7 @@ GZ3D.SdfParser.prototype.includeModel = function(includedModel, parent) {
         options = {
           fuelOwner: uriSplit[modelsIndex - 1],
           fuelName: uriSplit[modelsIndex + 1],
+          scopedName: parent.scopedName
         }
       }
 
@@ -1686,13 +1735,23 @@ GZ3D.SdfParser.prototype.includeModel = function(includedModel, parent) {
  *                                  False to create the lights, but set them to invisible (off).
  *                 - fuelName - Name of the resource in Fuel. Helps to match URLs to the correct path. Requires 'fuelOwner'.
  *                 - fuelOwner - Name of the resource's owner in Fuel. Helps to match URLs to the correct path. Requires 'fuelName'.
+ *                 - scopedName - Scoped name of the element's parent. Used to create the element's scoped name.
  * @returns {THREE.Object3D} linkObject - 3D link object
  */
 GZ3D.SdfParser.prototype.createLink = function(link, options)
 {
-  var linkPose, visualObj;
+  var linkPose, visualObj, sensorObj;
   var linkObj = new THREE.Object3D();
-  linkObj.name = this.createUniqueName(link);
+
+  linkObj.name = link['name'] || link['@name'] || '';
+  linkObj.scopedName = this.createScopedName(link, options['scopedName']);
+
+  // Create an unique name to disambiguate from topic messages.
+  if (link['id'] !== undefined) {
+    linkObj.uniqueName = this.createUniqueName(link);
+  }
+
+  options['scopedName'] = linkObj.scopedName;
 
   if (link.inertial)
   {
@@ -1775,6 +1834,22 @@ GZ3D.SdfParser.prototype.createLink = function(link, options)
         }
         light.userData = {type: 'light'};
         linkObj.add(light);
+      }
+    }
+  }
+
+  if (link.sensor) {
+    if (!(link.sensor instanceof Array))
+    {
+      link.sensor = [link.sensor];
+    }
+
+    for (var sidx = 0; sidx < link.sensor.length; ++sidx)
+    {
+      sensorObj = this.createSensor(link.sensor[sidx], options);
+      if (sensorObj && !sensorObj.parent)
+      {
+        linkObj.add(sensorObj);
       }
     }
   }
@@ -1953,6 +2028,23 @@ GZ3D.SdfParser.prototype.createUniqueName = function(obj)
   var objectId = obj['id'] || obj['@id'] || '';
 
   return objectName + objectId;
+};
+
+/**
+ * Creates a scoped name for the resource.
+ * @param {object} object - the object that contains the name.
+ * @param {string} parentScopedName - the scoped name of the parents.
+ * @returns {string} scoped name - A concatenation of the name and parents name sepparated with double colons.
+ */
+GZ3D.SdfParser.prototype.createScopedName = function(obj, parentScopedName)
+{
+  var objectName = obj['name'] || obj['@name'] || '';
+
+  if (parentScopedName && parentScopedName.length > 0) {
+    return parentScopedName + '::' + objectName;
+  }
+
+  return objectName;
 };
 
 /**

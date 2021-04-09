@@ -967,6 +967,17 @@ GZ3D.Scene.prototype.getByName = function(name)
 };
 
 /**
+ * Returns the object which has the given property value
+ * @param {string} property name to search for
+ * @param {string} value of the given property
+ * @returns {THREE.Object3D} model
+ */
+GZ3D.Scene.prototype.getByProperty = function(property, value)
+{
+  return this.scene.getObjectByProperty(property, value);
+};
+
+/**
  * Update a model's pose
  * @param {THREE.Object3D} model
  * @param {} position
