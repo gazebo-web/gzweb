@@ -910,22 +910,14 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent, options)
       parent.scale.z = scale.z;
     }
 
-    var modelUri = '';
-
-    // Check to see if the modelName points to the Fuel server.
-    if (modelName.indexOf('https://' + this.FUEL_HOST) === 0) {
-      modelUri = modelName;
-    } else {
-      modelUri = this.MATERIAL_ROOT + '/' + modelName;
-
-      if (modelName.indexOf(this.FUEL_HOST) > 0) {
-        var modelNameArray = modelName.split('/').filter(function(element) { return element !== ''; });
-        modelNameArray.splice(0, modelNameArray.indexOf(this.FUEL_HOST));
-        modelNameArray.splice(1, 0, this.FUEL_VERSION);
-        modelNameArray.splice(6, 0, 'files');
-        modelUri = 'https://' + modelNameArray.join('/');
-      }
+    // Create a valid Fuel URI from the model name
+    var generatedUri = this.createFuelUri(modelName);
+    if (generatedUri[1] === false) {
+      console.error('Unable to generate valid URI for model name:', modelName);
+      return;
     }
+    var modelUri = generatedUri[0];
+
     var ext = modelUri.substr(-4).toLowerCase();
     var materialName = parent.name + '::' + modelUri;
     this.entityMaterial[materialName] = material;
@@ -1838,7 +1830,23 @@ GZ3D.SdfParser.prototype.createLink = function(link, options)
     }
   }
 
-  if (link.sensor) {
+  if (link.particle_emitter)
+  {
+    if (!(link.particle_emitter instanceof Array))
+    {
+      link.particle_emitter = [link.particle_emitter];
+    }
+    for (var em = 0; em < link.particle_emitter.length; ++em)
+    {
+      var emitter = this.createParticleEmitter(link.particle_emitter[em]);
+      if (emitter !== null && emitter !== undefined) {
+        linkObj.add(emitter);
+      }
+    }
+  }
+
+  if (link.sensor)
+  {
     if (!(link.sensor instanceof Array))
     {
       link.sensor = [link.sensor];
@@ -1855,6 +1863,245 @@ GZ3D.SdfParser.prototype.createLink = function(link, options)
   }
 
   return linkObj;
+};
+
+/**
+ * Creates the Particle Emitter.
+ *
+ * @param {object} The emitter element from SDF or protobuf object.
+ */
+GZ3D.SdfParser.prototype.createParticleEmitter = function(emitter) {
+  // Particle Emitter is handled with ShaderParticleEngine, a third-party library.
+  // More information at https://github.com/squarefeet/ShaderParticleEngine
+
+  // Auxliar function to extract the value of an emitter property from
+  // either SDF or protobuf object (stored in a data property).
+  function extractValue(property) {
+    if (emitter && emitter[property] !== undefined) {
+      if (emitter[property]['data'] !== undefined) {
+        return emitter[property].data;
+      } else {
+        return emitter[property];
+      }
+    }
+    return undefined;
+  }
+
+  // Given name of the emitter.
+  var emitterName = this.createUniqueName(emitter);
+
+  // Whether the emitter is generating particles or not.
+  var emitting = this.parseBool(extractValue('emitting')) || false;
+
+  // Duration of the particle emitter. Infinite if null.
+  var duration = extractValue('duration');
+  duration = duration !== undefined ? parseFloat(duration) : null;
+
+  // Emitter type.
+  var type = extractValue('type') || extractValue('@type');
+  type = type || 'point';
+
+  // Lifetime of the individual particles, in seconds.
+  var lifetime = extractValue('lifetime');
+  lifetime = lifetime !== undefined ? parseFloat(lifetime) : 5;
+
+  // Velocity range.
+  var minVelocity = extractValue('min_velocity');
+  minVelocity = minVelocity !== undefined ? parseFloat(minVelocity) : 1;
+
+  var maxVelocity = extractValue('max_velocity');
+  maxVelocity = maxVelocity !== undefined ? parseFloat(maxVelocity) : 1;
+
+  // Size of the particle emitter.
+  var size = this.parse3DVector(emitter['size']) || new THREE.Vector3(1, 1, 1);
+
+  // Size of the individual particles.
+  var particleSize = this.parse3DVector(emitter['particle_size']) || new THREE.Vector3(1, 1, 1);
+
+  // Particles per second emitted.
+  var rate = extractValue('rate');
+  rate = rate !== undefined ? parseFloat(rate) : 10;
+
+  // Scale modifier for each particle. Modifies their size per second.
+  var scaleRate = extractValue('scale_rate');
+  scaleRate = scaleRate !== undefined ? parseFloat(scaleRate) : 1;
+
+  // Image that determines the color range. This image should be 1px in height.
+  // NOTE: SPE can have up to four different values, and internally it interpolates between these
+  // values for the lifetime of the particle.
+  var colorRangeImage = emitter['color_range_image'] || '';
+  // Handle the case where the emitter information is from a protobuf
+  // message.
+  if (typeof colorRangeImage === 'object' && colorRangeImage !== null &&
+      'data' in colorRangeImage) {
+    colorRangeImage = colorRangeImage.data;
+  }
+  var colorRangeImageUrl;
+
+  var particleTexture;
+
+  // Texture image of the particles.
+  if ('material' in emitter && 'pbr' in emitter['material']) {
+    // SDF has a nested metal tag, while protobuf does not. Need to handle
+    // both.
+    if ('metal' in emitter['material']['pbr']) {
+      particleTexture = emitter['material']['pbr']['metal']['albedo_map'];
+    } else {
+      particleTexture = emitter['material']['pbr']['albedo_map'];
+    }
+  }
+  var particleTextureUrl;
+
+  // Get the URL of the images used.
+  if (this.usingFilesUrls) {
+    for (var u = 0; u < this.customUrls.length; u++) {
+      if (this.customUrls[u].indexOf(colorRangeImage) > -1) {
+        colorRangeImageUrl = this.customUrls[u];
+      }
+
+      if (this.customUrls[u].indexOf(particleTexture) > -1) {
+        particleTextureUrl = this.customUrls[u];
+      }
+
+      if (colorRangeImageUrl && particleTextureUrl) {
+        break;
+      }
+    }
+
+    if (colorRangeImage && !colorRangeImageUrl) {
+      var generatedColorRangeUri = this.createFuelUri(colorRangeImage);
+      if (generatedColorRangeUri[1]) {
+        colorRangeImageUrl = generatedColorRangeUri[0];
+      }
+    }
+    if (particleTexture && !particleTextureUrl) {
+      var generatedParticleTextureUri = this.createFuelUri(particleTexture);
+      if (generatedParticleTextureUri[1]) {
+        particleTextureUrl = generatedParticleTextureUri[0];
+      }
+    }
+  }
+
+  if (!colorRangeImageUrl) {
+    console.error('color_range_image is missing, the particle emitter will not work');
+    return;
+  }
+
+  if (!particleTextureUrl) {
+    console.error('albedo_map is missing, the particle emitter will not work');
+    return;
+  }
+
+  // Create the Particle Group.
+  // This is the container for the Particle Emitter.
+  // For more information, check http://squarefeet.github.io/ShaderParticleEngine/docs/api/SPE.Group.html
+  var particleGroup = new SPE.Group({
+    // TODO(german) SPE requires just a texture, leaving the SDF Material related information out.
+    // We might want to change the engine or write our if this proves to be an issue in the future.
+    texture: {
+      value: this.scene.textureLoader.load(particleTextureUrl),
+    },
+    transparent: true,
+    blending: THREE.NormalBlending,
+  });
+  particleGroup['name'] = emitterName;
+
+  // Particle Emitter.
+  // For more information, check http://squarefeet.github.io/ShaderParticleEngine/docs/api/SPE.Emitter.html
+  var particleEmitter = new SPE.Emitter({
+    // How many particles this emitter will hold.
+    // The rate of particles emitted per second is roughly the particleCount/lifetime.
+    particleCount: rate * lifetime,
+
+    // Type of emitter. Box by default.
+    // TODO(german) Support Point, Sphere and Cylinder (No direct relation with SPE)
+    type: SPE.distributions.BOX,
+
+    // Duration of the particle emitter. Infinite if null.
+    duration: duration > 0? duration : null,
+
+    // Position of the emitter. The value is the current position, and spread is related to the size.
+    position: {
+      value: new THREE.Vector3(0, 0, 0),
+      spread: new THREE.Vector3().copy(size),
+    },
+
+    // Particle velocity. Value is the base, and uses spread to randomize each particle.
+    velocity: {
+      value: new THREE.Vector3(0, 0, minVelocity),
+      spread: new THREE.Vector3(0, 0, maxVelocity - minVelocity),
+    },
+
+    // Particle size at the start and finish of their lifetime.
+    // SPE interpolates these values.
+    size: {
+      value: [particleSize.x, particleSize.x + scaleRate * lifetime],
+    },
+
+    // Lifetime of the individual particles, in seconds.
+    maxAge: {
+      value: lifetime
+    },
+  });
+
+  // The emitter is disabled until the the color and opacity information is read.
+  particleEmitter.disable();
+
+  particleGroup.addEmitter(particleEmitter);
+
+  // Add the Particle Group to the scene. Required by the rendering loop.
+  this.scene.add( particleGroup.mesh );
+  this.scene.addParticleGroup(particleGroup);
+
+  // Determine Color and Opacity information from the Color Range Image.
+  // Note: SPE supports 4 values of opacity and color in an array. The engine automatically interpolates between them.
+  // This means we cannot have all the colors from the image, instead, we pick only 4.
+  /* jshint ignore:start */
+  this.scene.textureLoader.load(colorRangeImageUrl, (texture) => {
+    // Load the Color Range Image and read the color information from its pixels.
+    // A canvas is required to do so.
+    const width = texture.image.width;
+    const height = texture.image.height;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d');
+    context.drawImage(texture.image, 0, 0);
+    const imageData = context.getImageData(0, 0, width, height);
+
+    const colorImgData = [];
+    const opacityData = [];
+    for (let i = 0; i < width; i += Math.floor(width/3)) {
+      // The data array contains rgba values for each pixel.
+      const color = new THREE.Color(
+        imageData.data[i * 4 + 0] / 255,
+        imageData.data[i * 4 + 1] / 255,
+        imageData.data[i * 4 + 2] / 255
+      )
+      const opacity = imageData.data[i * 4 + 3] / 255;
+
+      colorImgData.push(color);
+      opacityData.push(opacity);
+    }
+
+    // Set the color and opacity of the particle emitter.
+    for (let i = 0; i < 4; i++) {
+      particleEmitter.color.value[i] = colorImgData[i];
+      particleEmitter.color.value = particleEmitter.color.value;
+
+      particleEmitter.opacity.value[i] = opacityData[i];
+      particleEmitter.opacity.value = particleEmitter.opacity.value;
+    }
+
+    // Finally, enable the emission.
+    if (emitting) {
+      particleEmitter.enable();
+    } else {
+      particleEmitter.disable();
+    }
+  });
+  /* jshint ignore:end */
 };
 
 /**
@@ -2058,6 +2305,44 @@ GZ3D.SdfParser.prototype.setRequestHeader = function(header, value)
 {
   this.requestHeaderKey = header;
   this.requestHeaderValue = value;
+};
+
+/**
+ * Create a valid URI that points to the fuelserver from a URI string. The
+ * provided string may be path on a local filesystem, such as
+ * `/home/developer/.ignition/fuel/.../model/1/model.sdf`.  A local
+ * filesystem path is typically found when parsing object sent from a
+ * websocket server.
+ *
+ * The provided URI is returned if it already valid.
+ * @param {string} uri - A string to convert to a Fuel server URI.
+ * @return An array of two values where the first is the Fuel server URI and
+ * the second is a boolean that indicates whether the Fuel server URI is
+ * valid.
+ */
+GZ3D.SdfParser.prototype.createFuelUri = function(uri)
+{
+  // Check to see if the modelName points to the Fuel server.
+  if (uri.indexOf('https://' + this.FUEL_HOST) === 0) {
+    return [uri, true];
+  } else {
+    // Check to see if the uri has the form similar to
+    // `/home/.../fuel.ignitionrobotics.org/...`
+    // If so, then we assume that the parts following
+    // `fuel.ignitionrobotics.org` can be directly mapped to a valid URL on
+    // Fuel server
+    if (uri.indexOf(this.FUEL_HOST) > 0) {
+      var uriArray = uri.split('/').filter(function(element) {
+        return element !== '';
+      });
+      uriArray.splice(0, uriArray.indexOf(this.FUEL_HOST));
+      uriArray.splice(1, 0, this.FUEL_VERSION);
+      uriArray.splice(6, 0, 'files');
+      return ['https://' + uriArray.join('/'), true];
+    }
+  }
+
+  return [uri, false];
 };
 
 /**

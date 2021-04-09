@@ -200,6 +200,8 @@ GZ3D.Scene.prototype.init = function()
   this.renderer.autoClear = false;
   // this.renderer.shadowMapEnabled = true;
   // this.renderer.shadowMapSoft = true;
+  // Particle group to render.
+  this.particleGroup = null;
 
   // Add a default ambient value. This is equivalent to
   // {r: 0.1, g: 0.1, b: 0.1}.
@@ -902,6 +904,11 @@ GZ3D.Scene.prototype.render = function()
   if (this.radialMenu)
   {
     this.radialMenu.update();
+  }
+
+  if (this.particleGroup) {
+    var clock = new THREE.Clock();
+    this.particleGroup.tick( clock.getDelta() );
   }
 
   this.renderer.clear();
@@ -3690,4 +3697,15 @@ GZ3D.Scene.prototype.setRequestHeader = function(header, value)
 
   this.requestHeader = headerObject;
   /* jshint ignore:end */
+};
+
+/**
+ * Add a Particle Group to render. It is required to calculate the values of
+ * particles during each cycle.
+ *
+ * @param {SPE.Group} particleGroup - A SPE Particle Group to render.
+ */
+GZ3D.Scene.prototype.addParticleGroup = function(particleGroup)
+{
+  this.particleGroup = particleGroup;
 };
