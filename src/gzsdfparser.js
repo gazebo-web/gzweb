@@ -911,12 +911,7 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent, options)
     }
 
     // Create a valid Fuel URI from the model name
-    var generatedUri = this.createFuelUri(modelName);
-    if (generatedUri[1] === false) {
-      console.error('Unable to generate valid URI for model name:', modelName);
-      return;
-    }
-    var modelUri = generatedUri[0];
+    var modelUri = this.createFuelUri(modelName);
 
     var ext = modelUri.substr(-4).toLowerCase();
     var materialName = parent.name + '::' + modelUri;
@@ -1969,16 +1964,10 @@ GZ3D.SdfParser.prototype.createParticleEmitter = function(emitter) {
     }
 
     if (colorRangeImage && !colorRangeImageUrl) {
-      var generatedColorRangeUri = this.createFuelUri(colorRangeImage);
-      if (generatedColorRangeUri[1]) {
-        colorRangeImageUrl = generatedColorRangeUri[0];
-      }
+      colorRangeImageUrl = this.createFuelUri(colorRangeImage);
     }
     if (particleTexture && !particleTextureUrl) {
-      var generatedParticleTextureUri = this.createFuelUri(particleTexture);
-      if (generatedParticleTextureUri[1]) {
-        particleTextureUrl = generatedParticleTextureUri[0];
-      }
+      particleTextureUrl = this.createFuelUri(particleTexture);
     }
   }
 
@@ -2308,24 +2297,23 @@ GZ3D.SdfParser.prototype.setRequestHeader = function(header, value)
 };
 
 /**
- * Create a valid URI that points to the fuelserver from a URI string. The
- * provided string may be path on a local filesystem, such as
- * `/home/developer/.ignition/fuel/.../model/1/model.sdf`.  A local
- * filesystem path is typically found when parsing object sent from a
- * websocket server.
+ * Create a valid URI that points to the Fuel Server given a local filesystem
+ * path.
  *
- * The provided URI is returned if it already valid.
- * @param {string} uri - A string to convert to a Fuel server URI.
- * @return An array of two values where the first is the Fuel server URI and
- * the second is a boolean that indicates whether the Fuel server URI is
- * valid.
+ * A local filesystem path, such as
+ * `/home/developer/.ignition/fuel/.../model/1/model.sdf` is typically found
+ * when parsing object sent from a websocket server.
+ *
+ * The provided URI is returned if it does not point to the Fuel Server
+ * directly.
+ *
+ * @param {string} uri - A string to convert to a Fuel Server URI, if able.
+ * @return The transformed URI, or the same URI if it couldn't be transformed.
  */
 GZ3D.SdfParser.prototype.createFuelUri = function(uri)
 {
   // Check to see if the modelName points to the Fuel server.
-  if (uri.indexOf('https://' + this.FUEL_HOST) === 0) {
-    return [uri, true];
-  } else {
+  if (uri.indexOf('https://' + this.FUEL_HOST) !== 0) {
     // Check to see if the uri has the form similar to
     // `/home/.../fuel.ignitionrobotics.org/...`
     // If so, then we assume that the parts following
@@ -2338,11 +2326,10 @@ GZ3D.SdfParser.prototype.createFuelUri = function(uri)
       uriArray.splice(0, uriArray.indexOf(this.FUEL_HOST));
       uriArray.splice(1, 0, this.FUEL_VERSION);
       uriArray.splice(6, 0, 'files');
-      return ['https://' + uriArray.join('/'), true];
+      return 'https://' + uriArray.join('/');
     }
   }
-
-  return [uri, false];
+  return uri;
 };
 
 /**
