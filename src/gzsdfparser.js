@@ -1840,7 +1840,9 @@ GZ3D.SdfParser.prototype.createLink = function(link, options)
     {
       var emitter = this.createParticleEmitter(link.particle_emitter[em]);
       if (emitter !== null && emitter !== undefined) {
-        linkObj.userData = {emitter};
+        linkObj.userData = {
+          emitter: emitter
+        };
       }
     }
   }
