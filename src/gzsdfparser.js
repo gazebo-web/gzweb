@@ -385,6 +385,11 @@ GZ3D.SdfParser.prototype.parsePose = function(poseInput)
     'orientation': new THREE.Quaternion()
   };
 
+  // Short circuit if poseInput is undefined
+  if (poseInput === undefined) {
+    return pose;
+  }
+
   if (poseInput.hasOwnProperty('position') && poseInput.hasOwnProperty('orientation')) {
     pose = {
       'position': new THREE.Vector3(poseInput['position']['x'], poseInput['position']['y'], poseInput['position']['z']),
@@ -1835,7 +1840,7 @@ GZ3D.SdfParser.prototype.createLink = function(link, options)
     {
       var emitter = this.createParticleEmitter(link.particle_emitter[em]);
       if (emitter !== null && emitter !== undefined) {
-        linkObj.add(emitter);
+        linkObj.userData = {emitter};
       }
     }
   }
@@ -1864,6 +1869,7 @@ GZ3D.SdfParser.prototype.createLink = function(link, options)
  * Creates the Particle Emitter.
  *
  * @param {object} The emitter element from SDF or protobuf object.
+ * @return {object} The particle emitter object.
  */
 GZ3D.SdfParser.prototype.createParticleEmitter = function(emitter) {
   // Particle Emitter is handled with ShaderParticleEngine, a third-party library.
@@ -1912,6 +1918,9 @@ GZ3D.SdfParser.prototype.createParticleEmitter = function(emitter) {
 
   // Size of the individual particles.
   var particleSize = this.parse3DVector(emitter['particle_size']) || new THREE.Vector3(1, 1, 1);
+
+  // Pose of the particle emitter
+  var pose = this.parsePose(emitter['pose']);
 
   // Particles per second emitted.
   var rate = extractValue('rate');
@@ -2011,7 +2020,7 @@ GZ3D.SdfParser.prototype.createParticleEmitter = function(emitter) {
 
     // Position of the emitter. The value is the current position, and spread is related to the size.
     position: {
-      value: new THREE.Vector3(0, 0, 0),
+      value: new THREE.Vector3().copy(pose.position),
       spread: new THREE.Vector3().copy(size),
     },
 
@@ -2038,8 +2047,29 @@ GZ3D.SdfParser.prototype.createParticleEmitter = function(emitter) {
 
   particleGroup.addEmitter(particleEmitter);
 
-  // Add the Particle Group to the scene. Required by the rendering loop.
-  this.scene.add( particleGroup.mesh );
+  var addedToObj = false;
+  if ('header' in emitter) {
+    for (var i = 0; i < emitter['header'].data.length; ++i)  {
+      if (emitter['header'].data[i].key === 'frame') {
+        var frame = emitter['header'].data[i].value[0];
+        var parentObj = this.scene.getByProperty('scopedName', frame);
+
+        // Attach the Particle Group to a parent object.
+        if (parentObj !== undefined) {
+          parentObj.add(particleGroup.mesh);
+          addedToObj = true;
+        }
+      }
+    }
+  }
+
+  // Add the Particle Group to the scene, if it was not attached to a parent
+  // object.
+  if (!addedToObj) {
+    this.scene.add(particleGroup.mesh);
+  }
+
+  // This is required by the rendering loop.
   this.scene.addParticleGroup(particleGroup);
 
   // Determine Color and Opacity information from the Color Range Image.
@@ -2090,6 +2120,7 @@ GZ3D.SdfParser.prototype.createParticleEmitter = function(emitter) {
       particleEmitter.disable();
     }
   });
+  return particleEmitter;
   /* jshint ignore:end */
 };
 
