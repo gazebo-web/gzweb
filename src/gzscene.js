@@ -2180,6 +2180,12 @@ GZ3D.Scene.prototype.setMaterial = function(obj, material)
           var albedoMap = this.textureLoader.load(material.pbr.metal.albedo_map);
           obj.material.map = albedoMap;
           maps.push(albedoMap);
+
+          // enable alpha test for textures with alpha transparency
+          if (albedoMap.format === THREE.RGBAFormat)
+          {
+            obj.material.alphaTest = 0.5;
+          }
         }
 
         if (material.pbr.metal.normal_map) {
@@ -2236,6 +2242,12 @@ GZ3D.Scene.prototype.setMaterial = function(obj, material)
             texture.repeat.y = 1.0 / material.scale[1];
           }
           obj.material.map = texture;
+
+          // enable alpha test for textures with alpha transparency
+          if (texture.format === THREE.RGBAFormat)
+          {
+            obj.material.alphaTest = 0.5;
+          }
         }
 
         if (material.normalMap)
