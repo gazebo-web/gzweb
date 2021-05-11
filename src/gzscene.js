@@ -2149,6 +2149,8 @@ GZ3D.Scene.prototype.setMaterial = function(obj, material)
             if (onLoad) {
               onLoad( image );
             }
+            texture.image = image;
+            texture.needsUpdate = true;
           };
 
           image.onerror = onError;
@@ -2158,8 +2160,6 @@ GZ3D.Scene.prototype.setMaterial = function(obj, material)
             url,
             function(blob) {
               image.src = URL.createObjectURL(blob);
-              texture.image = image;
-              texture.needsUpdate = true;
             },
             onProgress,
             onError

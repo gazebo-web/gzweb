@@ -116,7 +116,7 @@ GZ3D.SdfParser.prototype.addUrl = function(url)
   var trimmedUrl = url && url.trim();
   if (trimmedUrl === undefined || trimmedUrl.indexOf('http') !== 0)
   {
-    console.log('Trying to add invalid URL');
+    console.log('Trying to add invalid URL: ' + url);
     return;
   }
 
@@ -518,6 +518,9 @@ GZ3D.SdfParser.prototype.createMaterial = function(material)
     {
       mat = this.materials[script.name];
       // if we already cached the materials
+
+      // If the material script is not handled and their materials are not cached, the model will
+      // rely on the materials from its SDF and/or its Collada mesh (if available).
       if (mat)
       {
         ambient = mat.ambient;
@@ -579,11 +582,6 @@ GZ3D.SdfParser.prototype.createMaterial = function(material)
             }
           }
         }
-      }
-      else
-      {
-        //TODO: how to handle if material is not cached
-        console.log(script.name + ' is not cached!!!');
       }
     }
   }
@@ -1411,7 +1409,7 @@ GZ3D.SdfParser.prototype.loadSDF = function(sdfName)
 
   var sdf = this.fileFromUrl(filename);
   if (!sdf) {
-    console.log('Error: Failed to get the SDF file. The XML is likely invalid.');
+    console.log('Error: Failed to get the SDF file (' + filename + '). The XML is likely invalid.');
     return;
   }
   return this.spawnFromSDF(sdf);
@@ -1630,7 +1628,7 @@ GZ3D.SdfParser.prototype.includeModel = function(includedModel, parent) {
       // Read and parse the SDF.
       const sdf = this.fileFromUrl(sdfUrl);
       if (!sdf) {
-        console.log('Error: Failed to get the SDF file. The XML is likely invalid.');
+        console.log('Error: Failed to get the SDF file (' + filename + '). The XML is likely invalid.');
         return;
       }
       const sdfObj = this.parseSDF(sdf);
