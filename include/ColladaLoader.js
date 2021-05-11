@@ -3963,7 +3963,7 @@ THREE.ColladaLoader.prototype = Object.assign( Object.create( THREE.Loader.proto
 		if (scope.requestHeader && Object.keys(scope.requestHeader).length > 0) {
 			textureLoader.load = function(url, onLoad, onProgress, onError) {
 				var fileLoader = new THREE.FileLoader(scope.manager);
-				fileLoader.setPath(scope.resourcePath || path ).setCrossOrigin(scope.crossOrigin);
+				fileLoader.setPath(this.path).setCrossOrigin(scope.crossOrigin);
 				fileLoader.setResponseType('blob');
 				fileLoader.setRequestHeader(scope.requestHeader);
 				var texture = new THREE.Texture();
@@ -3976,6 +3976,8 @@ THREE.ColladaLoader.prototype = Object.assign( Object.create( THREE.Loader.proto
 					if (onLoad) {
 						onLoad(image);
 					}
+					texture.image = image;
+					texture.needsUpdate = true;
 					scope.manager.itemEnd( url );
 				};
 
@@ -3986,8 +3988,6 @@ THREE.ColladaLoader.prototype = Object.assign( Object.create( THREE.Loader.proto
 					url,
 					function(blob) {
 						image.src = URL.createObjectURL(blob);
-						texture.image = image;
-						texture.needsUpdate = true;
 					},
 					onProgress,
 					onError
