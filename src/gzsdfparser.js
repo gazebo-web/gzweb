@@ -1368,11 +1368,10 @@ GZ3D.SdfParser.prototype.parseSDF = function(sdf)
 
 /**
  * Loads SDF file according to given name.
- * @param {string} sdfName - ether name of model / world or the filename
- * @returns {THREE.Object3D} sdfObject - 3D object which is created
- * according to SDF.
+ * @param {string} sdfName - Either name of model / world or the filename
+ * @param {function} callback - The callback to use once the SDF file is ready.
  */
-GZ3D.SdfParser.prototype.loadSDF = function(sdfName)
+GZ3D.SdfParser.prototype.loadSDF = function(sdfName, callback)
 {
   if (!sdfName)
   {
@@ -1407,12 +1406,14 @@ GZ3D.SdfParser.prototype.loadSDF = function(sdfName)
     return;
   }
 
-  var sdf = this.fileFromUrl(filename);
-  if (!sdf) {
-    console.log('Error: Failed to get the SDF file (' + filename + '). The XML is likely invalid.');
-    return;
-  }
-  return this.spawnFromSDF(sdf);
+  var that = this;
+  this.fileFromUrl(filename, function(sdf) {
+    if (!sdf) {
+      console.log('Error: Failed to get the SDF file (' + filename + '). The XML is likely invalid.');
+      return;
+    }
+    callback(that.spawnFromSDF(sdf));
+  });
 };
 
 /**
@@ -1626,49 +1627,50 @@ GZ3D.SdfParser.prototype.includeModel = function(includedModel, parent) {
       });
 
       // Read and parse the SDF.
-      const sdf = this.fileFromUrl(sdfUrl);
-      if (!sdf) {
-        console.log('Error: Failed to get the SDF file (' + filename + '). The XML is likely invalid.');
-        return;
-      }
-      const sdfObj = this.parseSDF(sdf);
-
-      const entry = this.pendingModels.get(model.uri);
-      entry.sdf = sdfObj;
-
-      // Extract Fuel owner and name. Used to match the correct URL.
-      let options;
-      if (model.uri.startsWith('https://') || model.uri.startsWith('file://')) {
-        const uriSplit = model.uri.split('/');
-        const modelsIndex = uriSplit.indexOf('models');
-        options = {
-          fuelOwner: uriSplit[modelsIndex - 1],
-          fuelName: uriSplit[modelsIndex + 1],
-          scopedName: parent.scopedName
+      this.fileFromUrl(sdfUrl, (sdf) => {
+        if (!sdf) {
+          console.log('Error: Failed to get the SDF file (' + filename + '). The XML is likely invalid.');
+          return;
         }
-      }
+        const sdfObj = this.parseSDF(sdf);
 
-      entry.models.forEach((pendingModel) => {
-        // Create the Object3D.
-        const modelObj = this.spawnFromObj(sdfObj, options);
+        const entry = this.pendingModels.get(model.uri);
+        entry.sdf = sdfObj;
 
-        // Set name.
-        if (pendingModel.name) {
-          modelObj.name = pendingModel.name;
+        // Extract Fuel owner and name. Used to match the correct URL.
+        let options;
+        if (model.uri.startsWith('https://') || model.uri.startsWith('file://')) {
+          const uriSplit = model.uri.split('/');
+          const modelsIndex = uriSplit.indexOf('models');
+          options = {
+            fuelOwner: uriSplit[modelsIndex - 1],
+            fuelName: uriSplit[modelsIndex + 1],
+            scopedName: parent.scopedName
+          }
         }
 
-        // Set pose.
-        if (pendingModel.pose) {
-          const pose = this.parsePose(pendingModel.pose);
-          this.scene.setPose(modelObj, pose.position, pose.orientation);
-        }
+        entry.models.forEach((pendingModel) => {
+          // Create the Object3D.
+          const modelObj = this.spawnFromObj(sdfObj, options);
 
-        // Add to parent.
-        pendingModel.parent.add(modelObj);
+          // Set name.
+          if (pendingModel.name) {
+            modelObj.name = pendingModel.name;
+          }
+
+          // Set pose.
+          if (pendingModel.pose) {
+            const pose = this.parsePose(pendingModel.pose);
+            this.scene.setPose(modelObj, pose.position, pose.orientation);
+          }
+
+          // Add to parent.
+          pendingModel.parent.add(modelObj);
+        });
+
+        // Cleanup: Remove the list of models.
+        entry.models = [];
       });
-
-      // Cleanup: Remove the list of models.
-      entry.models = [];
     });
   } else {
     // The URI was received already. Push the model into the pending models array.
@@ -2136,6 +2138,7 @@ GZ3D.SdfParser.prototype.addModelByType = function(model, type)
   var sdf, translation, euler;
   var quaternion = new THREE.Quaternion();
   var modelObj;
+  var that = this;
 
   if (model.matrixWorld)
   {
@@ -2179,14 +2182,13 @@ GZ3D.SdfParser.prototype.addModelByType = function(model, type)
   }
   else
   {
-    var sdfObj = this.loadSDF(type);
-    modelObj = new THREE.Object3D();
-    modelObj.add(sdfObj);
-    modelObj.name = model.name;
-    this.scene.setPose(modelObj, translation, quaternion);
+    this.loadSDF(type, function(sdfObj) {
+      modelObj = new THREE.Object3D();
+      modelObj.add(sdfObj);
+      modelObj.name = model.name;
+      that.scene.setPose(modelObj, translation, quaternion);
+    });
   }
-
-  var that = this;
 
   var addModelFunc;
   addModelFunc = function()
@@ -2366,16 +2368,33 @@ GZ3D.SdfParser.prototype.createFuelUri = function(uri)
 /**
  * Download a file from url.
  * @param {string} url - full URL to an SDF file.
+ * @param {function} callback - The callback to use once the file is ready.
  */
-GZ3D.SdfParser.prototype.fileFromUrl = function(url)
+GZ3D.SdfParser.prototype.fileFromUrl = function(url, callback)
 {
+  // The request is asynchronous. To avoid disrupting the current workflow too much, we use a callback.
+  // TODO(germanmas): We should update and use async/await instead throughout the library.
   var xhttp = new XMLHttpRequest();
   xhttp.overrideMimeType('text/xml');
-  xhttp.open('GET', url, false);
+  xhttp.open('GET', url, true);
 
   if (this.requestHeaderKey && this.requestHeaderValue) {
     xhttp.setRequestHeader(this.requestHeaderKey, this.requestHeaderValue);
   }
+
+  xhttp.onload = function() {
+    if (xhttp.readyState === 4) {
+      if (xhttp.status !== 200) {
+        console.log('Failed to get URL [' + url + ']');
+        return;
+      }
+      callback(xhttp.responseXML);
+    }
+  };
+
+  xhttp.onerror = function (e) {
+    console.error(xhttp.statusText);
+  };
 
   try
   {
@@ -2386,12 +2405,4 @@ GZ3D.SdfParser.prototype.fileFromUrl = function(url)
     console.log('Failed to get URL [' + url + ']: ' + err.message);
     return;
   }
-
-  if (xhttp.status !== 200)
-  {
-    console.log('Failed to get URL [' + url + ']');
-    return;
-  }
-
-  return xhttp.responseXML;
 };
