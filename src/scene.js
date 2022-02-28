@@ -52,30 +52,18 @@ import { BoxHelper } from 'three';
  * The scene is where everything is placed, from objects, to lights and cameras.
  */
 export class Scene {
-  constructor(shaders, defaultCameraPosition, defaultCameraLookAt, backgroundColor) {
+  constructor(shaders) {
     this.emitter = new EventEmitter2({verboseMemoryLeak: true});
     this.shaders = shaders;
 
-    // TODO(german-mas): This shouldn't be set in the constructor.
-    // Set the default value here and let users change it with a setter.
+    // Set the default camera position value.
     this.defaultCameraPosition = new Vector3(0, -5, 5);
-    if (defaultCameraPosition) {
-      this.defaultCameraPosition.copy(defaultCameraPosition);
-    }
 
-    // TODO(german-mas): This shouldn't be set in the constructor.
-    // Set the default value here and let users change it with a setter.
+    // Set the default camera look at value.
     this.defaultCameraLookAt = new Vector3(0, 0, 0);
-    if (defaultCameraLookAt) {
-      this.defaultCameraLookAt.copy(defaultCameraLookAt);
-    }
 
-    // TODO(german-mas): This shouldn't be set in the constructor.
-    // Set the default value here and let users change it with a setter.
+    // Setting the default value of background color.
     this.backgroundColor = new Color(0xb2b2b2);
-    if (backgroundColor) {
-      this.backgroundColor.copy(backgroundColor);
-    }
 
     this.simpleShapesMaterial = new MeshPhongMaterial({color:0xffffff, flatShading: SmoothShading});
 
@@ -346,6 +334,30 @@ export class Scene {
     this.renderer.render(this.scene, this.camera);
 
     this.renderer.clearDepth();
+  };
+
+  /**
+   * Set the background color.
+   * @param {Color} backgroundColor
+   */
+  setBackgroundColor = (backgroundColor) => {
+    this.backgroundColor.copy(backgroundColor);
+  };
+  
+  /**
+   * Set the camera position.
+   * @param {Vector3} cameraPosition
+   */
+  setCameraPosition = (cameraPosition) => {
+    this.camera.position.copy(cameraPosition);
+  };
+
+  /**
+   * Set the camera Look At.
+   * @param {Vector3} cameraLookAt
+   */
+  setCameraLookAt = (cameraLookAt) => {
+    this.camera.lookAt(cameraLookAt);
   };
 
   /**
