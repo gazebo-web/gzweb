@@ -133,8 +133,7 @@ export class Scene {
       const dist = startPos.distanceTo(targetCenter);
 
       // Get the bounding box size of the target object.
-      const bboxSize = new Vector3();
-      const bbox = new Box3().setFromObject(obj);
+      const bbox = getObjectBoundingBox(obj);
       bbox.getSize(bboxSize);
       const max = Math.max(bboxSize.x, bboxSize.y, bboxSize.z);
 
@@ -534,21 +533,19 @@ export class Scene {
 
   /**
    * Sets the bounding box of an object while ignoring the addtional visuals.
-   * TODO(german-mas): Rename method for something more fitting, such as getObjectBoundingBox or
-   * getBoundingBox. No changes done in order to maintain compatibility.
-   * TODO(german-mas): This could return a Box3 instead of passing a new box as an argument.
    *
-   * @param {THREE.Box3} - box
    * @param {THREE.Object3D} - object
+   * @returns {THREE.Box3}
    */
-  setFromObject = (box, object) => {
-    box.min = new Vector3().addScalar(+Infinity);
-    box.max = new Vector3().addScalar(-Infinity);
+  getObjectBoundingBox = (object) => {
+    const boundingBox = new Box3();
+    boundingBox.min = new Vector3().addScalar(+Infinity);
+    boundingBox.max = new Vector3().addScalar(-Infinity);
     object.updateMatrixWorld( true );
 
     const expandByPoint = (point) => {
-      box.min.min( point );
-      box.max.max( point );
+      boundingBox.min.min( point );
+      boundingBox.max.max( point );
     };
 
     const v = new Vector3();
@@ -573,6 +570,7 @@ export class Scene {
         }
       }
     });
+    return boundingBox;
   };
 
   /**
