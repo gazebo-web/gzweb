@@ -1010,7 +1010,7 @@ export class Scene {
    * @param {} centerSubmesh
    * @param {function} callback
    */
-  loadMeshFromUri = (uri, submesh, centerSubmesh, callback) => {
+  loadMeshFromUri = async (uri, submesh, centerSubmesh, callback) => {
     const uriFile = uri.substring(uri.lastIndexOf('/') + 1);
 
     // Check if the mesh has already been loaded.
@@ -1019,18 +1019,17 @@ export class Scene {
       let mesh = this.meshes[uri];
       mesh = mesh.clone();
       this.useSubMesh(mesh, submesh, centerSubmesh);
-      callback(mesh);
-      return;
+      return new Promise(mesh);
     }
 
     // load meshes
     if (uriFile.substring(uriFile.length - 4).toLowerCase() === '.dae') {
       return this.loadCollada(uri, submesh, centerSubmesh, callback);
     } else if (uriFile.substring(uriFile.length - 4).toLowerCase() === '.obj') {
-      return this.loadOBJ(uri, submesh, centerSubmesh, callback);
+      return await this.loadOBJ(uri, submesh, centerSubmesh);
     }
     else if (uriFile.substring(uriFile.length - 4).toLowerCase() === '.stl') {
-      return this.loadSTL(uri, submesh, centerSubmesh, callback);
+      return await this.loadSTL(uri, submesh, centerSubmesh);
     } else if (uriFile.substring(uriFile.length - 5).toLowerCase() === '.urdf') {
       console.error('Attempting to load URDF file, but it\'s not supported.');
     }
@@ -1057,17 +1056,17 @@ export class Scene {
    * @param {function} callback
    * @param {array} files - files needed by the loaders[dae] in case of a collada mesh, [obj, mtl] in case of object mesh, all as strings
    */
-  loadMeshFromString = (uri, submesh, centerSubmesh, callback, files) => {
+  loadMeshFromString = async (uri, submesh, centerSubmesh, files) => {
     const uriFile = uri.substring(uri.lastIndexOf('/') + 1);
-
     if (this.meshes[uri]) {
       let mesh = this.meshes[uri];
       mesh = mesh.clone();
       this.useSubMesh(mesh, submesh, centerSubmesh);
-      callback(mesh);
-      return;
+      // callback(mesh);
+      // return;
+      return new Promise(mesh);
     }
-
+  
     // load mesh
     if (uriFile.substring(uriFile.length - 4).toLowerCase() === '.dae') {
       // loadCollada just accepts one file, which is the dae file as string
@@ -1081,9 +1080,37 @@ export class Scene {
         console.error('Missing either OBJ or MTL file');
         return;
       }
-      return this.loadOBJ(uri, submesh, centerSubmesh, callback);
+      return await this.loadOBJ(uri, submesh, centerSubmesh);
     }
   };
+
+  // function loadMeshFromString(uri, submesh, centerSubmesh, callback, files){
+  //   const uriFile = uri.substring(uri.lastIndexOf('/') + 1);
+
+  //   if (this.meshes[uri]) {
+  //     let mesh = this.meshes[uri];
+  //     mesh = mesh.clone();
+  //     this.useSubMesh(mesh, submesh, centerSubmesh);
+  //     callback(mesh);
+  //     return;
+  //   }
+
+  //   // load mesh
+  //   if (uriFile.substring(uriFile.length - 4).toLowerCase() === '.dae') {
+  //     // loadCollada just accepts one file, which is the dae file as string
+  //     if (files.length < 1 || !files[0]) {
+  //       console.error('Missing DAE file');
+  //       return;
+  //     }
+  //     return this.loadCollada(uri, submesh, centerSubmesh, callback, files[0]);
+  //   } else if (uriFile.substring(uriFile.length - 4).toLowerCase() === '.obj') {
+  //     if (files.length < 2 || !files[0] || !files[1]) {
+  //       console.error('Missing either OBJ or MTL file');
+  //       return;
+  //     }
+  //     return this.loadOBJ(uri, submesh, centerSubmesh, callback);
+  //   }
+  // };
 
   /**
    * Load collada file
@@ -1291,7 +1318,7 @@ export class Scene {
    * @param {} centerSubmesh
    * @param {function} callback
    */
-  loadSTL = (uri, submesh, centerSubmesh, callback) => {
+  loadSTL = (uri, submesh, centerSubmesh) => {
     this.stlLoader.load(
       uri,
       (geometry) => {
@@ -1304,7 +1331,7 @@ export class Scene {
         this.useSubMesh(mesh, submesh, centerSubmesh);
 
         mesh.name = uri;
-        callback(mesh);
+        return new Promise(mesh);
       }
     );
   };
@@ -1315,15 +1342,14 @@ export class Scene {
    * @param {string} uri
    * @param {} submesh
    * @param {} centerSubmesh
-   * @param {function} callback
    */
-  loadOBJ = (uri, submesh, centerSubmesh, callback) => {
+  loadOBJ = (uri, submesh, centerSubmesh) => {
     this.objLoader.load(uri, (obj) => {
       this.meshes[uri] = obj;
       obj = obj.clone();
       this.useSubMesh(obj, submesh, centerSubmesh);
       obj.name = uri;
-      callback(obj);
+      return new Promise(obj);
     });
   };
 
