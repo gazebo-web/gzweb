@@ -67,6 +67,19 @@ export class Scene {
 
     this.simpleShapesMaterial = new MeshPhongMaterial({color:0xffffff, flatShading: SmoothShading});
 
+    // Listens on select_entity, follow_entity and move_to_entity events.
+    this.handleSignals();
+
+    this.init();
+  }
+
+  /**
+   * Listens on select_entity, follow_entity and move_to_entity events 
+   * and handle their signals.
+   * 
+   */
+  handleSignals = () => {
+
     // Events
     this.selectEntityEvent = 'select_entity';
     this.followEntityEvent = 'follow_entity';
@@ -162,8 +175,6 @@ export class Scene {
       this.camera.getWorldQuaternion(this.cameraSlerpStart);
       this.cameraSlerpEnd.setFromRotationMatrix(endRotMat);
     });
-
-    this.init();
   }
 
   /**
