@@ -52,32 +52,33 @@ import { BoxHelper } from 'three';
  * The scene is where everything is placed, from objects, to lights and cameras.
  */
 export class Scene {
-  constructor(shaders, defaultCameraPosition, defaultCameraLookAt, backgroundColor) {
+  constructor(shaders) {
     this.emitter = new EventEmitter2({verboseMemoryLeak: true});
     this.shaders = shaders;
 
-    // TODO(german-mas): This shouldn't be set in the constructor.
-    // Set the default value here and let users change it with a setter.
+    // Set the default camera position value.
     this.defaultCameraPosition = new Vector3(0, -5, 5);
-    if (defaultCameraPosition) {
-      this.defaultCameraPosition.copy(defaultCameraPosition);
-    }
 
-    // TODO(german-mas): This shouldn't be set in the constructor.
-    // Set the default value here and let users change it with a setter.
+    // Set the default camera look at value.
     this.defaultCameraLookAt = new Vector3(0, 0, 0);
-    if (defaultCameraLookAt) {
-      this.defaultCameraLookAt.copy(defaultCameraLookAt);
-    }
 
-    // TODO(german-mas): This shouldn't be set in the constructor.
-    // Set the default value here and let users change it with a setter.
+    // Setting the default value of background color.
     this.backgroundColor = new Color(0xb2b2b2);
-    if (backgroundColor) {
-      this.backgroundColor.copy(backgroundColor);
-    }
 
     this.simpleShapesMaterial = new MeshPhongMaterial({color:0xffffff, flatShading: SmoothShading});
+
+    // Listens on select_entity, follow_entity and move_to_entity events.
+    this.handleSignals();
+
+    this.init();
+  }
+
+  /**
+   * Listens on select_entity, follow_entity and move_to_entity events 
+   * and handle their signals.
+   * 
+   */
+  handleSignals = () => {
 
     // Events
     this.selectEntityEvent = 'select_entity';
@@ -145,8 +146,7 @@ export class Scene {
       const dist = startPos.distanceTo(targetCenter);
 
       // Get the bounding box size of the target object.
-      const bboxSize = new Vector3();
-      const bbox = new Box3().setFromObject(obj);
+      const bbox = getObjectBoundingBox(obj);
       bbox.getSize(bboxSize);
       const max = Math.max(bboxSize.x, bboxSize.y, bboxSize.z);
 
@@ -175,8 +175,6 @@ export class Scene {
       this.camera.getWorldQuaternion(this.cameraSlerpStart);
       this.cameraSlerpEnd.setFromRotationMatrix(endRotMat);
     });
-
-    this.init();
   }
 
   /**
@@ -346,6 +344,30 @@ export class Scene {
     this.renderer.render(this.scene, this.camera);
 
     this.renderer.clearDepth();
+  };
+
+  /**
+   * Set the background color.
+   * @param {Color} backgroundColor
+   */
+  setBackgroundColor = (backgroundColor) => {
+    this.backgroundColor.copy(backgroundColor);
+  };
+  
+  /**
+   * Set the camera position.
+   * @param {Vector3} cameraPosition
+   */
+  setCameraPosition = (cameraPosition) => {
+    this.camera.position.copy(cameraPosition);
+  };
+
+  /**
+   * Set the camera Look At.
+   * @param {Vector3} cameraLookAt
+   */
+  setCameraLookAt = (cameraLookAt) => {
+    this.camera.lookAt(cameraLookAt);
   };
 
   /**
@@ -522,21 +544,19 @@ export class Scene {
 
   /**
    * Sets the bounding box of an object while ignoring the addtional visuals.
-   * TODO(german-mas): Rename method for something more fitting, such as getObjectBoundingBox or
-   * getBoundingBox. No changes done in order to maintain compatibility.
-   * TODO(german-mas): This could return a Box3 instead of passing a new box as an argument.
    *
-   * @param {THREE.Box3} - box
    * @param {THREE.Object3D} - object
+   * @returns {THREE.Box3}
    */
-  setFromObject = (box, object) => {
-    box.min = new Vector3().addScalar(+Infinity);
-    box.max = new Vector3().addScalar(-Infinity);
+  getObjectBoundingBox = (object) => {
+    const boundingBox = new Box3();
+    boundingBox.min = new Vector3().addScalar(+Infinity);
+    boundingBox.max = new Vector3().addScalar(-Infinity);
     object.updateMatrixWorld( true );
 
     const expandByPoint = (point) => {
-      box.min.min( point );
-      box.max.max( point );
+      boundingBox.min.min( point );
+      boundingBox.max.max( point );
     };
 
     const v = new Vector3();
@@ -561,6 +581,7 @@ export class Scene {
         }
       }
     });
+    return boundingBox;
   };
 
   /**
