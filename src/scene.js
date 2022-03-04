@@ -74,8 +74,7 @@ export class Scene {
   }
 
   /**
-   * Listens on select_entity, follow_entity and move_to_entity events 
-   * and handle their signals.
+   * Listens on events and handle their signals.
    * 
    */
   handleSignals = () => {
@@ -146,6 +145,7 @@ export class Scene {
       const dist = startPos.distanceTo(targetCenter);
 
       // Get the bounding box size of the target object.
+      const bboxSize = new Vector3();
       const bbox = getObjectBoundingBox(obj);
       bbox.getSize(bboxSize);
       const max = Math.max(bboxSize.x, bboxSize.y, bboxSize.z);
