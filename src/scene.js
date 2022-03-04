@@ -1085,7 +1085,7 @@ export class Scene {
       this.useSubMesh(mesh, submesh, centerSubmesh);
       // callback(mesh);
       // return;
-      return new Promise(mesh);
+      return new Promise((resolve, reject) => {mesh});
     }
   
     // load mesh
