@@ -731,7 +731,7 @@ export class SdfParser {
    *                 - fuelName - Name of the resource in Fuel. Helps to match URLs to the correct path. Requires 'fuelOwner'.
    *                 - fuelOwner - Name of the resource's owner in Fuel. Helps to match URLs to the correct path. Requires 'fuelName'.
    */
-  createGeom = (geom, mat, parent, options) => {
+  createGeom = async (geom, mat, parent, options) => {
     let obj;
     let size, normal;
     let material = this.createMaterial(mat);
@@ -943,32 +943,60 @@ export class SdfParser {
 
         // Load the mesh.
         // Once the mesh is loaded, it will be stored on Gz3D.Scene.
-        this.scene.loadMeshFromUri(modelUri, submesh, centerSubmesh, (mesh) => {
-          // Check for the pending meshes.
-          for (let i = 0; i < this.pendingMeshes.length; i++) {
-            if (this.pendingMeshes[i].meshUri === mesh.name) {
-              // No submesh: Load the result.
-              if (!this.pendingMeshes[i].submesh) {
-                loadMesh(mesh, this.pendingMeshes[i].material, this.pendingMeshes[i].parent, ext);
-              } else {
-                // Check if the mesh belongs to a submesh.
-                mesh.traverse((child) => {
-                  if (child !== mesh && child instanceof Mesh) {
-                    if (child.name === this.pendingMeshes[i].submesh) {
-                      loadMesh(mesh, this.pendingMeshes[i].material, this.pendingMeshes[i].parent, ext);
-                    } else {
-                      // The mesh is already stored in Gz3D.Scene. The new submesh will be parsed.
-                      // Suppress linter warning.
-                      this.scene.loadMeshFromUri(mesh.name, this.pendingMeshes[i].submesh, this.pendingMeshes[i].centerSubmesh, (mesh) => {
-                        loadMesh(mesh, this.pendingMeshes[i].material, this.pendingMeshes[i].parent, ext);
-                      });
-                    }
+
+        // this.scene.loadMeshFromUri(modelUri, submesh, centerSubmesh, (mesh) => {
+        //   // Check for the pending meshes.
+        //   for (let i = 0; i < this.pendingMeshes.length; i++) {
+        //     if (this.pendingMeshes[i].meshUri === mesh.name) {
+        //       // No submesh: Load the result.
+        //       if (!this.pendingMeshes[i].submesh) {
+        //         loadMesh(mesh, this.pendingMeshes[i].material, this.pendingMeshes[i].parent, ext);
+        //       } else {
+        //         // Check if the mesh belongs to a submesh.
+        //         mesh.traverse((child) => {
+        //           if (child !== mesh && child instanceof Mesh) {
+        //             if (child.name === this.pendingMeshes[i].submesh) {
+        //               loadMesh(mesh, this.pendingMeshes[i].material, this.pendingMeshes[i].parent, ext);
+        //             } else {
+        //               // The mesh is already stored in Gz3D.Scene. The new submesh will be parsed.
+        //               // Suppress linter warning.
+        //               this.scene.loadMeshFromUri(mesh.name, this.pendingMeshes[i].submesh, this.pendingMeshes[i].centerSubmesh, (mesh) => {
+        //                 loadMesh(mesh, this.pendingMeshes[i].material, this.pendingMeshes[i].parent, ext);
+        //               });
+        //             }
+        //           }
+        //         });
+        //       }
+        //     }
+        //   }
+        // });
+
+        let mesh = await this.scene.loadMeshFromUriAsync(modelUri, submesh, centerSubmesh);
+        // Check for the pending meshes.
+        for (let i = 0; i < this.pendingMeshes.length; i++) {
+          if (this.pendingMeshes[i].meshUri === mesh.name) {
+            // No submesh: Load the result.
+            if (!this.pendingMeshes[i].submesh) {
+              loadMesh(mesh, this.pendingMeshes[i].material, this.pendingMeshes[i].parent, ext);
+            } else {
+              // Check if the mesh belongs to a submesh.
+              mesh.traverse((child) => {
+                if (child !== mesh && child instanceof Mesh) {
+                  if (child.name === this.pendingMeshes[i].submesh) {
+                    loadMesh(mesh, this.pendingMeshes[i].material, this.pendingMeshes[i].parent, ext);
+                  } else {
+                    // The mesh is already stored in Gz3D.Scene. The new submesh will be parsed.
+                    // Suppress linter warning.
+
+                    // This doesn't work yet
+                    // mesh = await this.scene.loadMeshFromUriAsync(mesh.name, this.pendingMeshes[i].submesh, this.pendingMeshes[i].centerSubmesh); 
+                    loadMesh(mesh, this.pendingMeshes[i].material, this.pendingMeshes[i].parent, ext);
                   }
-                });
-              }
+                }
+              });
             }
           }
-        });
+        }
       }
     }
 

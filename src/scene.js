@@ -1031,7 +1031,7 @@ export class Scene {
    * @param {} centerSubmesh
    * @param {function} callback
    */
-  loadMeshFromUri = async (uri, submesh, centerSubmesh, callback) => {
+  loadMeshFromUri = (uri, submesh, centerSubmesh, callback) => {
     const uriFile = uri.substring(uri.lastIndexOf('/') + 1);
 
     // Check if the mesh has already been loaded.
@@ -1047,15 +1047,54 @@ export class Scene {
     if (uriFile.substring(uriFile.length - 4).toLowerCase() === '.dae') {
       return this.loadCollada(uri, submesh, centerSubmesh, callback);
     } else if (uriFile.substring(uriFile.length - 4).toLowerCase() === '.obj') {
-      return await this.loadOBJ(uri, submesh, centerSubmesh);
+      return this.loadOBJ(uri, submesh, centerSubmesh, callback);
     }
     else if (uriFile.substring(uriFile.length - 4).toLowerCase() === '.stl') {
-      return await this.loadSTL(uri, submesh, centerSubmesh);
+      return this.loadSTL(uri, submesh, centerSubmesh, callback);
     } else if (uriFile.substring(uriFile.length - 5).toLowerCase() === '.urdf') {
       console.error('Attempting to load URDF file, but it\'s not supported.');
     }
   };
 
+    /**
+   * Load mesh
+   * @example loadMeshFromUriAsync('assets/house_1/meshes/house_1.dae',
+   *            undefined,
+   *            undefined,
+   *            function(mesh) {
+   *              // use the mesh
+   *            }
+   *          );
+   * @param {string} uri
+   * @param {} submesh
+   * @param {} centerSubmesh
+   * @param {function} callback
+   */
+    loadMeshFromUriAsync = async (uri, submesh, centerSubmesh, callback) => {
+      const uriFile = uri.substring(uri.lastIndexOf('/') + 1);
+  
+      // Check if the mesh has already been loaded.
+      // Use it in that case.
+      if (this.meshes[uri]) {
+        let mesh = this.meshes[uri];
+        mesh = mesh.clone();
+        this.useSubMesh(mesh, submesh, centerSubmesh);
+        return mesh;
+      }
+  
+      // load meshes
+      if (uriFile.substring(uriFile.length - 4).toLowerCase() === '.dae') {
+        return await this.loadColladaAsync(uri, submesh, centerSubmesh);
+      } else if (uriFile.substring(uriFile.length - 4).toLowerCase() === '.obj') {
+        return await this.loadOBJAsync(uri, submesh, centerSubmesh);
+      }
+      else if (uriFile.substring(uriFile.length - 4).toLowerCase() === '.stl') {
+        return await this.loadSTLAsync(uri, submesh, centerSubmesh);
+      } else if (uriFile.substring(uriFile.length - 5).toLowerCase() === '.urdf') {
+        console.error('Attempting to load URDF file, but it\'s not supported.');
+      }
+    };
+  
   /**
    * Load mesh
    * @example loadMeshFromString('assets/house_1/meshes/house_1.dae',
@@ -1077,17 +1116,17 @@ export class Scene {
    * @param {function} callback
    * @param {array} files - files needed by the loaders[dae] in case of a collada mesh, [obj, mtl] in case of object mesh, all as strings
    */
-  loadMeshFromString = async (uri, submesh, centerSubmesh, files) => {
+   loadMeshFromString = (uri, submesh, centerSubmesh, callback, files) => {
     const uriFile = uri.substring(uri.lastIndexOf('/') + 1);
+
     if (this.meshes[uri]) {
       let mesh = this.meshes[uri];
       mesh = mesh.clone();
       this.useSubMesh(mesh, submesh, centerSubmesh);
-      // callback(mesh);
-      // return;
-      return new Promise((resolve, reject) => {mesh});
+      callback(mesh);
+      return;
     }
-  
+
     // load mesh
     if (uriFile.substring(uriFile.length - 4).toLowerCase() === '.dae') {
       // loadCollada just accepts one file, which is the dae file as string
@@ -1101,7 +1140,7 @@ export class Scene {
         console.error('Missing either OBJ or MTL file');
         return;
       }
-      return await this.loadOBJ(uri, submesh, centerSubmesh);
+      return this.loadOBJ(uri, submesh, centerSubmesh, callback);
     }
   };
 
@@ -1166,6 +1205,35 @@ export class Scene {
           meshReady(collada);
         }
       );
+    } else {
+      this.colladaLoader.parse(
+        filestring,
+        function(collada) {
+          meshReady(collada);
+        },
+        undefined
+      );
+    }
+  };
+
+  loadColladaAsync = async (uri, submesh, centerSubmesh, filestring) => {
+    let dae;
+
+    const meshReady = (collada) => {
+      dae = collada.scene;
+      dae.updateMatrix();
+      this.prepareColladaMesh(dae);
+      this.meshes[uri] = dae;
+      dae = dae.clone();
+      this.useSubMesh(dae, submesh, centerSubmesh);
+
+      dae.name = uri;
+      return dae;
+    };
+
+    if (!filestring) {
+      const collada = await this.colladaLoader.loadAsync(uri);
+      meshReady(collada);
     } else {
       this.colladaLoader.parse(
         filestring,
@@ -1339,7 +1407,21 @@ export class Scene {
    * @param {} centerSubmesh
    * @param {function} callback
    */
-  loadSTL = (uri, submesh, centerSubmesh) => {
+  loadSTLAsync = async (uri, submesh, centerSubmesh) => {
+    const geometry = await this.stlLoader.loadAsync(uri)
+    let mesh = new Mesh( geometry );
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+
+    this.meshes[uri] = mesh;
+    mesh = mesh.clone();
+    this.useSubMesh(mesh, submesh, centerSubmesh);
+
+    mesh.name = uri;
+    return mesh;
+  };
+
+  loadSTL = (uri, submesh, centerSubmesh, callback) => {
     this.stlLoader.load(
       uri,
       (geometry) => {
@@ -1352,10 +1434,11 @@ export class Scene {
         this.useSubMesh(mesh, submesh, centerSubmesh);
 
         mesh.name = uri;
-        return new Promise(mesh);
+        callback(mesh);
       }
     );
   };
+
 
   /**
    * Load obj and mtl files.
@@ -1364,15 +1447,25 @@ export class Scene {
    * @param {} submesh
    * @param {} centerSubmesh
    */
-  loadOBJ = (uri, submesh, centerSubmesh) => {
+  loadOBJAsync = async (uri, submesh, centerSubmesh) => {
+    let obj = await this.objLoader.loadAsync(uri);
+    this.meshes[uri] = obj;
+    obj = obj.clone();
+    this.useSubMesh(obj, submesh, centerSubmesh);
+    obj.name = uri;
+    return obj;
+  };
+
+  loadOBJ = (uri, submesh, centerSubmesh, callback) => {
     this.objLoader.load(uri, (obj) => {
       this.meshes[uri] = obj;
       obj = obj.clone();
       this.useSubMesh(obj, submesh, centerSubmesh);
       obj.name = uri;
-      return new Promise(obj);
+      callback(obj);
     });
   };
+
 
   /**
    * Create light
