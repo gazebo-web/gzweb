@@ -1233,7 +1233,7 @@ export class Scene {
 
     if (!filestring) {
       const collada = await this.colladaLoader.loadAsync(uri);
-      meshReady(collada);
+      return meshReady(collada);
     } else {
       this.colladaLoader.parse(
         filestring,
