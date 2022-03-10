@@ -1060,15 +1060,12 @@ export class Scene {
    * Load mesh
    * @example loadMeshFromUriAsync('assets/house_1/meshes/house_1.dae',
    *            undefined,
-   *            undefined,
-   *            function(mesh) {
-   *              // use the mesh
-   *            }
-   *          );
+   *            undefined);
+   * 
    * @param {string} uri
    * @param {} submesh
    * @param {} centerSubmesh
-   * @param {function} callback
+   * @returns {Mesh}
    */
     loadMeshFromUriAsync = async (uri, submesh, centerSubmesh, callback) => {
       const uriFile = uri.substring(uri.lastIndexOf('/') + 1);
@@ -1144,34 +1141,6 @@ export class Scene {
     }
   };
 
-  // function loadMeshFromString(uri, submesh, centerSubmesh, callback, files){
-  //   const uriFile = uri.substring(uri.lastIndexOf('/') + 1);
-
-  //   if (this.meshes[uri]) {
-  //     let mesh = this.meshes[uri];
-  //     mesh = mesh.clone();
-  //     this.useSubMesh(mesh, submesh, centerSubmesh);
-  //     callback(mesh);
-  //     return;
-  //   }
-
-  //   // load mesh
-  //   if (uriFile.substring(uriFile.length - 4).toLowerCase() === '.dae') {
-  //     // loadCollada just accepts one file, which is the dae file as string
-  //     if (files.length < 1 || !files[0]) {
-  //       console.error('Missing DAE file');
-  //       return;
-  //     }
-  //     return this.loadCollada(uri, submesh, centerSubmesh, callback, files[0]);
-  //   } else if (uriFile.substring(uriFile.length - 4).toLowerCase() === '.obj') {
-  //     if (files.length < 2 || !files[0] || !files[1]) {
-  //       console.error('Missing either OBJ or MTL file');
-  //       return;
-  //     }
-  //     return this.loadOBJ(uri, submesh, centerSubmesh, callback);
-  //   }
-  // };
-
   /**
    * Load collada file
    * @param {string} uri - mesh uri which is used by colldaloader to load
@@ -1216,6 +1185,17 @@ export class Scene {
     }
   };
 
+  /**
+   * Load collada file
+   * @param {string} uri - mesh uri which is used by colldaloader to load
+   * the mesh file using an XMLHttpRequest.
+   * @param {} submesh
+   * @param {} centerSubmesh
+   * @param {string} filestring -optional- the mesh file as a string to be parsed
+   * if provided the uri will not be used just as a url, no XMLHttpRequest will
+   * be made.
+   * @returns {Mesh}
+   */
   loadColladaAsync = async (uri, submesh, centerSubmesh, filestring) => {
     let dae;
 
@@ -1405,7 +1385,7 @@ export class Scene {
    * @param {string} uri
    * @param {} submesh
    * @param {} centerSubmesh
-   * @param {function} callback
+   * @retruns {Mesh}
    */
   loadSTLAsync = async (uri, submesh, centerSubmesh) => {
     const geometry = await this.stlLoader.loadAsync(uri)
@@ -1421,6 +1401,14 @@ export class Scene {
     return mesh;
   };
 
+  /**
+   * Load stl file.
+   * Loads stl mesh given using it's uri
+   * @param {string} uri
+   * @param {} submesh
+   * @param {} centerSubmesh
+   * @param {function} callback
+   */
   loadSTL = (uri, submesh, centerSubmesh, callback) => {
     this.stlLoader.load(
       uri,
@@ -1446,6 +1434,7 @@ export class Scene {
    * @param {string} uri
    * @param {} submesh
    * @param {} centerSubmesh
+   * @returns {Mesh}
    */
   loadOBJAsync = async (uri, submesh, centerSubmesh) => {
     let obj = await this.objLoader.loadAsync(uri);
@@ -1456,6 +1445,14 @@ export class Scene {
     return obj;
   };
 
+  /**
+   * Load obj and mtl files.
+   * Loads obj mesh given using it's uri
+   * @param {string} uri
+   * @param {} submesh
+   * @param {} centerSubmesh
+   * @param {function} callback
+   */
   loadOBJ = (uri, submesh, centerSubmesh, callback) => {
     this.objLoader.load(uri, (obj) => {
       this.meshes[uri] = obj;
