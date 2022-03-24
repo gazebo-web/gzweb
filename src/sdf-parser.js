@@ -1758,6 +1758,84 @@ export class SdfParser {
 
   /**
    * Creates 3D object from parsed model SDF
+   * @param {object} message - ignition model message
+   * @param {object} options - Options to send to the creation process. It can include:
+   *                 - enableLights - True to have lights visible when the object is created.
+   *                                  False to create the lights, but set them to invisible (off).
+   *                 - fuelName - Name of the resource in Fuel. Helps to match URLs to the correct path. Requires 'fuelOwner'.
+   *                 - fuelOwner - Name of the resource's owner in Fuel. Helps to match URLs to the correct path. Requires 'fuelName'.
+   * @returns {THREE.Object3D} modelObject - 3D object which is created
+   * according to model message object.
+   */
+   spawnModelFromMessage = (message, options) => {
+    // create the model
+    console.log('debug');
+    var modelObj = new Object3D();
+    message.name = message['name'] || message['@name'];
+    message.uniqueName = this.createUniqueName(message);
+
+    if (options['scopedName'] !== undefined) {
+      modelObj.scopedName = options.scopedName;
+    } else {
+      modelObj.scopedName = modelObj.name;
+    }
+
+    options.scopedName = modelObj.scopedName;
+
+    let pose;
+    let linkObj;
+
+    if (message.pose) {
+      pose = this.parsePose(message.pose);
+      this.scene.setPose(modelObj, pose.position, pose.orientation);
+    }
+
+    //convert link object to link array
+    if (message.link) {
+      if (!(message.link instanceof Array)) {
+        message.link = [message.link];
+      }
+
+      for (let i = 0; i < message.link.length; ++i) {
+        linkObj = this.createLink(message.link[i], options);
+        if (linkObj) {
+          modelObj.add(linkObj);
+        }
+      }
+    }
+
+    //convert nested model objects to model array
+    if (message.model) {
+      if (!(message.model instanceof Array)) {
+        message.model = [message.model];
+      }
+      for (let i = 0; i < message.model.length; ++i) {
+        options.scopedName = this.createScopedName(message.model[i], modelObj.scopedName);
+        const tmpModelObj = {model:message.model[i]};
+        const nestedModelObj = this.spawnModelFromSDF(tmpModelObj, options);
+        if (nestedModelObj) {
+          modelObj.add(nestedModelObj);
+        }
+      }
+    }
+
+    // Parse included models.
+    if (message.include) {
+      // Convert to array.
+      if (!(message.include instanceof Array)) {
+        message.include = [message.include];
+      }
+
+      message.include.forEach((includedModel) => {
+        this.includeModel(includedModel, modelObj);
+      });
+    }
+
+    return modelObj;
+  };
+
+  /**
+   * Creates 3D object from parsed model SDF
    * @param {object} sdfObj - parsed SDF object
    * @param {object} options - Options to send to the creation process. It can include:
    *                 - enableLights - True to have lights visible when the object is created.
@@ -1769,6 +1847,7 @@ export class SdfParser {
    */
   spawnModelFromSDF = (sdfObj, options) => {
     // create the model
+    console.log('debug');
     var modelObj = new Object3D();
     modelObj.name = sdfObj.model['name'] || sdfObj.model['@name'];
     modelObj.uniqueName = this.createUniqueName(sdfObj.model);
