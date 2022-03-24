@@ -1694,7 +1694,7 @@ export class Scene {
     const mesh = new Mesh(geometry, material);
     const normal = new Vector3(normalX, normalY, normalZ);
     const cross = normal.crossVectors(normal, mesh.up);
-    mesh.rotation = normal.applyAxisAngle(cross, -(normal.angleTo(mesh.up)));
+    mesh.setRotationFromAxisAngle(cross, 0);
     mesh.name = 'plane';
     mesh.receiveShadow = true;
     return mesh;
