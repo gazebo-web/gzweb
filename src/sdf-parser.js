@@ -1771,8 +1771,8 @@ export class SdfParser {
     // create the model
     console.log('debug');
     var modelObj = new Object3D();
-    message.name = message['name'] || message['@name'];
-    message.uniqueName = this.createUniqueName(message);
+    modelObj.name = message['name'] || message['@name'];
+    modelObj.uniqueName = this.createUniqueName(message);
 
     if (options['scopedName'] !== undefined) {
       modelObj.scopedName = options.scopedName;
