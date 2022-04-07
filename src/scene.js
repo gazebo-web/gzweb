@@ -75,7 +75,7 @@ export class Scene {
 
   /**
    * Listens on events and handle their signals.
-   * 
+   *
    */
   handleSignals = () => {
 
@@ -146,7 +146,7 @@ export class Scene {
 
       // Get the bounding box size of the target object.
       const bboxSize = new Vector3();
-      const bbox = getObjectBoundingBox(obj);
+      const bbox = this.getObjectBoundingBox(obj);
       bbox.getSize(bboxSize);
       const max = Math.max(bboxSize.x, bboxSize.y, bboxSize.z);
 
@@ -175,7 +175,7 @@ export class Scene {
       this.camera.getWorldQuaternion(this.cameraSlerpStart);
       this.cameraSlerpEnd.setFromRotationMatrix(endRotMat);
     });
-  }
+  };
 
   /**
   * Initialize scene.
@@ -353,7 +353,7 @@ export class Scene {
   setBackgroundColor = (backgroundColor) => {
     this.backgroundColor.copy(backgroundColor);
   };
-  
+
   /**
    * Set the camera position.
    * @param {Vector3} cameraPosition
@@ -1040,8 +1040,7 @@ export class Scene {
       let mesh = this.meshes[uri];
       mesh = mesh.clone();
       this.useSubMesh(mesh, submesh, centerSubmesh);
-      callback(mesh);
-      return;
+      return new Promise(mesh);
     }
 
     // load meshes
@@ -1052,6 +1051,42 @@ export class Scene {
     }
     else if (uriFile.substring(uriFile.length - 4).toLowerCase() === '.stl') {
       return this.loadSTL(uri, submesh, centerSubmesh, callback);
+    } else if (uriFile.substring(uriFile.length - 5).toLowerCase() === '.urdf') {
+      console.error('Attempting to load URDF file, but it\'s not supported.');
+    }
+  };
+
+  /**
+   * Load mesh
+   * @example loadMeshFromUriAsync('assets/house_1/meshes/house_1.dae',
+   *            undefined,
+   *            undefined);
+   *
+   * @param {string} uri
+   * @param {} submesh
+   * @param {} centerSubmesh
+   * @returns {Mesh}
+   */
+  loadMeshFromUriAsync = async (uri, submesh, centerSubmesh) => {
+    const uriFile = uri.substring(uri.lastIndexOf('/') + 1);
+
+    // Check if the mesh has already been loaded.
+    // Use it in that case.
+    if (this.meshes[uri]) {
+      let mesh = this.meshes[uri];
+      mesh = mesh.clone();
+      this.useSubMesh(mesh, submesh, centerSubmesh);
+      return mesh;
+    }
+
+    // load meshes
+    if (uriFile.substring(uriFile.length - 4).toLowerCase() === '.dae') {
+      return await this.loadColladaAsync(uri, submesh, centerSubmesh);
+    } else if (uriFile.substring(uriFile.length - 4).toLowerCase() === '.obj') {
+      return await this.loadOBJAsync(uri, submesh, centerSubmesh);
+    }
+    else if (uriFile.substring(uriFile.length - 4).toLowerCase() === '.stl') {
+      return await this.loadSTLAsync(uri, submesh, centerSubmesh);
     } else if (uriFile.substring(uriFile.length - 5).toLowerCase() === '.urdf') {
       console.error('Attempting to load URDF file, but it\'s not supported.');
     }
@@ -1139,6 +1174,46 @@ export class Scene {
           meshReady(collada);
         }
       );
+    } else {
+      this.colladaLoader.parse(
+        filestring,
+        function(collada) {
+          meshReady(collada);
+        },
+        undefined
+      );
+    }
+  };
+
+  /**
+   * Load collada file
+   * @param {string} uri - mesh uri which is used by colldaloader to load
+   * the mesh file using an XMLHttpRequest.
+   * @param {} submesh
+   * @param {} centerSubmesh
+   * @param {string} filestring -optional- the mesh file as a string to be parsed
+   * if provided the uri will not be used just as a url, no XMLHttpRequest will
+   * be made.
+   * @returns {Mesh}
+   */
+  loadColladaAsync = async (uri, submesh, centerSubmesh, filestring) => {
+    let dae;
+
+    const meshReady = (collada) => {
+      dae = collada.scene;
+      dae.updateMatrix();
+      this.prepareColladaMesh(dae);
+      this.meshes[uri] = dae;
+      dae = dae.clone();
+      this.useSubMesh(dae, submesh, centerSubmesh);
+
+      dae.name = uri;
+      return dae;
+    };
+
+    if (!filestring) {
+      const collada = await this.colladaLoader.loadAsync(uri);
+      return meshReady(collada);
     } else {
       this.colladaLoader.parse(
         filestring,
@@ -1310,6 +1385,28 @@ export class Scene {
    * @param {string} uri
    * @param {} submesh
    * @param {} centerSubmesh
+   * @retruns {Mesh}
+   */
+  loadSTLAsync = async (uri, submesh, centerSubmesh) => {
+    const geometry = await this.stlLoader.loadAsync(uri);
+    let mesh = new Mesh( geometry );
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+
+    this.meshes[uri] = mesh;
+    mesh = mesh.clone();
+    this.useSubMesh(mesh, submesh, centerSubmesh);
+
+    mesh.name = uri;
+    return mesh;
+  };
+
+  /**
+   * Load stl file.
+   * Loads stl mesh given using it's uri
+   * @param {string} uri
+   * @param {} submesh
+   * @param {} centerSubmesh
    * @param {function} callback
    */
   loadSTL = (uri, submesh, centerSubmesh, callback) => {
@@ -1328,6 +1425,24 @@ export class Scene {
         callback(mesh);
       }
     );
+  };
+
+
+  /**
+   * Load obj and mtl files.
+   * Loads obj mesh given using it's uri
+   * @param {string} uri
+   * @param {} submesh
+   * @param {} centerSubmesh
+   * @returns {Mesh}
+   */
+  loadOBJAsync = async (uri, submesh, centerSubmesh) => {
+    let obj = await this.objLoader.loadAsync(uri);
+    this.meshes[uri] = obj;
+    obj = obj.clone();
+    this.useSubMesh(obj, submesh, centerSubmesh);
+    obj.name = uri;
+    return obj;
   };
 
   /**
