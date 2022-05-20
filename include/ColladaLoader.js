@@ -35,6 +35,8 @@ THREE.ColladaLoader = function ( manager ) {
 
 	// The Map used to cache textures.
 	this.texturesCache = new Map();
+
+  this.findResourceCb = undefined;
 };
 
 THREE.ColladaLoader.prototype = Object.assign( Object.create( THREE.Loader.prototype ), {
@@ -87,6 +89,7 @@ THREE.ColladaLoader.prototype = Object.assign( Object.create( THREE.Loader.proto
 	},
 
 	parse: function ( text, path ) {
+		var scope = this;
 
 		function getElementsByTagName( xml, name ) {
 
@@ -1587,7 +1590,44 @@ THREE.ColladaLoader.prototype = Object.assign( Object.create( THREE.Loader.proto
 							if (image.startsWith('https://')) {
 								loader.path = undefined;
 							}
-							texture = loader.load( image );
+              
+							texture = loader.load(image,
+                // onLoad
+                undefined,
+                // onProgress
+                undefined,
+                // onError
+                function(error) {
+                  // Create the filename to look up.
+                  var filename = [path.substring(0, path.lastIndexOf("/")),
+                    image].join("/");
+                
+                  // Store the texture pointer
+                  var scopeTexture = texture;
+
+                  // Get the image using the find resource callback.
+                  scope.findResourceCb(filename, function(image) {
+                    // Create the image element
+                    var imageElem = document.createElementNS(
+                      'http://www.w3.org/1999/xhtml', 'img');
+
+                    var isJPEG = filename.search( /\.jpe?g($|\?)/i ) > 0 || filename.search( /^data\:image\/jpeg/ ) === 0;
+
+                    var binary = '';
+                    var len = image.byteLength;
+                    for (var i = 0; i < len; i++) {
+                      binary += String.fromCharCode( image[ i ] );
+                    }
+                    // Set the image source using base64 encoding
+                    imageElem.src = isJPEG ? "data:image/jpg;base64,": "data:image/png;base64,";
+                    imageElem.src += window.btoa(binary);
+
+                    scopeTexture.format = isJPEG ? THREE.RGBFormat : THREE.RGBAFormat;
+                    scopeTexture.needsUpdate = true;
+                    scopeTexture.image = imageElem;
+                  });
+                });
+
 							// Restore the path.
 							loader.path = savedPath;
 						}
@@ -3946,7 +3986,6 @@ THREE.ColladaLoader.prototype = Object.assign( Object.create( THREE.Loader.proto
 		// metadata
 
 		var version = collada.getAttribute( 'version' );
-		console.log( 'THREE.ColladaLoader: File version', version );
 
 		var asset = parseAsset( getElementsByTagName( collada, 'asset' )[ 0 ] );
 
@@ -3981,7 +4020,8 @@ THREE.ColladaLoader.prototype = Object.assign( Object.create( THREE.Loader.proto
 					scope.manager.itemEnd( url );
 				};
 
-				image.onerror = onError;
+				//image.onerror = onError;
+				image.onerror = function(_error) { console.error('Error loading image')};
 
 				// Once the image is loaded, we need to revoke the ObjectURL.
 				fileLoader.load(
@@ -3990,7 +4030,10 @@ THREE.ColladaLoader.prototype = Object.assign( Object.create( THREE.Loader.proto
 						image.src = URL.createObjectURL(blob);
 					},
 					onProgress,
-					onError
+					//onError
+          function(_error) {
+            console.error('Error loading image file', _error);
+          }
 				);
 
 				scope.manager.itemStart( url );

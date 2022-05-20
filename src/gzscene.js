@@ -16,10 +16,11 @@
  *                        0xb2b2b2 will be used if undefined.
  * @constructor
  */
-GZ3D.Scene = function(shaders, defaultCameraPosition, defaultCameraLookAt, backgroundColor)
+GZ3D.Scene = function(shaders, defaultCameraPosition, defaultCameraLookAt, backgroundColor, _findResourceCb)
 {
   this.emitter = globalEmitter || new EventEmitter2({verboseMemoryLeak: true});
   this.shaders = shaders;
+  this.findResourceCb = _findResourceCb;
 
   this.defaultCameraPosition = new THREE.Vector3(0, -5, 5);
   if (defaultCameraPosition) {
@@ -175,6 +176,7 @@ GZ3D.Scene.prototype.init = function()
   this.textureLoader = new THREE.TextureLoader();
   this.textureLoader.crossOrigin = '';
   this.colladaLoader = new THREE.ColladaLoader();
+  this.colladaLoader.findResourceCb = this.findResourceCb;
   this.stlLoader = new THREE.STLLoader();
 
   // Progress and Load events.
@@ -516,6 +518,20 @@ GZ3D.Scene.prototype.init = function()
   mesh.name = 'COM_VISUAL';
   mesh.rotation.z = -Math.PI/2;
   this.COMvisual.add(mesh);
+};
+
+GZ3D.Scene.prototype.addSky = function()
+{
+  var cubeLoader = new THREE.CubeTextureLoader();
+  var cubeTexture = cubeLoader.load([
+    'assets/images/cubemaps/skybox-negx.jpg',
+    'assets/images/cubemaps/skybox-posx.jpg',
+    'assets/images/cubemaps/skybox-posy.jpg',
+    'assets/images/cubemaps/skybox-negy.jpg',
+    'assets/images/cubemaps/skybox-negz.jpg',
+    'assets/images/cubemaps/skybox-posz.jpg',
+  ]);
+  this.scene.background = cubeTexture;
 };
 
 GZ3D.Scene.prototype.initScene = function()
@@ -1533,7 +1549,15 @@ GZ3D.Scene.prototype.createRoads = function(points, width, texture)
   }*/
   if (texture)
   {
-    var tex = this.textureLoader.load(texture);
+    var tex = this.textureLoader.load(texture,
+            // onLoad
+            undefined,
+            // onProgress
+            undefined,
+            function(_error) {
+              console.error('Error loading texture', _error);
+            });
+
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
     material.map = tex;
   }
@@ -1560,7 +1584,7 @@ GZ3D.Scene.prototype.loadHeightmap = function(heights, width, height,
 {
   if (this.heightmap)
   {
-    console.log('Only one heightmap can be loaded at a time');
+    console.error('Only one heightmap can be loaded at a time');
     return;
   }
 
@@ -1621,7 +1645,16 @@ GZ3D.Scene.prototype.loadHeightmap = function(heights, width, height,
     var repeats = [];
     for (var t = 0; t < textures.length; ++t)
     {
-      textureLoaded[t] = this.textureLoader.load(textures[t].diffuse);
+      textureLoaded[t] = this.textureLoader.load(
+        textures[t].diffuse,
+            // onLoad
+            undefined,
+            // onProgress
+            undefined,
+            function(_error) {
+              console.error('Error loading diffuse texture', _error);
+            });
+
       textureLoaded[t].wrapS = THREE.RepeatWrapping;
       textureLoaded[t].wrapT = THREE.RepeatWrapping;
       repeats[t] = width/textures[t].size;
@@ -1686,7 +1719,7 @@ GZ3D.Scene.prototype.loadHeightmap = function(heights, width, height,
     }
     else
     {
-      console.log('Warning: heightmap shaders not provided.');
+      console.warn('Warning: heightmap shaders not provided.');
     }
 
     material = new THREE.ShaderMaterial(options);
@@ -1719,11 +1752,14 @@ GZ3D.Scene.prototype.loadHeightmap = function(heights, width, height,
  * @param {string} uri
  * @param {} submesh
  * @param {} centerSubmesh
- * @param {function} callback
+ * @param {function(resource)} findResourceCb - A function callback that can be used to help
+ * find a resource.
+ * @param {function} onLoad
+ * @param {function} onError
  */
 /* eslint-enable */
 GZ3D.Scene.prototype.loadMeshFromUri = function(uri, submesh, centerSubmesh,
-  callback)
+  _findResourceCb, onLoad, onError)
 {
   var uriPath = uri.substring(0, uri.lastIndexOf('/'));
   var uriFile = uri.substring(uri.lastIndexOf('/') + 1);
@@ -1734,25 +1770,26 @@ GZ3D.Scene.prototype.loadMeshFromUri = function(uri, submesh, centerSubmesh,
   {
     var mesh = this.meshes[uri];
     mesh = mesh.clone();
-    this.useSubMesh(mesh, submesh, centerSubmesh);
-    callback(mesh);
+    if (this.useSubMesh(mesh, submesh, centerSubmesh)) {
+      onLoad(mesh);
+    }
     return;
   }
 
   // load meshes
   if (uriFile.substr(-4).toLowerCase() === '.dae')
   {
-    return this.loadCollada(uri, submesh, centerSubmesh, callback);
+    return this.loadCollada(uri, submesh, centerSubmesh, onLoad);
   }
   else if (uriFile.substr(-4).toLowerCase() === '.obj')
   {
     var gzObjLoader = new GZ3D.OBJLoader(this, uri, submesh, centerSubmesh,
-        callback);
+                                         this.findResourceCb, onLoad);
     return gzObjLoader.loadOBJ();
   }
   else if (uriFile.substr(-4).toLowerCase() === '.stl')
   {
-    return this.loadSTL(uri, submesh, centerSubmesh, callback);
+    return this.loadSTL(uri, submesh, centerSubmesh, onLoad);
   }
   else if (uriFile.substr(-5).toLowerCase() === '.urdf')
   {
@@ -1812,13 +1849,15 @@ GZ3D.Scene.prototype.loadMeshFromUri = function(uri, submesh, centerSubmesh,
  * @param {string} uri
  * @param {} submesh
  * @param {} centerSubmesh
- * @param {function} callback
+ * @param {function(resource)} findResourceCb - A function callback that can be used to help
+ * @param {function} onLoad
+ * @param {function} onError
  * @param {array} files - files needed by the loaders[dae] in case of a collada
  * mesh, [obj, mtl] in case of object mesh, all as strings
  */
 /* eslint-enable */
 GZ3D.Scene.prototype.loadMeshFromString = function(uri, submesh, centerSubmesh,
-  callback, files)
+  _findResourceCb, onLoad, onError, files)
 {
   var uriPath = uri.substring(0, uri.lastIndexOf('/'));
   var uriFile = uri.substring(uri.lastIndexOf('/') + 1);
@@ -1827,8 +1866,9 @@ GZ3D.Scene.prototype.loadMeshFromString = function(uri, submesh, centerSubmesh,
   {
     var mesh = this.meshes[uri];
     mesh = mesh.clone();
-    this.useSubMesh(mesh, submesh, centerSubmesh);
-    callback(mesh);
+    if (this.useSubMesh(mesh, submesh, centerSubmesh)) {
+      onLoad(mesh);
+    }
     return;
   }
 
@@ -1841,7 +1881,7 @@ GZ3D.Scene.prototype.loadMeshFromString = function(uri, submesh, centerSubmesh,
       console.error('Missing DAE file');
       return;
     }
-    return this.loadCollada(uri, submesh, centerSubmesh, callback, files[0]);
+    return this.loadCollada(uri, submesh, centerSubmesh, onLoad, onError, files[0]);
   }
   else if (uriFile.substr(-4).toLowerCase() === '.obj')
   {
@@ -1851,7 +1891,7 @@ GZ3D.Scene.prototype.loadMeshFromString = function(uri, submesh, centerSubmesh,
       return;
     }
     var gzObjLoader = new GZ3D.OBJLoader(this, uri, submesh, centerSubmesh,
-        callback, files);
+        onLoad, files);
     return gzObjLoader.loadOBJ();
   }
 };
@@ -1862,13 +1902,15 @@ GZ3D.Scene.prototype.loadMeshFromString = function(uri, submesh, centerSubmesh,
  * the mesh file using an XMLHttpRequest.
  * @param {} submesh
  * @param {} centerSubmesh
- * @param {function} callback
+ * @param {function(resource)} findResourceCb - A function callback that can be used to help
+ * @param {function} onLoad - Callback when the mesh is loaded.
+ * @param {function} onError - Callback when an error occurs.
  * @param {string} filestring -optional- the mesh file as a string to be parsed
  * if provided the uri will not be used just as a url, no XMLHttpRequest will
  * be made.
  */
 GZ3D.Scene.prototype.loadCollada = function(uri, submesh, centerSubmesh,
-  callback, filestring)
+  onLoad, onError, filestring)
 {
   var dae;
   var mesh = null;
@@ -1881,26 +1923,10 @@ GZ3D.Scene.prototype.loadCollada = function(uri, submesh, centerSubmesh,
     dae = this.meshes[uri];
     dae = dae.clone();
     this.useColladaSubMesh(dae, submesh, centerSubmesh);
-    callback(dae);
+    onLoad(dae);
     return;
   }
   */
-
-  if (!filestring)
-  {
-    this.colladaLoader.load(uri, function(collada)
-    {
-      meshReady(collada);
-    });
-  }
-  else
-  {
-    this.colladaLoader.parse(filestring, function(collada)
-    {
-      meshReady(collada);
-    }, undefined);
-  }
-
   function meshReady(collada)
   {
     // check for a scale factor
@@ -1915,10 +1941,35 @@ GZ3D.Scene.prototype.loadCollada = function(uri, submesh, centerSubmesh,
     that.prepareColladaMesh(dae);
     that.meshes[uri] = dae;
     dae = dae.clone();
-    that.useSubMesh(dae, submesh, centerSubmesh);
+    if (that.useSubMesh(dae, submesh, centerSubmesh))
+    {
+      dae.name = uri;
+      onLoad(dae);
+    }
+  }
 
-    dae.name = uri;
-    callback(dae);
+  if (!filestring)
+  {
+    this.colladaLoader.load(uri,
+      // onLoad callback
+      function(collada) {
+        meshReady(collada);
+      },
+      // onProgress callback
+      function(progress) {
+      },
+      // onError callback
+      function(error) {
+        // Use the find resource callback to get the mesh
+        that.findResourceCb(uri, function(mesh) {
+          meshReady(that.colladaLoader.parse(
+            new TextDecoder().decode(mesh), uri));
+        });
+      });
+  }
+  else
+  {
+    meshReady(this.colladaLoader.parse(filestring, undefined));
   }
 };
 
@@ -2077,18 +2128,24 @@ GZ3D.Scene.prototype.useSubMesh = function(mesh, submesh, centerSubmesh)
     }
   }
 
+  var found = false;
   // Look for the submesh in the children of the mesh.
   for (var i = 0; i < mesh.children.length; i++) {
     result = lookForSubmesh(mesh.children[i], mesh);
     if (result) {
       mesh.children = [ result ];
+      found = true;
       break;
     }
   }
 
-  result = mesh.children;
+  if (found) {
+    result = mesh.children;
 
-  return result;
+    return result;
+  }
+
+  return null;
 };
 
 /**
@@ -2112,10 +2169,10 @@ GZ3D.Scene.prototype.loadSTL = function(uri, submesh, centerSubmesh,
 
     that.meshes[uri] = mesh;
     mesh = mesh.clone();
-    that.useSubMesh(mesh, submesh, centerSubmesh);
-
-    mesh.name = uri;
-    callback(mesh);
+    if (that.useSubMesh(mesh, submesh, centerSubmesh)) {
+      mesh.name = uri;
+      callback(mesh);
+    }
   });
 };
 
@@ -2126,6 +2183,34 @@ GZ3D.Scene.prototype.loadSTL = function(uri, submesh, centerSubmesh,
  */
 GZ3D.Scene.prototype.setMaterial = function(obj, material)
 {
+  var scope = this;
+
+  function fallbackLoader(map, texture) {
+    // Get the image using the find resource callback.
+    scope.findResourceCb(map, function(image) {
+      // Create the image element
+      var imageElem = document.createElementNS(
+        'http://www.w3.org/1999/xhtml', 'img');
+
+      var isJPEG = map.search( /\.jpe?g($|\?)/i ) > 0 || map.search( /^data\:image\/jpeg/ ) === 0;
+
+      var binary = ''; 
+      var len = image.byteLength;
+      for (var i = 0; i < len; i++) {
+        binary += String.fromCharCode(image[i]);
+      }
+
+      // Set the image source using base64 encoding
+      imageElem.src = isJPEG ? 'data:image/jpg;base64,' :
+        'data:image/png;base64,';
+      imageElem.src += window.btoa(binary);
+
+      texture.format = isJPEG ? THREE.RGBFormat : THREE.RGBAFormat;
+      texture.needsUpdate = true;
+      texture.image = imageElem;
+    });
+  }
+
   if (obj)
   {
     if (material)
@@ -2177,7 +2262,16 @@ GZ3D.Scene.prototype.setMaterial = function(obj, material)
         var maps = [];
 
         if (material.pbr.metal.albedo_map) {
-          var albedoMap = this.textureLoader.load(material.pbr.metal.albedo_map);
+          var albedoMap = this.textureLoader.load(
+            material.pbr.metal.albedo_map,
+            // onLoad
+            undefined,
+            // onProgress
+            undefined,
+            function(_error) {
+              var scopeTexture = albedoMap;
+              fallbackLoader(material.pbr.metal.albedo_map, scopeTexture);
+            });
           obj.material.map = albedoMap;
           maps.push(albedoMap);
 
@@ -2189,25 +2283,57 @@ GZ3D.Scene.prototype.setMaterial = function(obj, material)
         }
 
         if (material.pbr.metal.normal_map) {
-          var normalMap = this.textureLoader.load(material.pbr.metal.normal_map);
+          var normalMap = this.textureLoader.load(
+            material.pbr.metal.normal_map,
+            // onLoad
+            undefined,
+            // onProgress
+            undefined,
+            function(_error) {
+              fallbackLoader(material.pbr.metal.normal_map, normalMap);
+            });
           obj.material.normalMap = normalMap;
           maps.push(normalMap);
         }
 
         if (material.pbr.metal.emissive_map) {
-          var emissiveMap = this.textureLoader.load(material.pbr.metal.emissive_map);
+          var emissiveMap = this.textureLoader.load(
+            material.pbr.metal.emissive_map,
+            // onLoad
+            undefined,
+            // onProgress
+            undefined,
+            function(_error) {
+              fallbackLoader(material.pbr.metal.emissive_map, emissiveMap);
+            });
           obj.material.emissiveMap = emissiveMap;
           maps.push(emissiveMap);
         }
 
         if (material.pbr.metal.roughness_map) {
-          var roughnessMap = this.textureLoader.load(material.pbr.metal.roughness_map);
+          var roughnessMap = this.textureLoader.load(
+            material.pbr.metal.roughness_map,
+            // onLoad
+            undefined,
+            // onProgress
+            undefined,
+            function(_error) {
+              fallbackLoader(material.pbr.metal.roughness_map, roughnessMap);
+            });
           obj.material.roughnessMap = roughnessMap;
           maps.push(roughnessMap);
         }
 
         if (material.pbr.metal.metalness_map) {
-          var metalnessMap = this.textureLoader.load(material.pbr.metal.metalness_map);
+          var metalnessMap = this.textureLoader.load(
+            material.pbr.metal.metalness_map,
+            // onLoad
+            undefined,
+            // onProgress
+            undefined,
+            function(_error) {
+              fallbackLoader(material.pbr.metal.metalness_map, metalnessMap);
+            });
           obj.material.metalnessMap = metalnessMap;
           maps.push(metalnessMap);
         }
@@ -2232,7 +2358,16 @@ GZ3D.Scene.prototype.setMaterial = function(obj, material)
 
         if (material.texture)
         {
-          var texture = this.textureLoader.load(material.texture);
+          var texture = this.textureLoader.load(
+            material.texture,
+            // onLoad
+            undefined,
+            // onProgress
+            undefined,
+            function(_error) {
+              fallbackLoader(material.texture, texture);
+            });
+
           texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
           texture.repeat.x = 1.0;
           texture.repeat.y = 1.0;
@@ -2253,7 +2388,14 @@ GZ3D.Scene.prototype.setMaterial = function(obj, material)
         if (material.normalMap)
         {
           obj.material.normalMap =
-              this.textureLoader.load(material.normalMap);
+            this.textureLoader.load(material.normalMap,
+              // onLoad
+              undefined,
+              // onProgress
+              undefined,
+              function(_error) {
+                fallbackLoader(material.normalMap, obj.material.normalMap);
+              });
         }
       }
 
@@ -2992,7 +3134,7 @@ GZ3D.Scene.prototype.viewJoints = function(model)
         // main axis expressed w.r.t. parent model or joint frame
         if (!model.joint[j].axis1)
         {
-          console.log('no joint axis ' +  model.joint[j].type + 'vs '
+          console.error('no joint axis ' +  model.joint[j].type + 'vs '
             + this.jointTypes.FIXED);
         }
         if (model.joint[j].axis1.use_parent_model_frame === undefined)
@@ -3322,7 +3464,7 @@ GZ3D.Scene.prototype.viewInertia = function(model)
         }
         else
         {
-          console.log('Link pose not found!');
+          console.warn('Link pose not found!');
           continue;
         }
 
@@ -3337,7 +3479,7 @@ GZ3D.Scene.prototype.viewInertia = function(model)
           Ixx + Iyy < Izz || Iyy + Izz < Ixx || Izz + Ixx < Iyy)
         {
           // Unrealistic inertia, load with default scale
-          console.log('The link ' + child.name + ' has unrealistic inertia, '
+          console.warn('The link ' + child.name + ' has unrealistic inertia, '
                 +'unable to visualize box of equivalent inertia.');
         }
         else
@@ -3527,7 +3669,7 @@ GZ3D.Scene.prototype.createFromSdf = function(sdf)
 {
   if (sdf === undefined)
   {
-    console.log(' No argument provided ');
+    console.error(' No argument provided ');
     return;
   }
 

@@ -116,7 +116,7 @@ GZ3D.SdfParser.prototype.addUrl = function(url)
   var trimmedUrl = url && url.trim();
   if (trimmedUrl === undefined || trimmedUrl.indexOf('http') !== 0)
   {
-    console.log('Trying to add invalid URL: ' + url);
+    console.warn('Trying to add invalid URL: ' + url);
     return;
   }
 
@@ -637,6 +637,19 @@ GZ3D.SdfParser.prototype.createMaterial = function(material)
     }
   }
 
+  // Material properties received via a protobuf message are formatted
+  // differently from SDF. This will map protobuf format onto sdf.
+  if (material.pbr && !material.pbr.metal) {
+    material.pbr.metal = {
+      albedo_map : material.pbr.albedo_map,
+      metalness : material.pbr.metalness,
+      metalness_map : material.pbr.metalness_map,
+      normal_map : material.pbr.normal_map,
+      roughness : material.pbr.roughness,
+      roughness_map : material.pbr.roughness_map
+    };
+  }
+
   // Set the correct URLs of the PBR-related textures, if available.
   if (material.pbr && material.pbr.metal && this.enablePBR) {
     // Iterator for the subsequent for loops. Used to avoid a linter warning.
@@ -830,8 +843,9 @@ GZ3D.SdfParser.prototype.parseSize = function(sizeInput)
  *                                  False to create the lights, but set them to invisible (off).
  *                 - fuelName - Name of the resource in Fuel. Helps to match URLs to the correct path. Requires 'fuelOwner'.
  *                 - fuelOwner - Name of the resource's owner in Fuel. Helps to match URLs to the correct path. Requires 'fuelName'.
+ * @param {function(resource)} findResourceCb - A function callback that can be used to help
  */
-GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent, options)
+GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent, options, findResourceCb)
 {
   var that = this;
   var obj;
@@ -951,7 +965,13 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent, options)
 
             parent.add(obj);
             loadGeom(parent);
-          }, [meshFile, mtlFile]);
+          }, 
+
+          // onError callback
+          function(error) {
+            console.error(error);
+          },
+          [meshFile, mtlFile]);
       }
       else if (ext === '.dae')
       {
@@ -979,7 +999,12 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent, options)
             }
             parent.add(dae);
             loadGeom(parent);
-          }, [meshFile]);
+          }, 
+          // onError callback
+          function(error) {
+            console.error(error);
+          },
+          [meshFile]);
       }
     }
     else
@@ -1051,6 +1076,8 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent, options)
       // Load the mesh.
       // Once the mesh is loaded, it will be stored on Gz3D.Scene.
       this.scene.loadMeshFromUri(modelUri, submesh, centerSubmesh,
+        findResourceCb,
+        // onLoad
         function (mesh)
         {
           // Check for the pending meshes.
@@ -1072,9 +1099,17 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent, options)
                       // The mesh is already stored in Gz3D.Scene. The new submesh will be parsed.
                       // Suppress linter warning.
                       /* jshint ignore:start */
-                      that.scene.loadMeshFromUri(mesh.name, that.pendingMeshes[i].submesh, that.pendingMeshes[i].centerSubmesh, function(mesh) {
-                        loadMesh(mesh, that.pendingMeshes[i].material, that.pendingMeshes[i].parent);
-                      });
+                      that.scene.loadMeshFromUri(mesh.name, that.pendingMeshes[i].submesh, that.pendingMeshes[i].centerSubmesh, 
+                        function(mesh) {
+                          console.error("No find resource function");
+                        },
+                        function(mesh) {
+                          loadMesh(mesh, that.pendingMeshes[i].material,
+                            that.pendingMeshes[i].parent);
+                        },
+                        function(error) {
+                          console.error('Mesh loading error', error);
+                        });
                       /* jshint ignore:end */
                     }
                   }
@@ -1082,6 +1117,10 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent, options)
               }
             }
           }
+        },
+        // onError
+        function(error) {
+          console.error('Mesh loading error', modelUri);
         });
     }
   }
@@ -1228,10 +1267,11 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent, options)
  *                 - fuelName - Name of the resource in Fuel. Helps to match URLs to the correct path. Requires 'fuelOwner'.
  *                 - fuelOwner - Name of the resource's owner in Fuel. Helps to match URLs to the correct path. Requires 'fuelName'.
  *                 - scopedName - Scoped name of the element's parent. Used to create the element's scoped name.
+ * @param {function(resource)} findResourceCb - A function callback that can be used to help
  * @returns {THREE.Object3D} visualObj - 3D object which is created
  * according to SDF visual element.
  */
-GZ3D.SdfParser.prototype.createVisual = function(visual, options)
+GZ3D.SdfParser.prototype.createVisual = function(visual, options, findResourceCb)
 {
   //TODO: handle these node values
   // cast_shadow, receive_shadows
@@ -1253,7 +1293,8 @@ GZ3D.SdfParser.prototype.createVisual = function(visual, options)
         .setPose(visualObj, visualPose.position, visualPose.orientation);
     }
 
-    this.createGeom(visual.geometry, visual.material, visualObj, options);
+    this.createGeom(visual.geometry, visual.material, visualObj, options,
+      findResourceCb);
 
     return visualObj;
   }
@@ -1301,14 +1342,15 @@ GZ3D.SdfParser.prototype.createSensor = function(sensor, options)
  *                                  False to create the lights, but set them to invisible (off).
  *                 - fuelName - Name of the resource in Fuel. Helps to match URLs to the correct path. Requires 'fuelOwner'.
  *                 - fuelOwner - Name of the resource's owner in Fuel. Helps to match URLs to the correct path. Requires 'fuelName'.
+ * @param {function(resource)} findResourceCb - A function callback that can be used to help
  * @returns {THREE.Object3D} object - 3D object which is created from the
  * given object.
  */
-GZ3D.SdfParser.prototype.spawnFromObj = function(obj, options)
+GZ3D.SdfParser.prototype.spawnFromObj = function(obj, options, findResourceCb)
 {
   if (obj.model)
   {
-    return this.spawnModelFromSDF(obj, options);
+    return this.spawnModelFromSDF(obj, options, findResourceCb);
   }
   else if (obj.light)
   {
@@ -1402,14 +1444,14 @@ GZ3D.SdfParser.prototype.loadSDF = function(sdfName, callback)
 
   if (!filename)
   {
-    console.log('Error: unable to load ' + sdfName + ' - file not found');
+    console.error('Error: unable to load ' + sdfName + ' - file not found');
     return;
   }
 
   var that = this;
   this.fileFromUrl(filename, function(sdf) {
     if (!sdf) {
-      console.log('Error: Failed to get the SDF file (' + filename + '). The XML is likely invalid.');
+      console.error('Error: Failed to get the SDF file (' + filename + '). The XML is likely invalid.');
       return;
     }
     callback(that.spawnFromSDF(sdf));
@@ -1424,10 +1466,12 @@ GZ3D.SdfParser.prototype.loadSDF = function(sdfName, callback)
  *                                  False to create the lights, but set them to invisible (off).
  *                 - fuelName - Name of the resource in Fuel. Helps to match URLs to the correct path. Requires 'fuelOwner'.
  *                 - fuelOwner - Name of the resource's owner in Fuel. Helps to match URLs to the correct path. Requires 'fuelName'.
+ * @param {function(resource)} findResourceCb - A function callback that can be used to help
  * @returns {THREE.Object3D} modelObject - 3D object which is created
  * according to SDF model object.
  */
-GZ3D.SdfParser.prototype.spawnModelFromSDF = function(sdfObj, options)
+GZ3D.SdfParser.prototype.spawnModelFromSDF = function(sdfObj, options,
+  findResourceCb)
 {
   // create the model
   var modelObj = new THREE.Object3D();
@@ -1462,7 +1506,7 @@ GZ3D.SdfParser.prototype.spawnModelFromSDF = function(sdfObj, options)
 
       for (i = 0; i < sdfObj.model.link.length; ++i)
       {
-        linkObj = this.createLink(sdfObj.model.link[i], options);
+        linkObj = this.createLink(sdfObj.model.link[i], options, findResourceCb);
         if (linkObj)
         {
           modelObj.add(linkObj);
@@ -1481,7 +1525,8 @@ GZ3D.SdfParser.prototype.spawnModelFromSDF = function(sdfObj, options)
     {
       options.scopedName = this.createScopedName(sdfObj.model.model[i], modelObj.scopedName);
       var tmpModelObj = {model:sdfObj.model.model[i]};
-      var nestedModelObj = this.spawnModelFromSDF(tmpModelObj, options);
+      var nestedModelObj = this.spawnModelFromSDF(tmpModelObj, options,
+        findResourceCb);
       if (nestedModelObj)
       {
         modelObj.add(nestedModelObj);
@@ -1629,7 +1674,7 @@ GZ3D.SdfParser.prototype.includeModel = function(includedModel, parent) {
       // Read and parse the SDF.
       this.fileFromUrl(sdfUrl, (sdf) => {
         if (!sdf) {
-          console.log('Error: Failed to get the SDF file (' + filename + '). The XML is likely invalid.');
+          console.error('Error: Failed to get the SDF file (' + filename + '). The XML is likely invalid.');
           return;
         }
         const sdfObj = this.parseSDF(sdf);
@@ -1728,9 +1773,10 @@ GZ3D.SdfParser.prototype.includeModel = function(includedModel, parent) {
  *                 - fuelName - Name of the resource in Fuel. Helps to match URLs to the correct path. Requires 'fuelOwner'.
  *                 - fuelOwner - Name of the resource's owner in Fuel. Helps to match URLs to the correct path. Requires 'fuelName'.
  *                 - scopedName - Scoped name of the element's parent. Used to create the element's scoped name.
+ * @param {function(resource)} findResourceCb - A function callback that can be used to help
  * @returns {THREE.Object3D} linkObject - 3D link object
  */
-GZ3D.SdfParser.prototype.createLink = function(link, options)
+GZ3D.SdfParser.prototype.createLink = function(link, options, findResourceCb)
 {
   var linkPose, visualObj, sensorObj;
   var linkObj = new THREE.Object3D();
@@ -1783,7 +1829,7 @@ GZ3D.SdfParser.prototype.createLink = function(link, options)
 
     for (var i = 0; i < link.visual.length; ++i)
     {
-      visualObj = this.createVisual(link.visual[i], options);
+      visualObj = this.createVisual(link.visual[i], options, findResourceCb);
       if (visualObj && !visualObj.parent)
       {
         linkObj.add(visualObj);
@@ -1800,7 +1846,7 @@ GZ3D.SdfParser.prototype.createLink = function(link, options)
 
     for (var j = 0; j < link.collision.length; ++j)
     {
-      visualObj = this.createVisual(link.collision[j], options);
+      visualObj = this.createVisual(link.collision[j], options, findResourceCb);
       if (visualObj && !visualObj.parent)
       {
         visualObj.castShadow = false;
@@ -2385,7 +2431,7 @@ GZ3D.SdfParser.prototype.fileFromUrl = function(url, callback)
   xhttp.onload = function() {
     if (xhttp.readyState === 4) {
       if (xhttp.status !== 200) {
-        console.log('Failed to get URL [' + url + ']');
+        console.error('Failed to get URL [' + url + ']');
         return;
       }
       callback(xhttp.responseXML);
@@ -2402,7 +2448,7 @@ GZ3D.SdfParser.prototype.fileFromUrl = function(url, callback)
   }
   catch(err)
   {
-    console.log('Failed to get URL [' + url + ']: ' + err.message);
+    console.error('Failed to get URL [' + url + ']: ' + err.message);
     return;
   }
 };

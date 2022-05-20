@@ -11,7 +11,9 @@
     "test": "eslint src/*.js test/*.js && karma start --singleRun",
     "build": "grunt build"
   },
-  "dependencies": {},
+  "dependencies": {
+    "path-browserify": "^1.0.1"
+  },
   "devDependencies": {
     "codecov": "^3.6.5",
     "eslint": "^6.8.0",
