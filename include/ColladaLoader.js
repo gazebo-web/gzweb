@@ -3986,6 +3986,7 @@ THREE.ColladaLoader.prototype = Object.assign( Object.create( THREE.Loader.proto
 		// metadata
 
 		var version = collada.getAttribute( 'version' );
+		console.log( 'THREE.ColladaLoader: File version', version );
 
 		var asset = parseAsset( getElementsByTagName( collada, 'asset' )[ 0 ] );
 
@@ -4020,8 +4021,7 @@ THREE.ColladaLoader.prototype = Object.assign( Object.create( THREE.Loader.proto
 					scope.manager.itemEnd( url );
 				};
 
-				//image.onerror = onError;
-				image.onerror = function(_error) { console.error('Error loading image')};
+				image.onerror = onError;
 
 				// Once the image is loaded, we need to revoke the ObjectURL.
 				fileLoader.load(
@@ -4030,10 +4030,7 @@ THREE.ColladaLoader.prototype = Object.assign( Object.create( THREE.Loader.proto
 						image.src = URL.createObjectURL(blob);
 					},
 					onProgress,
-					//onError
-          function(_error) {
-            console.error('Error loading image file', _error);
-          }
+					onError
 				);
 
 				scope.manager.itemStart( url );
