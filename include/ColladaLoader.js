@@ -1604,34 +1604,36 @@ THREE.ColladaLoader.prototype = Object.assign( Object.create( THREE.Loader.proto
                 undefined,
                 // onError
                 function(error) {
-                  // Create the filename to look up.
-                  var filename = [path.substring(0, path.lastIndexOf("/")),
-                    image].join("/");
+                  if (scope.findResourceCb) {
+                    // Create the filename to look up.
+                    var filename = [path.substring(0, path.lastIndexOf("/")),
+                      image].join("/");
                 
-                  // Store the texture pointer
-                  var scopeTexture = texture;
+                    // Store the texture pointer
+                    var scopeTexture = texture;
 
-                  // Get the image using the find resource callback.
-                  scope.findResourceCb(filename, function(image) {
-                    // Create the image element
-                    var imageElem = document.createElementNS(
-                      'http://www.w3.org/1999/xhtml', 'img');
+                    // Get the image using the find resource callback.
+                    scope.findResourceCb(filename, function(image) {
+                      // Create the image element
+                      var imageElem = document.createElementNS(
+                        'http://www.w3.org/1999/xhtml', 'img');
 
-                    var isJPEG = filename.search( /\.jpe?g($|\?)/i ) > 0 || filename.search( /^data\:image\/jpeg/ ) === 0;
+                      var isJPEG = filename.search( /\.jpe?g($|\?)/i ) > 0 || filename.search( /^data\:image\/jpeg/ ) === 0;
 
-                    var binary = '';
-                    var len = image.byteLength;
-                    for (var i = 0; i < len; i++) {
-                      binary += String.fromCharCode( image[ i ] );
-                    }
-                    // Set the image source using base64 encoding
-                    imageElem.src = isJPEG ? "data:image/jpg;base64,": "data:image/png;base64,";
-                    imageElem.src += window.btoa(binary);
+                      var binary = '';
+                      var len = image.byteLength;
+                      for (var i = 0; i < len; i++) {
+                        binary += String.fromCharCode( image[ i ] );
+                      }
+                      // Set the image source using base64 encoding
+                      imageElem.src = isJPEG ? "data:image/jpg;base64,": "data:image/png;base64,";
+                      imageElem.src += window.btoa(binary);
 
-                    scopeTexture.format = isJPEG ? THREE.RGBFormat : THREE.RGBAFormat;
-                    scopeTexture.needsUpdate = true;
-                    scopeTexture.image = imageElem;
-                  });
+                      scopeTexture.format = isJPEG ? THREE.RGBFormat : THREE.RGBAFormat;
+                      scopeTexture.needsUpdate = true;
+                      scopeTexture.image = imageElem;
+                    });
+                  }
                 });
 
 							// Restore the path.

@@ -1771,7 +1771,9 @@ GZ3D.Scene.prototype.loadMeshFromUri = function(uri, submesh, centerSubmesh,
   {
     var mesh = this.meshes[uri];
     mesh = mesh.clone();
-    if (this.useSubMesh(mesh, submesh, centerSubmesh)) {
+    if (submesh && this.useSubMesh(mesh, submesh, centerSubmesh)) {
+      onLoad(mesh);
+    } else if (!submesh) {
       onLoad(mesh);
     }
     return;
@@ -1866,7 +1868,9 @@ GZ3D.Scene.prototype.loadMeshFromString = function(uri, submesh, centerSubmesh,
   {
     var mesh = this.meshes[uri];
     mesh = mesh.clone();
-    if (this.useSubMesh(mesh, submesh, centerSubmesh)) {
+    if (submesh && this.useSubMesh(mesh, submesh, centerSubmesh)) {
+      onLoad(mesh);
+    } else if (!submesh) {
       onLoad(mesh);
     }
     return;
@@ -1940,9 +1944,10 @@ GZ3D.Scene.prototype.loadCollada = function(uri, submesh, centerSubmesh,
     that.prepareColladaMesh(dae);
     that.meshes[uri] = dae;
     dae = dae.clone();
-    if (that.useSubMesh(dae, submesh, centerSubmesh))
-    {
-      dae.name = uri;
+    dae.name = uri;
+    if (submesh && that.useSubMesh(dae, submesh, centerSubmesh)) {
+      onLoad(dae);
+    } else if (!submesh) {
       onLoad(dae);
     }
   }
@@ -1961,6 +1966,7 @@ GZ3D.Scene.prototype.loadCollada = function(uri, submesh, centerSubmesh,
       function(error) {
         // Use the find resource callback to get the mesh
         that.findResourceCb(uri, function(mesh) {
+          console.log('Got mesh for uri', uri);
           meshReady(that.colladaLoader.parse(
             new TextDecoder().decode(mesh), uri));
         });
@@ -2153,10 +2159,10 @@ GZ3D.Scene.prototype.useSubMesh = function(mesh, submesh, centerSubmesh)
  * @param {string} uri
  * @param {} submesh
  * @param {} centerSubmesh
- * @param {function} callback
+ * @param {function} onLoad
  */
 GZ3D.Scene.prototype.loadSTL = function(uri, submesh, centerSubmesh,
-  callback)
+  onLoad)
 {
   var mesh = null;
   var that = this;
@@ -2168,9 +2174,11 @@ GZ3D.Scene.prototype.loadSTL = function(uri, submesh, centerSubmesh,
 
     that.meshes[uri] = mesh;
     mesh = mesh.clone();
-    if (that.useSubMesh(mesh, submesh, centerSubmesh)) {
-      mesh.name = uri;
-      callback(mesh);
+    mesh.name = uri;
+    if (submesh && that.useSubMesh(mesh, submesh, centerSubmesh)) {
+      onLoad(mesh);
+    } else if (!submesh) {
+      onLoad(mesh);
     }
   });
 };

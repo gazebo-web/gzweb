@@ -1098,13 +1098,12 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent, options)
                       // Suppress linter warning.
                       /* jshint ignore:start */
                       that.scene.loadMeshFromUri(mesh.name, that.pendingMeshes[i].submesh, that.pendingMeshes[i].centerSubmesh, 
-                        function(mesh) {
-                          console.error("No find resource function");
-                        },
+                        // on load
                         function(mesh) {
                           loadMesh(mesh, that.pendingMeshes[i].material,
                             that.pendingMeshes[i].parent);
                         },
+                        // on error
                         function(error) {
                           console.error('Mesh loading error', error);
                         });
