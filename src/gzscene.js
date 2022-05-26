@@ -526,13 +526,14 @@ GZ3D.Scene.prototype.addSky = function()
 {
   var cubeLoader = new THREE.CubeTextureLoader();
   var cubeTexture = cubeLoader.load([
-    'assets/images/cubemaps/skybox-negx.jpg',
-    'assets/images/cubemaps/skybox-posx.jpg',
-    'assets/images/cubemaps/skybox-posy.jpg',
-    'assets/images/cubemaps/skybox-negy.jpg',
-    'assets/images/cubemaps/skybox-negz.jpg',
-    'assets/images/cubemaps/skybox-posz.jpg',
+    'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-negx.jpg',
+    'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-posx.jpg',
+    'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-posy.jpg',
+    'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-negy.jpg',
+    'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-negz.jpg',
+    'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-posz.jpg',
   ]);
+
   this.scene.background = cubeTexture;
 };
 
