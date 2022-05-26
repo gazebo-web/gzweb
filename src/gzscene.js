@@ -14,6 +14,8 @@
  *                            be used if this is undefined.
  * @param backgroundColor THREE.Color The background color. A value of
  *                        0xb2b2b2 will be used if undefined.
+ *
+ * @param {function(resource)} findResourceCb - A function callback that can be used to help
  * @constructor
  */
 GZ3D.Scene = function(shaders, defaultCameraPosition, defaultCameraLookAt, backgroundColor, _findResourceCb)
@@ -1752,14 +1754,13 @@ GZ3D.Scene.prototype.loadHeightmap = function(heights, width, height,
  * @param {string} uri
  * @param {} submesh
  * @param {} centerSubmesh
- * @param {function(resource)} findResourceCb - A function callback that can be used to help
  * find a resource.
  * @param {function} onLoad
  * @param {function} onError
  */
 /* eslint-enable */
 GZ3D.Scene.prototype.loadMeshFromUri = function(uri, submesh, centerSubmesh,
-  _findResourceCb, onLoad, onError)
+  onLoad, onError)
 {
   var uriPath = uri.substring(0, uri.lastIndexOf('/'));
   var uriFile = uri.substring(uri.lastIndexOf('/') + 1);
@@ -1784,7 +1785,7 @@ GZ3D.Scene.prototype.loadMeshFromUri = function(uri, submesh, centerSubmesh,
   else if (uriFile.substr(-4).toLowerCase() === '.obj')
   {
     var gzObjLoader = new GZ3D.OBJLoader(this, uri, submesh, centerSubmesh,
-                                         this.findResourceCb, onLoad);
+                                         onLoad, this.findResourceCb);
     return gzObjLoader.loadOBJ();
   }
   else if (uriFile.substr(-4).toLowerCase() === '.stl')
@@ -1849,7 +1850,6 @@ GZ3D.Scene.prototype.loadMeshFromUri = function(uri, submesh, centerSubmesh,
  * @param {string} uri
  * @param {} submesh
  * @param {} centerSubmesh
- * @param {function(resource)} findResourceCb - A function callback that can be used to help
  * @param {function} onLoad
  * @param {function} onError
  * @param {array} files - files needed by the loaders[dae] in case of a collada
@@ -1857,7 +1857,7 @@ GZ3D.Scene.prototype.loadMeshFromUri = function(uri, submesh, centerSubmesh,
  */
 /* eslint-enable */
 GZ3D.Scene.prototype.loadMeshFromString = function(uri, submesh, centerSubmesh,
-  _findResourceCb, onLoad, onError, files)
+   onLoad, onError, files)
 {
   var uriPath = uri.substring(0, uri.lastIndexOf('/'));
   var uriFile = uri.substring(uri.lastIndexOf('/') + 1);
@@ -1902,7 +1902,6 @@ GZ3D.Scene.prototype.loadMeshFromString = function(uri, submesh, centerSubmesh,
  * the mesh file using an XMLHttpRequest.
  * @param {} submesh
  * @param {} centerSubmesh
- * @param {function(resource)} findResourceCb - A function callback that can be used to help
  * @param {function} onLoad - Callback when the mesh is loaded.
  * @param {function} onError - Callback when an error occurs.
  * @param {string} filestring -optional- the mesh file as a string to be parsed

@@ -5,6 +5,12 @@ console.warn( "THREE.ColladaLoader: As part of the transition to ES6 Modules, th
  * @author Mugen87 / https://github.com/Mugen87
  *
  *
+ * Modified by Nate Koenig :
+ *
+ *     Added a findResourceCb variable that is used by the texture loading
+ *     in the `getTexture` function to fetch resources that were not
+ *     accessible via standard URIs.
+ *
  * Modified by German Mas:
  *
  * The Collada Loader caches the textures of meshes by default.
@@ -28,13 +34,13 @@ console.warn( "THREE.ColladaLoader: As part of the transition to ES6 Modules, th
  */
 THREE.ColladaLoader = function ( manager ) {
 
-	THREE.Loader.call( this, manager );
+  THREE.Loader.call( this, manager );
 
 	// Cache textures enabled by default.
-	this.enableTexturesCache = true;
+  this.enableTexturesCache = true;
 
 	// The Map used to cache textures.
-	this.texturesCache = new Map();
+  this.texturesCache = new Map();
 
   this.findResourceCb = undefined;
 };

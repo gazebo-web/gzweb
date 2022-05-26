@@ -843,9 +843,8 @@ GZ3D.SdfParser.prototype.parseSize = function(sizeInput)
  *                                  False to create the lights, but set them to invisible (off).
  *                 - fuelName - Name of the resource in Fuel. Helps to match URLs to the correct path. Requires 'fuelOwner'.
  *                 - fuelOwner - Name of the resource's owner in Fuel. Helps to match URLs to the correct path. Requires 'fuelName'.
- * @param {function(resource)} findResourceCb - A function callback that can be used to help
  */
-GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent, options, findResourceCb)
+GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent, options)
 {
   var that = this;
   var obj;
@@ -1076,7 +1075,6 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent, options, findR
       // Load the mesh.
       // Once the mesh is loaded, it will be stored on Gz3D.Scene.
       this.scene.loadMeshFromUri(modelUri, submesh, centerSubmesh,
-        findResourceCb,
         // onLoad
         function (mesh)
         {
@@ -1267,11 +1265,10 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent, options, findR
  *                 - fuelName - Name of the resource in Fuel. Helps to match URLs to the correct path. Requires 'fuelOwner'.
  *                 - fuelOwner - Name of the resource's owner in Fuel. Helps to match URLs to the correct path. Requires 'fuelName'.
  *                 - scopedName - Scoped name of the element's parent. Used to create the element's scoped name.
- * @param {function(resource)} findResourceCb - A function callback that can be used to help
  * @returns {THREE.Object3D} visualObj - 3D object which is created
  * according to SDF visual element.
  */
-GZ3D.SdfParser.prototype.createVisual = function(visual, options, findResourceCb)
+GZ3D.SdfParser.prototype.createVisual = function(visual, options)
 {
   //TODO: handle these node values
   // cast_shadow, receive_shadows
@@ -1293,8 +1290,7 @@ GZ3D.SdfParser.prototype.createVisual = function(visual, options, findResourceCb
         .setPose(visualObj, visualPose.position, visualPose.orientation);
     }
 
-    this.createGeom(visual.geometry, visual.material, visualObj, options,
-      findResourceCb);
+    this.createGeom(visual.geometry, visual.material, visualObj, options);
 
     return visualObj;
   }
@@ -1342,15 +1338,14 @@ GZ3D.SdfParser.prototype.createSensor = function(sensor, options)
  *                                  False to create the lights, but set them to invisible (off).
  *                 - fuelName - Name of the resource in Fuel. Helps to match URLs to the correct path. Requires 'fuelOwner'.
  *                 - fuelOwner - Name of the resource's owner in Fuel. Helps to match URLs to the correct path. Requires 'fuelName'.
- * @param {function(resource)} findResourceCb - A function callback that can be used to help
  * @returns {THREE.Object3D} object - 3D object which is created from the
  * given object.
  */
-GZ3D.SdfParser.prototype.spawnFromObj = function(obj, options, findResourceCb)
+GZ3D.SdfParser.prototype.spawnFromObj = function(obj, options)
 {
   if (obj.model)
   {
-    return this.spawnModelFromSDF(obj, options, findResourceCb);
+    return this.spawnModelFromSDF(obj, options);
   }
   else if (obj.light)
   {
@@ -1466,12 +1461,10 @@ GZ3D.SdfParser.prototype.loadSDF = function(sdfName, callback)
  *                                  False to create the lights, but set them to invisible (off).
  *                 - fuelName - Name of the resource in Fuel. Helps to match URLs to the correct path. Requires 'fuelOwner'.
  *                 - fuelOwner - Name of the resource's owner in Fuel. Helps to match URLs to the correct path. Requires 'fuelName'.
- * @param {function(resource)} findResourceCb - A function callback that can be used to help
  * @returns {THREE.Object3D} modelObject - 3D object which is created
  * according to SDF model object.
  */
-GZ3D.SdfParser.prototype.spawnModelFromSDF = function(sdfObj, options,
-  findResourceCb)
+GZ3D.SdfParser.prototype.spawnModelFromSDF = function(sdfObj, options)
 {
   // create the model
   var modelObj = new THREE.Object3D();
@@ -1506,7 +1499,7 @@ GZ3D.SdfParser.prototype.spawnModelFromSDF = function(sdfObj, options,
 
       for (i = 0; i < sdfObj.model.link.length; ++i)
       {
-        linkObj = this.createLink(sdfObj.model.link[i], options, findResourceCb);
+        linkObj = this.createLink(sdfObj.model.link[i], options);
         if (linkObj)
         {
           modelObj.add(linkObj);
@@ -1525,8 +1518,7 @@ GZ3D.SdfParser.prototype.spawnModelFromSDF = function(sdfObj, options,
     {
       options.scopedName = this.createScopedName(sdfObj.model.model[i], modelObj.scopedName);
       var tmpModelObj = {model:sdfObj.model.model[i]};
-      var nestedModelObj = this.spawnModelFromSDF(tmpModelObj, options,
-        findResourceCb);
+      var nestedModelObj = this.spawnModelFromSDF(tmpModelObj, options);
       if (nestedModelObj)
       {
         modelObj.add(nestedModelObj);
@@ -1773,10 +1765,9 @@ GZ3D.SdfParser.prototype.includeModel = function(includedModel, parent) {
  *                 - fuelName - Name of the resource in Fuel. Helps to match URLs to the correct path. Requires 'fuelOwner'.
  *                 - fuelOwner - Name of the resource's owner in Fuel. Helps to match URLs to the correct path. Requires 'fuelName'.
  *                 - scopedName - Scoped name of the element's parent. Used to create the element's scoped name.
- * @param {function(resource)} findResourceCb - A function callback that can be used to help
  * @returns {THREE.Object3D} linkObject - 3D link object
  */
-GZ3D.SdfParser.prototype.createLink = function(link, options, findResourceCb)
+GZ3D.SdfParser.prototype.createLink = function(link, options)
 {
   var linkPose, visualObj, sensorObj;
   var linkObj = new THREE.Object3D();
@@ -1829,7 +1820,7 @@ GZ3D.SdfParser.prototype.createLink = function(link, options, findResourceCb)
 
     for (var i = 0; i < link.visual.length; ++i)
     {
-      visualObj = this.createVisual(link.visual[i], options, findResourceCb);
+      visualObj = this.createVisual(link.visual[i], options);
       if (visualObj && !visualObj.parent)
       {
         linkObj.add(visualObj);
@@ -1846,7 +1837,7 @@ GZ3D.SdfParser.prototype.createLink = function(link, options, findResourceCb)
 
     for (var j = 0; j < link.collision.length; ++j)
     {
-      visualObj = this.createVisual(link.collision[j], options, findResourceCb);
+      visualObj = this.createVisual(link.collision[j], options);
       if (visualObj && !visualObj.parent)
       {
         visualObj.castShadow = false;
