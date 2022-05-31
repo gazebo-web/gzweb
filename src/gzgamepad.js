@@ -99,7 +99,7 @@ function addGamepad(gamepad) {
   }
 }
 
-/** Removes a gamepad to the list of controllers
+/** Removes a gamepad from the list of controllers
  * @param {object} The gamepad to remove
  */
 function removeGamepad(gamepad) {
