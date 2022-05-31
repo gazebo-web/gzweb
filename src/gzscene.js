@@ -1967,7 +1967,6 @@ GZ3D.Scene.prototype.loadCollada = function(uri, submesh, centerSubmesh,
       function(error) {
         // Use the find resource callback to get the mesh
         that.findResourceCb(uri, function(mesh) {
-          console.log('Got mesh for uri', uri);
           meshReady(that.colladaLoader.parse(
             new TextDecoder().decode(mesh), uri));
         });
