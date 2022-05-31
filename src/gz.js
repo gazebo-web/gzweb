@@ -12,11 +12,11 @@ var isTouchDevice = /Mobi/.test(navigator.userAgent);
  * @param {byte array} buffer - Binary byte array
  * @return Base64 encoded string.
  **/
-function gzBinaryToBase64(buffer) {
+GZ3D.gzBinaryToBase64 = function(buffer) {
   var binary = '';
   var len = buffer.byteLength;
   for (var i = 0; i < len; i++) {
     binary += String.fromCharCode(buffer[i]);
   }
   return window.btoa(binary);
-}
+};
