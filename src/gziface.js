@@ -1000,6 +1000,7 @@ GZ3D.GZIface.prototype.createGeom = function(geom, material, parent)
         modelUri = this.protocol + '//' + this.url + '/' + modelUri;
 
         this.scene.loadMeshFromUri(modelUri, submesh, centerSubmesh,
+          // onLoad callback
           function(mesh) {
             if (mat)
             {
@@ -1032,6 +1033,10 @@ GZ3D.GZIface.prototype.createGeom = function(geom, material, parent)
             }
             parent.add(mesh);
             loadGeom(parent);
+        },
+        // onError callback
+        function(error) {
+          console.error('Error loading mesh from URI:', error);
         });
       }
     }

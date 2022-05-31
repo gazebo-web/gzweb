@@ -116,7 +116,7 @@ GZ3D.SdfParser.prototype.addUrl = function(url)
   var trimmedUrl = url && url.trim();
   if (trimmedUrl === undefined || trimmedUrl.indexOf('http') !== 0)
   {
-    console.log('Trying to add invalid URL: ' + url);
+    console.warn('Trying to add invalid URL: ' + url);
     return;
   }
 
@@ -637,6 +637,19 @@ GZ3D.SdfParser.prototype.createMaterial = function(material)
     }
   }
 
+  // Material properties received via a protobuf message are formatted
+  // differently from SDF. This will map protobuf format onto sdf.
+  if (material.pbr && !material.pbr.metal) {
+    material.pbr.metal = {
+      albedo_map : material.pbr.albedo_map,
+      metalness : material.pbr.metalness,
+      metalness_map : material.pbr.metalness_map,
+      normal_map : material.pbr.normal_map,
+      roughness : material.pbr.roughness,
+      roughness_map : material.pbr.roughness_map
+    };
+  }
+
   // Set the correct URLs of the PBR-related textures, if available.
   if (material.pbr && material.pbr.metal && this.enablePBR) {
     // Iterator for the subsequent for loops. Used to avoid a linter warning.
@@ -951,7 +964,13 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent, options)
 
             parent.add(obj);
             loadGeom(parent);
-          }, [meshFile, mtlFile]);
+          }, 
+
+          // onError callback
+          function(error) {
+            console.error(error);
+          },
+          [meshFile, mtlFile]);
       }
       else if (ext === '.dae')
       {
@@ -979,7 +998,12 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent, options)
             }
             parent.add(dae);
             loadGeom(parent);
-          }, [meshFile]);
+          }, 
+          // onError callback
+          function(error) {
+            console.error(error);
+          },
+          [meshFile]);
       }
     }
     else
@@ -1051,6 +1075,7 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent, options)
       // Load the mesh.
       // Once the mesh is loaded, it will be stored on Gz3D.Scene.
       this.scene.loadMeshFromUri(modelUri, submesh, centerSubmesh,
+        // onLoad
         function (mesh)
         {
           // Check for the pending meshes.
@@ -1072,9 +1097,16 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent, options)
                       // The mesh is already stored in Gz3D.Scene. The new submesh will be parsed.
                       // Suppress linter warning.
                       /* jshint ignore:start */
-                      that.scene.loadMeshFromUri(mesh.name, that.pendingMeshes[i].submesh, that.pendingMeshes[i].centerSubmesh, function(mesh) {
-                        loadMesh(mesh, that.pendingMeshes[i].material, that.pendingMeshes[i].parent);
-                      });
+                      that.scene.loadMeshFromUri(mesh.name, that.pendingMeshes[i].submesh, that.pendingMeshes[i].centerSubmesh, 
+                        // on load
+                        function(mesh) {
+                          loadMesh(mesh, that.pendingMeshes[i].material,
+                            that.pendingMeshes[i].parent);
+                        },
+                        // on error
+                        function(error) {
+                          console.error('Mesh loading error', error);
+                        });
                       /* jshint ignore:end */
                     }
                   }
@@ -1082,6 +1114,10 @@ GZ3D.SdfParser.prototype.createGeom = function(geom, mat, parent, options)
               }
             }
           }
+        },
+        // onError
+        function(error) {
+          console.error('Mesh loading error', modelUri);
         });
     }
   }
@@ -1402,14 +1438,14 @@ GZ3D.SdfParser.prototype.loadSDF = function(sdfName, callback)
 
   if (!filename)
   {
-    console.log('Error: unable to load ' + sdfName + ' - file not found');
+    console.error('Error: unable to load ' + sdfName + ' - file not found');
     return;
   }
 
   var that = this;
   this.fileFromUrl(filename, function(sdf) {
     if (!sdf) {
-      console.log('Error: Failed to get the SDF file (' + filename + '). The XML is likely invalid.');
+      console.error('Error: Failed to get the SDF file (' + filename + '). The XML is likely invalid.');
       return;
     }
     callback(that.spawnFromSDF(sdf));
@@ -1629,7 +1665,7 @@ GZ3D.SdfParser.prototype.includeModel = function(includedModel, parent) {
       // Read and parse the SDF.
       this.fileFromUrl(sdfUrl, (sdf) => {
         if (!sdf) {
-          console.log('Error: Failed to get the SDF file (' + filename + '). The XML is likely invalid.');
+          console.error('Error: Failed to get the SDF file (' + filename + '). The XML is likely invalid.');
           return;
         }
         const sdfObj = this.parseSDF(sdf);
@@ -2385,7 +2421,7 @@ GZ3D.SdfParser.prototype.fileFromUrl = function(url, callback)
   xhttp.onload = function() {
     if (xhttp.readyState === 4) {
       if (xhttp.status !== 200) {
-        console.log('Failed to get URL [' + url + ']');
+        console.error('Failed to get URL [' + url + ']');
         return;
       }
       callback(xhttp.responseXML);
@@ -2402,7 +2438,7 @@ GZ3D.SdfParser.prototype.fileFromUrl = function(url, callback)
   }
   catch(err)
   {
-    console.log('Failed to get URL [' + url + ']: ' + err.message);
+    console.error('Failed to get URL [' + url + ']: ' + err.message);
     return;
   }
 };

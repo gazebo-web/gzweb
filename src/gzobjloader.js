@@ -8,19 +8,21 @@
  * to load both the mesh file and the mtl file using XMLHttpRequests.
  * @param {} _submesh
  * @param {} _centerSubmesh
- * @param {function} _callback
+ * @param {function(resource)} _findResourceCb - A function callback that can be used to help
+ * @param {function} _onLoad
  * @param {array} _files -optional- the obj [0] and the mtl [1] files as strings
  * to be parsed by the loaders, if provided the uri will not be used just
  * as a url, no XMLHttpRequest will be made.
  */
-GZ3D.OBJLoader = function(_scene, _uri, _submesh, _centerSubmesh, _callback,
-    _files)
+GZ3D.OBJLoader = function(_scene, _uri, _submesh, _centerSubmesh,
+  _findResourceCb, _onLoad, _files)
 {
   // Keep parameters
   this.scene = _scene;
   this.submesh = _submesh;
   this.centerSubmesh = _centerSubmesh;
-  this.callback = _callback;
+  this.findResourceCb = _findResourceCb;
+  this.onLoad = _onLoad;
   this.uri = _uri;
   this.files = _files;
 
@@ -63,10 +65,22 @@ GZ3D.OBJLoader.prototype.loadOBJ = function()
   // If no raw files are provided, make HTTP request
   if (!this.usingRawFiles)
   {
-    this.objLoader.load(this.uri, function(_container)
-    {
-      that.onObjLoaded(_container);
-    });
+    this.objLoader.load(this.uri,
+      // onLoad
+      function(_container) {
+        that.onObjLoaded(_container);
+      },
+      // onProgres
+      function(_progress) {
+        // Ignore
+      },
+      function(_error) {
+        // Use the find resource callback to get the mesh
+        that.findResourceCb(that.uri, function(mesh) {
+          that.onObjLoaded(that.objLoader.parse(mesh));
+        });
+      }
+    );
   }
   // Otherwise load from raw file
   else
@@ -87,7 +101,7 @@ GZ3D.OBJLoader.prototype.loadComplete = function()
   this.scene.useSubMesh(obj, this.submesh, this.centerSubmesh);
 
   obj.name = this.uri;
-  this.callback(obj);
+  this.onLoad(obj);
 };
 
 /**

@@ -5,6 +5,12 @@ console.warn( "THREE.ColladaLoader: As part of the transition to ES6 Modules, th
  * @author Mugen87 / https://github.com/Mugen87
  *
  *
+ * Modified by Nate Koenig :
+ *
+ *     Added a findResourceCb variable that is used by the texture loading
+ *     in the `getTexture` function to fetch resources that were not
+ *     accessible via standard URIs.
+ *
  * Modified by German Mas:
  *
  * The Collada Loader caches the textures of meshes by default.
@@ -28,13 +34,15 @@ console.warn( "THREE.ColladaLoader: As part of the transition to ES6 Modules, th
  */
 THREE.ColladaLoader = function ( manager ) {
 
-	THREE.Loader.call( this, manager );
+  THREE.Loader.call( this, manager );
 
 	// Cache textures enabled by default.
-	this.enableTexturesCache = true;
+  this.enableTexturesCache = true;
 
 	// The Map used to cache textures.
-	this.texturesCache = new Map();
+  this.texturesCache = new Map();
+
+  this.findResourceCb = undefined;
 };
 
 THREE.ColladaLoader.prototype = Object.assign( Object.create( THREE.Loader.prototype ), {
@@ -87,6 +95,7 @@ THREE.ColladaLoader.prototype = Object.assign( Object.create( THREE.Loader.proto
 	},
 
 	parse: function ( text, path ) {
+		var scope = this;
 
 		function getElementsByTagName( xml, name ) {
 
@@ -1587,7 +1596,46 @@ THREE.ColladaLoader.prototype = Object.assign( Object.create( THREE.Loader.proto
 							if (image.startsWith('https://')) {
 								loader.path = undefined;
 							}
-							texture = loader.load( image );
+              
+							texture = loader.load(image,
+                // onLoad
+                undefined,
+                // onProgress
+                undefined,
+                // onError
+                function(error) {
+                  if (scope.findResourceCb) {
+                    // Create the filename to look up.
+                    var filename = [path.substring(0, path.lastIndexOf("/")),
+                      image].join("/");
+                
+                    // Store the texture pointer
+                    var scopeTexture = texture;
+
+                    // Get the image using the find resource callback.
+                    scope.findResourceCb(filename, function(image) {
+                      // Create the image element
+                      var imageElem = document.createElementNS(
+                        'http://www.w3.org/1999/xhtml', 'img');
+
+                      var isJPEG = filename.search( /\.jpe?g($|\?)/i ) > 0 || filename.search( /^data\:image\/jpeg/ ) === 0;
+
+                      var binary = '';
+                      var len = image.byteLength;
+                      for (var i = 0; i < len; i++) {
+                        binary += String.fromCharCode( image[ i ] );
+                      }
+                      // Set the image source using base64 encoding
+                      imageElem.src = isJPEG ? "data:image/jpg;base64,": "data:image/png;base64,";
+                      imageElem.src += window.btoa(binary);
+
+                      scopeTexture.format = isJPEG ? THREE.RGBFormat : THREE.RGBAFormat;
+                      scopeTexture.needsUpdate = true;
+                      scopeTexture.image = imageElem;
+                    });
+                  }
+                });
+
 							// Restore the path.
 							loader.path = savedPath;
 						}
