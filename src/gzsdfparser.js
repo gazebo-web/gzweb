@@ -219,7 +219,7 @@ GZ3D.SdfParser.prototype.parse3DVector = function(vectorInput)
   vector3D.x = parseFloat(values[0]);
   vector3D.y = parseFloat(values[1]);
   vector3D.z = parseFloat(values[2]);
-  return vector3D;
+  return new THREE.Vector3(vector3D.x, vector3D.y, vector3D.z);
 };
 
 /**
@@ -1879,6 +1879,7 @@ GZ3D.SdfParser.prototype.createLink = function(link, options)
         linkObj.userData = {
           emitter: emitter
         };
+        linkObj.add(emitter);
       }
     }
   }
@@ -1907,7 +1908,7 @@ GZ3D.SdfParser.prototype.createLink = function(link, options)
  * Creates the Particle Emitter.
  *
  * @param {object} The emitter element from SDF or protobuf object.
- * @return {object} The particle emitter object.
+ * @return {object} A THREE.Object that contains the particle emitter.
  */
 GZ3D.SdfParser.prototype.createParticleEmitter = function(emitter) {
   // Particle Emitter is handled with ShaderParticleEngine, a third-party library.
@@ -1952,7 +1953,10 @@ GZ3D.SdfParser.prototype.createParticleEmitter = function(emitter) {
   maxVelocity = maxVelocity !== undefined ? parseFloat(maxVelocity) : 1;
 
   // Size of the particle emitter.
+  // The SDF particle emitter spec lists size as
+  // [x: width, y: height, z: depth].
   var size = this.parse3DVector(emitter['size']) || new THREE.Vector3(1, 1, 1);
+  size.set(size.z, size.x, size.y);
 
   // Size of the individual particles.
   var particleSize = this.parse3DVector(emitter['particle_size']) || new THREE.Vector3(1, 1, 1);
@@ -2058,14 +2062,14 @@ GZ3D.SdfParser.prototype.createParticleEmitter = function(emitter) {
 
     // Position of the emitter. The value is the current position, and spread is related to the size.
     position: {
-      value: new THREE.Vector3().copy(pose.position),
+      value: new THREE.Vector3(0, 0, 0),
       spread: new THREE.Vector3().copy(size),
     },
 
     // Particle velocity. Value is the base, and uses spread to randomize each particle.
     velocity: {
-      value: new THREE.Vector3(0, 0, minVelocity),
-      spread: new THREE.Vector3(0, 0, maxVelocity - minVelocity),
+      value: new THREE.Vector3(minVelocity, 0, 0),
+      spread: new THREE.Vector3(maxVelocity - minVelocity, 0, 0),
     },
 
     // Particle size at the start and finish of their lifetime.
@@ -2085,27 +2089,13 @@ GZ3D.SdfParser.prototype.createParticleEmitter = function(emitter) {
 
   particleGroup.addEmitter(particleEmitter);
 
-  var addedToObj = false;
-  if ('header' in emitter) {
-    for (var i = 0; i < emitter['header'].data.length; ++i)  {
-      if (emitter['header'].data[i].key === 'frame') {
-        var frame = emitter['header'].data[i].value[0];
-        var parentObj = this.scene.getByProperty('scopedName', frame);
 
-        // Attach the Particle Group to a parent object.
-        if (parentObj !== undefined) {
-          parentObj.add(particleGroup.mesh);
-          addedToObj = true;
-        }
-      }
-    }
-  }
-
-  // Add the Particle Group to the scene, if it was not attached to a parent
-  // object.
-  if (!addedToObj) {
-    this.scene.add(particleGroup.mesh);
-  }
+  // Create a new THREE.Object to hold the particle emitter. This allows us
+  // to easily apply the particle emitter's position and orientation.
+  var particleEmitterObj = new THREE.Object3D();
+  console.log(pose.orientation);
+  this.scene.setPose(particleEmitterObj, pose.position, pose.orientation);
+  particleEmitterObj.add(particleGroup.mesh);
 
   // This is required by the rendering loop.
   this.scene.addParticleGroup(particleGroup);
@@ -2158,7 +2148,7 @@ GZ3D.SdfParser.prototype.createParticleEmitter = function(emitter) {
       particleEmitter.disable();
     }
   });
-  return particleEmitter;
+  return particleEmitterObj;
   /* jshint ignore:end */
 };
 

@@ -24,7 +24,8 @@ GZ3D.Scene = function(shaders, defaultCameraPosition, defaultCameraLookAt, backg
   this.shaders = shaders;
   this.findResourceCb = _findResourceCb;
 
-  this.defaultCameraPosition = new THREE.Vector3(0, -5, 5);
+  // This matches Gazebo's default camera position
+  this.defaultCameraPosition = new THREE.Vector3(-6, 0, 6);
   if (defaultCameraPosition) {
     this.defaultCameraPosition.copy(defaultCameraPosition);
   }
