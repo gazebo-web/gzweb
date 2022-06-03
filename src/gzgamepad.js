@@ -4,10 +4,10 @@ var onAxisCb;
 
 /**
  * Create a gamepad interface
- * @param {function} onButton - Function callback that accepts a button
- * object. This function is called when a button is pressed.
- * @param {function} onAxis - Function callback that accepts an axis
- * object. This function is called when a joystick axis is moved.
+ * @param {function} onButton - Function callback that accepts a controller
+ * object and a button object. This function is called when a button is pressed.
+ * @param {function} onAxis - Function callback that accepts a controller
+ * object and an axis object. This function is called when a joystick axis is moved.
  */
 GZ3D.Gamepad = function(onButton, onAxis) {
 
@@ -38,22 +38,40 @@ function updateGamepads() {
     for (var b = 0; b < controller.gamepad.buttons.length; b++) {
       var button = controller.gamepad.buttons[b];
 
+      var needButtonCallback = false;
       if (controller.prevButtons[b] !== button.pressed) {
-          onButtonCb({'index': b, 'pressed': button.pressed});
+        needButtonCallback = true;
       }
+
+      // Note that we update the button *before* we call the user callback.
+      // That's so that the user callback can, at its option, get the complete
+      // current state of the controller by looking at the prevButtons.
       controller.prevButtons[b] = button.pressed;
+
+      if (needButtonCallback) {
+        onButtonCb(controller, {'index': b, 'pressed': button.pressed});
+      }
     }
 
     // Poll each axis
     for (var i = 0; i < controller.gamepad.axes.length; i += 2) {
+      var needAxesCallback = false;
       if (controller.prevAxes[i] !== controller.gamepad.axes[i] ||
           controller.prevAxes[i+1] !== controller.gamepad.axes[i+1]) {
-        onAxisCb({'index': (i/2).toFixed(0),
+        needAxesCallback = true;
+      }
+
+      // Note that we update the axes *before* we call the user callback.
+      // That's so that the user callback can, at its option, get the complete
+      // current state of the controller by looking at the prevAxes.
+      controller.prevAxes[i] = controller.gamepad.axes[i];
+      controller.prevAxes[i+1] = controller.gamepad.axes[i+1];
+
+      if (needAxesCallback) {
+        onAxisCb(controller, {'index': (i/2).toFixed(0),
                   'x': controller.gamepad.axes[i],
                   'y': controller.gamepad.axes[i+1]});
       }
-      controller.prevAxes[i] = controller.gamepad.axes[i];
-      controller.prevAxes[i+1] = controller.gamepad.axes[i+1];
     }
   }
 
