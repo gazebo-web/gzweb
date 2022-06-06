@@ -38,36 +38,26 @@ function updateGamepads() {
     for (var b = 0; b < controller.gamepad.buttons.length; b++) {
       var button = controller.gamepad.buttons[b];
 
-      var needButtonCallback = false;
       if (controller.prevButtons[b] !== button.pressed) {
-        needButtonCallback = true;
-      }
+        // Note that we update the button *before* we call the user callback.
+        // That's so that the user callback can, at its option, get the complete
+        // current state of the controller by looking at the prevButtons.
+        controller.prevButtons[b] = button.pressed;
 
-      // Note that we update the button *before* we call the user callback.
-      // That's so that the user callback can, at its option, get the complete
-      // current state of the controller by looking at the prevButtons.
-      controller.prevButtons[b] = button.pressed;
-
-      if (needButtonCallback) {
         onButtonCb(controller, {'index': b, 'pressed': button.pressed});
       }
     }
 
     // Poll each axis
     for (var i = 0; i < controller.gamepad.axes.length; i += 2) {
-      var needAxesCallback = false;
       if (controller.prevAxes[i] !== controller.gamepad.axes[i] ||
           controller.prevAxes[i+1] !== controller.gamepad.axes[i+1]) {
-        needAxesCallback = true;
-      }
+        // Note that we update the axes *before* we call the user callback.
+        // That's so that the user callback can, at its option, get the complete
+        // current state of the controller by looking at the prevAxes.
+        controller.prevAxes[i] = controller.gamepad.axes[i];
+        controller.prevAxes[i+1] = controller.gamepad.axes[i+1];
 
-      // Note that we update the axes *before* we call the user callback.
-      // That's so that the user callback can, at its option, get the complete
-      // current state of the controller by looking at the prevAxes.
-      controller.prevAxes[i] = controller.gamepad.axes[i];
-      controller.prevAxes[i+1] = controller.gamepad.axes[i+1];
-
-      if (needAxesCallback) {
         onAxisCb(controller, {'index': (i/2).toFixed(0),
                   'x': controller.gamepad.axes[i],
                   'y': controller.gamepad.axes[i+1]});
