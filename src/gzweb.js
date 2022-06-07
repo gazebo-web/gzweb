@@ -1,8 +1,10 @@
-var GZ3D = GZ3D || {
-  REVISION : '1'
-};
+export { Transport } from './transport'
+export { Topic } from './topic'
+export { Asset } from './asset'
 
-var globalEmitter = new EventEmitter2({verboseMemoryLeak: true});
+var gzweb = gzweb || {
+  REVISION : '2'
+};
 
 // Assuming all mobile devices are touch devices.
 var isTouchDevice = /Mobi/.test(navigator.userAgent);
@@ -12,7 +14,7 @@ var isTouchDevice = /Mobi/.test(navigator.userAgent);
  * @param {byte array} buffer - Binary byte array
  * @return Base64 encoded string.
  **/
-GZ3D.binaryToBase64 = function(buffer) {
+export function binaryToBase64(buffer) {
   var binary = '';
   var len = buffer.byteLength;
   for (var i = 0; i < len; i++) {
