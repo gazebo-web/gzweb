@@ -9,44 +9,46 @@ export class Scene {
   /**
    * Particle emitter updates.
    */
-  public particleEmittersSubscription: Subscription;
+  private particleEmittersSubscription: Subscription;
 
   /**
    * Subscription for status updates.
    */
-  public statusSubscription: Subscription;
+  private statusSubscription: Subscription;
 
   /**
    * Connection status from the Websocket.
    */
-  public connectionStatus: string = 'disconnected';
+  private connectionStatus: string = 'disconnected';
 
   /**
    * Scene Information updates.
    */
-  public sceneInfoSubscription: Subscription;
+  private sceneInfoSubscription: Subscription;
 
   /**
    * Scene information obtained from the Websocket.
    */
-  public sceneInfo: object;
+  private sceneInfo: object;
 
   /**
    * Gz3D Scene.
    */
-  public scene: any;
+  private scene: any;
 
   /**
    * List of 3d models.
    */
-  public models: any[] = [];
-
+  private models: any[] = [];
 
   /**
    * A sun directional light for global illumination
    */
   private sunLight: object;
 
+  /**
+   * A Transport interface used to connect to a Gazebo server.
+   */
   private transport = new Transport();
 
   /**
@@ -64,9 +66,15 @@ export class Scene {
    */
   private sdfParser: any;
 
+  /**
+   * Constructor
+   */
   constructor() {
   }
 
+  /**
+   * Destrory the scene
+   */
   public destroy(): void {
     this.disconnect();
 
@@ -79,10 +87,62 @@ export class Scene {
     }
   }
 
+  /**
+   * Get the current connection status to a Gazebo server.
+   */
   public getConnectionStatus(): string {
     return this.connectionStatus;
   }
 
+  /**
+   * Change the width and height of the visualization upon a resize event.
+   */
+  public resize(): void {
+    if (this.scene) {
+      console.log('REsize',this.sceneElement.clientWidth,
+                         this.sceneElement.clientHeight);
+      this.scene.setSize(this.sceneElement.clientWidth,
+                         this.sceneElement.clientHeight);
+    }
+  }
+
+  public snapshot(): void {
+    if (this.scene) {
+      this.scene.saveScreenshot(this.transport.getWorld());
+    }
+  }
+
+  public resetView(): void {
+    if (this.scene) {
+      this.scene.resetView();
+    }
+  }
+
+  public follow(entityName: String): void {
+    if (this.scene) {
+      this.scene.emitter.emit('follow_entity', entityName);
+    }
+  }
+
+  public moveTo(entityName: String): void {
+    if (this.scene) {
+      this.scene.emitter.emit('move_to_entity', entityName);
+    }
+  }
+
+  public select(entityName: String): void {
+    if (this.scene) {
+      this.scene.emitter.emit('select_entity', entityName);
+    }
+  }
+
+  public getModels(): any[] {
+    return this.models;
+  }
+
+  /**
+   * Disconnect from the Gazebo server
+   */
   public disconnect(): void {
     // Remove the canvas. Helpful to disconnect and connect several times.
     this.sceneElement = window.document.getElementById('scene');
@@ -107,6 +167,9 @@ export class Scene {
     }
   }
 
+  /**
+   * Connect to a Gazebo server
+   */
   public connect(url: string, key?: string): void {
     this.transport.connect(url, key);
 
@@ -243,7 +306,7 @@ export class Scene {
   /**
    * Setup the visualization scene.
    */
-  public setupVisualization(): void {
+  private setupVisualization(): void {
 
     var that = this;
 
@@ -266,7 +329,7 @@ export class Scene {
   /**
    * Start the visualization.
    */
-  public startVisualization(): void {
+  private startVisualization(): void {
     // Render loop.
     const animate = () => {
       this.scene.render();
@@ -278,49 +341,5 @@ export class Scene {
     animate();
   }
 
-  /**
-   * Change the width and height of the visualization upon a resize event.
-   */
-  public resize(): void {
-    if (this.scene) {
-      console.log('REsize',this.sceneElement.clientWidth,
-                         this.sceneElement.clientHeight);
-      this.scene.setSize(this.sceneElement.clientWidth,
-                         this.sceneElement.clientHeight);
-    }
-  }
-
-  public snapshot(): void {
-    if (this.scene) {
-      this.scene.saveScreenshot(this.transport.getWorld());
-    }
-  }
-
-  public resetView(): void {
-    if (this.scene) {
-      this.scene.resetView();
-    }
-  }
-
-  public follow(entityName: String): void {
-    if (this.scene) {
-      this.scene.emitter.emit('follow_entity', entityName);
-    }
-  }
-
-  public moveTo(entityName: String): void {
-    if (this.scene) {
-      this.scene.emitter.emit('move_to_entity', entityName);
-    }
-  }
-
-  public select(entityName: String): void {
-    if (this.scene) {
-      this.scene.emitter.emit('select_entity', entityName);
-    }
-  }
-
-  public getModels(): any[] {
-    return this.models;
-  } 
+ 
 }
