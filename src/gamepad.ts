@@ -4,10 +4,10 @@ let onAxisCb: any = null;
 
 /**
  * Create a gamepad interface
- * @param {function} onButton - Function callback that accepts a button
- * object. This function is called when a button is pressed.
- * @param {function} onAxis - Function callback that accepts an axis
- * object. This function is called when a joystick axis is moved.
+ * @param {function} onButton - Function callback that accepts a controller
+ * object and a button object. This function is called when a button is pressed.
+ * @param {function} onAxis - Function callback that accepts a controller
+ * object and an axis object. This function is called when a joystick axis is moved.
  */
 export class Gamepad {
 
@@ -41,9 +41,13 @@ function updateGamepads() {
       let button = controller.gamepad.buttons[b];
 
       if (controller.prevButtons[b] !== button.pressed) {
-          onButtonCb({'index': b, 'pressed': button.pressed});
+        // Note that we update the button *before* we call the user callback.
+        // That's so that the user callback can, at its option, get the complete
+        // current state of the controller by looking at the prevButtons.
+        controller.prevButtons[b] = button.pressed;
+
+        onButtonCb(controller, {'index': b, 'pressed': button.pressed});
       }
-      controller.prevButtons[b] = button.pressed;
     }
 
     // Poll each axis
