@@ -49,18 +49,16 @@ function updateGamepads() {
     }
 
     // Poll each axis
-    for (var i = 0; i < controller.gamepad.axes.length; i += 2) {
-      if (controller.prevAxes[i] !== controller.gamepad.axes[i] ||
-          controller.prevAxes[i+1] !== controller.gamepad.axes[i+1]) {
-        // Note that we update the axes *before* we call the user callback.
+    for (var i = 0; i < controller.gamepad.axes.length; i++) {
+      var axis = controller.gamepad.axes[i];
+
+      if (controller.prevAxes[i] !== axis) {
+        // Note that we update the axis *before* we call the user callback.
         // That's so that the user callback can, at its option, get the complete
         // current state of the controller by looking at the prevAxes.
-        controller.prevAxes[i] = controller.gamepad.axes[i];
-        controller.prevAxes[i+1] = controller.gamepad.axes[i+1];
+        controller.prevAxes[i] = axis;
 
-        onAxisCb(controller, {'index': (i/2).toFixed(0),
-                  'x': controller.gamepad.axes[i],
-                  'y': controller.gamepad.axes[i+1]});
+        onAxisCb(controller, {'index': i, 'axis': axis});
       }
     }
   }
