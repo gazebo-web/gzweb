@@ -8,6 +8,7 @@ export default {
   external: [
     'eventemitter2',
     'protobufjs',
+    'rxjs',
   ],
   output: [
     {
@@ -17,6 +18,7 @@ export default {
       globals: {
         eventemitter2: 'eventemitter2',
         protobufjs: 'protobufjs',
+        rxjs: 'rxjs',
       }
     },
     {
@@ -27,6 +29,7 @@ export default {
       globals: {
         eventemitter2: 'eventemitter2',
         protobufjs: 'protobufjs',
+        rxjs: 'rxjs',
       }
     }
   ],

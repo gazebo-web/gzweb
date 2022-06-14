@@ -1,8 +1,8 @@
 (function (global, factory) {
-  typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('eventemitter2'), require('protobufjs')) :
-  typeof define === 'function' && define.amd ? define(['exports', 'eventemitter2', 'protobufjs'], factory) :
-  (global = typeof globalThis !== 'undefined' ? globalThis : global || self, factory(global.gzweb = {}, global.eventemitter2, global.protobufjs));
-})(this, (function (exports, eventemitter2, protobufjs) { 'use strict';
+  typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('rxjs'), require('protobufjs')) :
+  typeof define === 'function' && define.amd ? define(['exports', 'rxjs', 'protobufjs'], factory) :
+  (global = typeof globalThis !== 'undefined' ? globalThis : global || self, factory(global.gzweb = {}, global.rxjs, global.protobufjs));
+})(this, (function (exports, rxjs, protobufjs) { 'use strict';
 
   function _classCallCheck(instance, Constructor) {
     if (!(instance instanceof Constructor)) {
@@ -117,7 +117,13 @@
        * Components can subscribe to it to get connection status updates.
        * Uses a Behavior Subject because it has an initial state and stores a value.
        */
-      this.status = new eventemitter2.EventEmitter2();
+      this.status$ = new rxjs.BehaviorSubject('disconnected');
+      /**
+       * Scene Information behavior subject.
+       * Components can subscribe to it to get the scene information once it is obtained.
+       */
+
+      this.sceneInfo$ = new rxjs.BehaviorSubject({});
       /**
        * List of available topics.
        *
@@ -323,7 +329,8 @@
         this.topicMap.clear();
         this.availableTopics = [];
         this.root = null;
-        this.status.emit('disconnected');
+        this.status$.next('disconnected');
+        this.sceneInfo$.next({});
       }
       /**
        * Handler for the message event of a Websocket.
@@ -367,7 +374,7 @@
                 _this2.ws.send(_this2.buildMsg(['worlds', '', '', ''])); // Now we can update the connection status.
 
 
-                _this2.status.emit('connected');
+                _this2.status$.next('connected');
 
                 break;
             }
@@ -386,9 +393,9 @@
           } // Return if at any point, the websocket connection is lost.
 
 
-          _this2.status.on('disconnected', function () {
+          if (_this2.status$.getValue() === 'disconnected') {
             return;
-          }); // Decode as UTF-8 to get the header.
+          } // Decode as UTF-8 to get the header.
 
 
           var str = new TextDecoder('utf-8').decode(fileReader.result);
@@ -454,11 +461,11 @@
 
               case 'scene':
                 // Emit the scene information. Contains all the models used.
-                _this2.status.emit('sceneInfo', msg); // Once we received the Scene Information, we can start working.
+                _this2.sceneInfo$.next(msg); // Once we received the Scene Information, we can start working.
                 // We emit the Ready status to reflect this.
 
 
-                _this2.status.emit('ready');
+                _this2.status$.next('ready');
 
                 break;
 
@@ -487,7 +494,7 @@
     }, {
       key: "onError",
       value: function onError(event) {
-        this.status.emit('error');
+        this.status$.next('error');
         this.disconnect();
         console.error(event);
       }

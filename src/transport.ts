@@ -1,4 +1,4 @@
-import { EventEmitter2 } from 'eventemitter2';
+import { BehaviorSubject, Subject } from 'rxjs';
 import { Root, Type, parse } from 'protobufjs';
 import { Topic } from './topic';
 import { Asset, AssetCb } from './asset';
@@ -14,7 +14,13 @@ export class Transport {
    * Components can subscribe to it to get connection status updates.
    * Uses a Behavior Subject because it has an initial state and stores a value.
    */
-  public status = new EventEmitter2();
+  public status$ = new BehaviorSubject<string>('disconnected');
+
+  /**
+   * Scene Information behavior subject.
+   * Components can subscribe to it to get the scene information once it is obtained.
+   */
+  public sceneInfo$ = new BehaviorSubject<object>({});
 
   /**
    * The Websocket object.
@@ -195,7 +201,8 @@ export class Transport {
     this.topicMap.clear();
     this.availableTopics = [];
     this.root = null;
-    this.status.emit('disconnected');
+    this.status$.next('disconnected');
+    this.sceneInfo$.next({});
   }
 
   /**
@@ -231,7 +238,7 @@ export class Transport {
             this.ws.send(this.buildMsg(['worlds', '', '', '']));
 
             // Now we can update the connection status.
-            this.status.emit('connected');
+            this.status$.next('connected');
             break;
         }
       };
@@ -247,9 +254,9 @@ export class Transport {
       }
 
       // Return if at any point, the websocket connection is lost.
-      this.status.on('disconnected', function() {
+      if (this.status$.getValue() === 'disconnected') {
         return;
-      });
+      }
 
       // Decode as UTF-8 to get the header.
       const str = new TextDecoder('utf-8').decode(fileReader.result as BufferSource);
@@ -303,11 +310,11 @@ export class Transport {
             break;
           case 'scene':
             // Emit the scene information. Contains all the models used.
-            this.status.emit('sceneInfo', msg);
+            this.sceneInfo$.next(msg);
 
             // Once we received the Scene Information, we can start working.
             // We emit the Ready status to reflect this.
-            this.status.emit('ready');
+            this.status$.next('ready');
             break;
           default:
             // Message from a subscribed topic. Get the topic and execute its
@@ -331,7 +338,7 @@ export class Transport {
    * Handler for the error event of a Websocket.
    */
   private onError(event: Event): void {
-    this.status.emit('error');
+    this.status$.next('error');
     this.disconnect();
     console.error(event);
   }

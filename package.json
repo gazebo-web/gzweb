@@ -1,6 +1,6 @@
 {
   "name": "gzweb",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "A library for Gazebo and data visualization.",
   "main": "dist/gzweb.js",
   "repository": {
