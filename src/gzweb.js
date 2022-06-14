@@ -1,6 +1,8 @@
-export { Transport } from './transport'
-export { Topic } from './topic'
 export { Asset } from './asset'
+export { Gamepad } from './gamepad'
+export { Scene } from './scene'
+export { Topic } from './topic'
+export { Transport } from './transport'
 
 var gzweb = gzweb || {
   REVISION : '2'

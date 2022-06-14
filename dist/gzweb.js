@@ -104,6 +104,181 @@
   }
 
   /**
+   * Type that represents a simulation asset that needs to be fetched from a websocket server.
+   */
+  var Asset = /*#__PURE__*/_createClass(function Asset(uri, cb) {
+    _classCallCheck(this, Asset);
+
+    this.uri = uri;
+    this.cb = cb;
+  });
+
+  /**
+   * Create a gamepad interface
+   * @param {function} onButton - Function callback that accepts a button
+   * object. This function is called when a button is pressed.
+   * @param {function} onAxis - Function callback that accepts an axis
+   * object. This function is called when a joystick axis is moved.
+   */
+  var Gamepad = /*#__PURE__*/function () {
+    function Gamepad(onButton, onAxis) {
+      _classCallCheck(this, Gamepad);
+
+      this.controllers = {};
+      this.onButtonCb = null;
+      this.onAxisCb = null;
+      this.onButtonCb = onButton;
+      this.onAxisCb = onAxis; // Listen for gamepad connections.
+
+      window.addEventListener('gamepadconnected', handleGamepadConnect); // Listen for gamepad disconnections.
+
+      window.addEventListener('gamepaddisconnected', handleGamepadDisconnect); // Start the main processing event loop
+
+      requestAnimationFrame(this.updateGamepads);
+    }
+    /** Main controller processing function. This function is called every
+     * animation frame to poll for controller updates.
+     */
+
+
+    _createClass(Gamepad, [{
+      key: "updateGamepads",
+      value: function (_updateGamepads) {
+        function updateGamepads() {
+          return _updateGamepads.apply(this, arguments);
+        }
+
+        updateGamepads.toString = function () {
+          return _updateGamepads.toString();
+        };
+
+        return updateGamepads;
+      }(function () {
+        // Scan for connected gamepads.
+        this.scanGamepads(); // Process each controller
+
+        for (var c in this.controllers) {
+          var controller = this.controllers[c]; // Poll each button
+
+          for (var b = 0; b < controller.gamepad.buttons.length; b++) {
+            var button = controller.gamepad.buttons[b];
+
+            if (controller.prevButtons[b] !== button.pressed) {
+              this.onButtonCb({
+                'index': b,
+                'pressed': button.pressed
+              });
+            }
+
+            controller.prevButtons[b] = button.pressed;
+          } // Poll each axis
+
+
+          for (var i = 0; i < controller.gamepad.axes.length; i += 2) {
+            if (controller.prevAxes[i] !== controller.gamepad.axes[i] || controller.prevAxes[i + 1] !== controller.gamepad.axes[i + 1]) {
+              this.onAxisCb({
+                'index': (i / 2).toFixed(0),
+                'x': controller.gamepad.axes[i],
+                'y': controller.gamepad.axes[i + 1]
+              });
+            }
+
+            controller.prevAxes[i] = controller.gamepad.axes[i];
+            controller.prevAxes[i + 1] = controller.gamepad.axes[i + 1];
+          }
+        }
+
+        requestAnimationFrame(updateGamepads);
+      }
+      /**
+       * Poll for controllers. Some browsers use connection events, and others
+       * require polling.
+       */
+      )
+    }, {
+      key: "scanGamepads",
+      value: function scanGamepads() {
+        var gamepads = navigator.getGamepads();
+
+        for (var i = 0; i < gamepads.length; i++) {
+          this.addGamepad(gamepads[i]);
+        }
+      }
+      /** Adds or updates a gamepad to the list of controllers.
+       * @param {object} The gamepad to add/update
+       */
+
+    }, {
+      key: "addGamepad",
+      value: function addGamepad(gamepad) {
+        if (gamepad) {
+          if (!(gamepad.index in this.controllers)) {
+            console.log('Adding gamepad', gamepad.id);
+            this.controllers[gamepad.index] = {
+              gamepad: gamepad,
+              prevButtons: new Array(gamepad.buttons.length),
+              prevAxes: new Array(gamepad.axes.length)
+            }; // Set button initial state
+
+            for (var b = 0; b < gamepad.buttons.length; b++) {
+              this.controllers[gamepad.index].prevButtons[b] = false;
+            } // Set axes initial state
+
+
+            for (var a = 0; a < gamepad.axes.length; a++) {
+              this.controllers[gamepad.index].prevAxes[a] = 0.0;
+            }
+          } else {
+            this.controllers[gamepad.index].gamepad = gamepad;
+          }
+        }
+      }
+      /** Removes a gamepad from the list of controllers
+       * @param {object} The gamepad to remove
+       */
+
+    }, {
+      key: "removeGamepad",
+      value: function removeGamepad(gamepad) {
+        if (gamepad && gamepad.index in this.controllers) {
+          delete this.controllers[gamepad.index];
+        }
+      }
+      /** Gamepad connect callback handler
+       * @param {event} The gamepad connect event.
+       */
+
+    }, {
+      key: "handleGamepadConnect",
+      value: function handleGamepadConnect(e) {
+        addGamepad(e.gamepad);
+      }
+      /** Gamepad disconnect callback handler
+       * @param {event} The gamepad disconnect event.
+       */
+
+    }, {
+      key: "handleGamepadDisconnect",
+      value: function handleGamepadDisconnect(e) {
+        removeGamepad(e.gamepad);
+      }
+    }]);
+
+    return Gamepad;
+  }();
+
+  /**
+   * Type that represents a topic to be subscribed. This allows communication between Components and
+   * the Websocket service of a Simulation.
+   */
+  var Topic = /*#__PURE__*/_createClass(function Topic(name, cb) {
+    _classCallCheck(this, Topic);
+
+    this.name = name;
+    this.cb = cb;
+  });
+
+  /**
    * The Trasnport class is in charge of managing the websocket connection to a
    * Gazebo websocket server.
    */
@@ -517,26 +692,309 @@
     return Transport;
   }();
 
-  /**
-   * Type that represents a topic to be subscribed. This allows communication between Components and
-   * the Websocket service of a Simulation.
-   */
-  var Topic = /*#__PURE__*/_createClass(function Topic(name, cb) {
-    _classCallCheck(this, Topic);
+  var Scene = /*#__PURE__*/function () {
+    function Scene() {
+      _classCallCheck(this, Scene);
 
-    this.name = name;
-    this.cb = cb;
-  });
+      /**
+       * Connection status from the Websocket.
+       */
+      this.connectionStatus = 'disconnected';
+      /**
+       * List of 3d models.
+       */
 
-  /**
-   * Type that represents a simulation asset that needs to be fetched from a websocket server.
-   */
-  var Asset = /*#__PURE__*/_createClass(function Asset(uri, cb) {
-    _classCallCheck(this, Asset);
+      this.models = [];
+      this.transport = new Transport();
+    }
 
-    this.uri = uri;
-    this.cb = cb;
-  });
+    _createClass(Scene, [{
+      key: "destroy",
+      value: function destroy() {
+        this.disconnect();
+
+        if (this.cancelAnimation) {
+          cancelAnimationFrame(this.cancelAnimation);
+        }
+
+        if (this.scene) {
+          this.scene.cleanup();
+        }
+      }
+    }, {
+      key: "getConnectionStatus",
+      value: function getConnectionStatus() {
+        return this.connectionStatus;
+      }
+    }, {
+      key: "disconnect",
+      value: function disconnect() {
+        // Remove the canvas. Helpful to disconnect and connect several times.
+        this.sceneElement = window.document.getElementById('scene');
+
+        if (this.sceneElement && this.sceneElement.childElementCount > 0) {
+          this.sceneElement.removeChild(this.scene.scene.renderer.domElement);
+        }
+
+        this.transport.disconnect();
+        this.sceneInfo = {};
+        this.connectionStatus = 'disconnected'; // Unsubscribe from observables.
+
+        if (this.sceneInfoSubscription) {
+          this.sceneInfoSubscription.unsubscribe();
+        }
+
+        if (this.particleEmittersSubscription) {
+          this.particleEmittersSubscription.unsubscribe();
+        }
+
+        if (this.statusSubscription) {
+          this.statusSubscription.unsubscribe();
+        }
+      }
+    }, {
+      key: "connect",
+      value: function connect(url, key) {
+        var _this = this;
+
+        this.transport.connect(url, key);
+        this.statusSubscription = this.transport.status$.subscribe(function (response) {
+          if (response === 'error') {
+            // TODO: Return an error so the caller can open a snackbar
+            console.log('Connection failed. Please contact an administrator.'); // this.snackBar.open('Connection failed. Please contact an administrator.', 'Got it');
+          }
+
+          _this.connectionStatus = response; // We can start setting up the visualization after we are Connected.
+          // We still don't have scene and world information at this step.
+
+          if (response === 'connected') {
+            _this.setupVisualization();
+          } // Once the status is Ready, we have the world and scene information
+          // available.
+
+
+          if (response === 'ready') {
+            // Subscribe to the pose topic and modify the models' poses.
+            var poseTopic = new Topic("/world/".concat(_this.transport.getWorld(), "/dynamic_pose/info"), function (msg) {
+              msg['pose'].forEach(function (pose) {
+                // Objects created by Gz3D have an unique name, which is the
+                // name plus the id.
+                var entity = _this.scene.getByName("".concat(pose['name']).concat(pose['id']));
+
+                if (entity) {
+                  _this.scene.setPose(entity, pose.position, pose.orientation);
+                }
+              });
+            });
+
+            _this.transport.subscribe(poseTopic); // create a sun light
+
+
+            _this.sunLight = _this.scene.createLight(3, new THREE.Color(0.8, 0.8, 0.8), 0.9, {
+              position: {
+                x: 0,
+                y: 0,
+                z: 10
+              },
+              orientation: {
+                x: 0,
+                y: 0,
+                z: 0,
+                w: 1
+              }
+            }, null, true, 'sun', {
+              x: 0.5,
+              y: 0.1,
+              z: -0.9
+            });
+
+            _this.scene.add(_this.sunLight);
+
+            _this.scene.ambient.color = new THREE.Color(0x666666); // Subscribe to the 'scene/info' topic which sends scene changes.
+
+            var sceneTopic = new Topic("/world/".concat(_this.transport.getWorld(), "/scene/info"), function (sceneInfo) {
+              if (!sceneInfo) {
+                return;
+              } // Process each model in the scene.
+
+
+              sceneInfo['model'].forEach(function (model) {
+                // Check to see if the model already exists in the scene. This
+                // could happen when a simulation level is loaded multiple times.
+                var foundIndex = -1;
+
+                for (var i = 0; i < _this.models.length; ++i) {
+                  // Simulation enforces unique names between models. The ID
+                  // of a model may change. This occurs when levels are loaded,
+                  // unloaded, and then reloaded.
+                  if (_this.models[i]['name'] === model['name']) {
+                    foundIndex = i;
+                    break;
+                  }
+                } // If the model was not found, then add the new model. Otherwise
+                // update the models ID and gz3dName.
+
+
+                if (foundIndex < 0) {
+                  _this.scene.getByName();
+
+                  var modelObj = _this.sdfParser.spawnFromObj({
+                    model: model
+                  }, {
+                    enableLights: false
+                  });
+
+                  model['gz3dName'] = modelObj.name;
+
+                  _this.models.push(model);
+
+                  _this.scene.add(modelObj);
+                } else {
+                  // Make sure to update the exisiting models so that future pose
+                  // messages can update the model.
+                  _this.models[foundIndex]['gz3dName'] = "".concat(model['name']).concat(model['id']);
+                  _this.models[foundIndex]['id'] = model['id'];
+                }
+              });
+            });
+
+            _this.transport.subscribe(sceneTopic);
+          }
+        }); // Scene information.
+
+        this.sceneInfoSubscription = this.transport.sceneInfo$.subscribe(function (sceneInfo) {
+          if (!sceneInfo) {
+            return;
+          }
+
+          if ('sky' in sceneInfo && sceneInfo['sky']) {
+            _this.scene.addSky();
+          }
+
+          _this.sceneInfo = sceneInfo;
+
+          _this.startVisualization();
+
+          sceneInfo['model'].forEach(function (model) {
+            var modelObj = _this.sdfParser.spawnFromObj({
+              model: model
+            }, {
+              enableLights: false
+            });
+
+            model['gz3dName'] = modelObj.name;
+
+            _this.models.push(model);
+
+            _this.scene.add(modelObj);
+          });
+          sceneInfo['light'].forEach(function (light) {
+            var lightObj = _this.sdfParser.spawnLight(light);
+
+            _this.scene.add(lightObj);
+          }); // Set the ambient color, if present
+
+          if (sceneInfo['ambient'] !== undefined && sceneInfo['ambient'] !== null) {
+            _this.scene.ambient.color = new THREE.Color(sceneInfo['ambient']['r'], sceneInfo['ambient']['g'], sceneInfo['ambient']['b']);
+          }
+        });
+      }
+      /**
+       * Setup the visualization scene.
+       */
+
+    }, {
+      key: "setupVisualization",
+      value: function setupVisualization() {
+        var that = this; // Create a find asset helper
+
+        function findAsset(_uri, _cb) {
+          that.transport.getAsset(_uri, _cb);
+        }
+
+        this.scene = new GZ3D.Scene(new GZ3D.Shaders(), undefined, undefined, undefined, findAsset);
+        this.sdfParser = new GZ3D.SdfParser(this.scene);
+        this.sdfParser.usingFilesUrls = true;
+        this.sceneElement = window.document.getElementById('gz-scene');
+        this.sceneElement.appendChild(this.scene.renderer.domElement);
+        this.scene.setSize(this.sceneElement.clientWidth, this.sceneElement.clientHeight);
+      }
+      /**
+       * Start the visualization.
+       */
+
+    }, {
+      key: "startVisualization",
+      value: function startVisualization() {
+        var _this2 = this;
+
+        // Render loop.
+        var animate = function animate() {
+          _this2.scene.render();
+
+          _this2.cancelAnimation = requestAnimationFrame(function () {
+            animate();
+          });
+        };
+
+        animate();
+      }
+      /**
+       * Change the width and height of the visualization upon a resize event.
+       */
+
+    }, {
+      key: "resize",
+      value: function resize() {
+        if (this.scene) {
+          console.log('REsize', this.sceneElement.clientWidth, this.sceneElement.clientHeight);
+          this.scene.setSize(this.sceneElement.clientWidth, this.sceneElement.clientHeight);
+        }
+      }
+    }, {
+      key: "snapshot",
+      value: function snapshot() {
+        if (this.scene) {
+          this.scene.saveScreenshot(this.transport.getWorld());
+        }
+      }
+    }, {
+      key: "resetView",
+      value: function resetView() {
+        if (this.scene) {
+          this.scene.resetView();
+        }
+      }
+    }, {
+      key: "follow",
+      value: function follow(entityName) {
+        if (this.scene) {
+          this.scene.emitter.emit('follow_entity', entityName);
+        }
+      }
+    }, {
+      key: "moveTo",
+      value: function moveTo(entityName) {
+        if (this.scene) {
+          this.scene.emitter.emit('move_to_entity', entityName);
+        }
+      }
+    }, {
+      key: "select",
+      value: function select(entityName) {
+        if (this.scene) {
+          this.scene.emitter.emit('select_entity', entityName);
+        }
+      }
+    }, {
+      key: "getModels",
+      value: function getModels() {
+        return this.models;
+      }
+    }]);
+
+    return Scene;
+  }();
 
   /Mobi/.test(navigator.userAgent);
   /**
@@ -557,6 +1015,8 @@
   }
 
   exports.Asset = Asset;
+  exports.Gamepad = Gamepad;
+  exports.Scene = Scene;
   exports.Topic = Topic;
   exports.Transport = Transport;
   exports.binaryToBase64 = binaryToBase64;

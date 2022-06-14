@@ -7,6 +7,7 @@
     "suppressImplicitAnyIndexErrors": true,
     "strictPropertyInitialization": false,
     "allowSyntheticDefaultImports": true,
+    "strictNullChecks": false,
     "strict": true,
     "skipLibCheck": true,
     "outDir":"./tsc-out"
