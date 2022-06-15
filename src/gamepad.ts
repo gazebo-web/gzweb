@@ -1,6 +1,6 @@
-var controllers = {};
-var onButtonCb;
-var onAxisCb;
+let controllers = {};
+let onButtonCb: any = null;
+let onAxisCb: any = null;
 
 /**
  * Create a gamepad interface
@@ -9,19 +9,21 @@ var onAxisCb;
  * @param {function} onAxis - Function callback that accepts a controller
  * object and an axis object. This function is called when a joystick axis is moved.
  */
-GZ3D.Gamepad = function(onButton, onAxis) {
+export class Gamepad {
 
-  onButtonCb = onButton;
-  onAxisCb = onAxis;
+  constructor(onButton: any, onAxis: any) {
+    onButtonCb = onButton;
+    onAxisCb = onAxis;
 
-  // Listen for gamepad connections.
-  window.addEventListener('gamepadconnected', handleGamepadConnect);
-  // Listen for gamepad disconnections.
-  window.addEventListener('gamepaddisconnected', handleGamepadDisconnect);
+    // Listen for gamepad connections.
+    window.addEventListener('gamepadconnected', handleGamepadConnect);
+    // Listen for gamepad disconnections.
+    window.addEventListener('gamepaddisconnected', handleGamepadDisconnect);
 
-  // Start the main processing event loop
-  requestAnimationFrame(updateGamepads);
-};
+    // Start the main processing event loop
+    requestAnimationFrame(updateGamepads);
+  }
+}
 
 /** Main controller processing function. This function is called every
  * animation frame to poll for controller updates.
@@ -32,11 +34,11 @@ function updateGamepads() {
 
   // Process each controller
   for (var c in controllers) {
-    var controller = controllers[c];
+    let controller = controllers[c];
 
     // Poll each button
-    for (var b = 0; b < controller.gamepad.buttons.length; b++) {
-      var button = controller.gamepad.buttons[b];
+    for (let b = 0; b < controller.gamepad.buttons.length; b++) {
+      let button = controller.gamepad.buttons[b];
 
       if (controller.prevButtons[b] !== button.pressed) {
         // Note that we update the button *before* we call the user callback.
@@ -49,18 +51,12 @@ function updateGamepads() {
     }
 
     // Poll each axis
-    for (var i = 0; i < controller.gamepad.axes.length; i += 2) {
-      if (controller.prevAxes[i] !== controller.gamepad.axes[i] ||
-          controller.prevAxes[i+1] !== controller.gamepad.axes[i+1]) {
-        // Note that we update the axes *before* we call the user callback.
-        // That's so that the user callback can, at its option, get the complete
-        // current state of the controller by looking at the prevAxes.
-        controller.prevAxes[i] = controller.gamepad.axes[i];
-        controller.prevAxes[i+1] = controller.gamepad.axes[i+1];
-
-        onAxisCb(controller, {'index': (i/2).toFixed(0),
-                  'x': controller.gamepad.axes[i],
-                  'y': controller.gamepad.axes[i+1]});
+    for (let i = 0; i < controller.gamepad.axes.length; i++) {
+      let axis = controller.gamepad.axes[i];
+      if (controller.prevAxes[i] !== axis) {
+        // Note that we update the axis *before* we call the user callback.
+        controller.prevAxes[i] = axis;
+        onAxisCb(controller, {'index': i, 'axis': axis});
       }
     }
   }
@@ -72,7 +68,7 @@ function updateGamepads() {
  * Poll for controllers. Some browsers use connection events, and others
  * require polling.
  */
-function scanGamepads() {
+function scanGamepads(): void {
   var gamepads = navigator.getGamepads();
   for (var i = 0; i < gamepads.length; i++) {
     addGamepad(gamepads[i]);
@@ -82,7 +78,7 @@ function scanGamepads() {
 /** Adds or updates a gamepad to the list of controllers.
  * @param {object} The gamepad to add/update
  */
-function addGamepad(gamepad) {
+function addGamepad(gamepad: any): void {
   if (gamepad) {
     if (!(gamepad.index in controllers)) {
       console.log('Adding gamepad', gamepad.id);
@@ -110,7 +106,7 @@ function addGamepad(gamepad) {
 /** Removes a gamepad from the list of controllers
  * @param {object} The gamepad to remove
  */
-function removeGamepad(gamepad) {
+function removeGamepad(gamepad: any) {
   if (gamepad && gamepad.index in controllers) {
     delete controllers[gamepad.index];
   }
@@ -119,13 +115,13 @@ function removeGamepad(gamepad) {
 /** Gamepad connect callback handler
  * @param {event} The gamepad connect event.
  */
-function handleGamepadConnect(e) {
+function handleGamepadConnect(e: any): void {
   addGamepad(e.gamepad);
 }
 
 /** Gamepad disconnect callback handler
  * @param {event} The gamepad disconnect event.
  */
-function handleGamepadDisconnect(e) {
+function handleGamepadDisconnect(e: any): void {
   removeGamepad(e.gamepad);
 }
