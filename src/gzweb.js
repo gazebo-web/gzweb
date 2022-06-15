@@ -1,8 +1,8 @@
-export { Asset } from './asset'
-export { Gamepad } from './gamepad'
-export { Scene } from './scene'
-export { Topic } from './topic'
-export { Transport } from './transport'
+export { Asset } from './Asset'
+export { Gamepad } from './Gamepad'
+export { SceneManager } from './SceneManager'
+export { Topic } from './Topic'
+export { Transport } from './Transport'
 
 var gzweb = gzweb || {
   REVISION : '2'

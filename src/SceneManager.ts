@@ -1,11 +1,24 @@
 import { Subscription } from 'rxjs';
-import { Topic } from './topic';
-import { Transport } from './transport';
+import { Topic } from './Topic';
+import { Transport } from './Transport';
 
 declare let GZ3D: any;
 declare let THREE: any;
 
-export class Scene {
+/**
+ * SceneManager handles the interface between a Gazebo server and the
+ * rendering scene. A user of gzweb will typically create a SceneManager and
+ * then connect the SceneManager to a Gazebo server's websocket.
+ *
+ * This example will connect to a Gazebo server's websocket at WS_URL, and
+ * start the rendering process. Rendering output will be placed in the HTML
+ * element with the id ELEMENT_ID
+ *
+ * ```
+ * let sceneMgr = new SceneManager(ELEMENT_ID, WS_URL, WS_KEY); 
+ * ```
+ */
+export class SceneManager {
   /**
    * Particle emitter updates.
    */
@@ -67,9 +80,28 @@ export class Scene {
   private sdfParser: any;
 
   /**
-   * Constructor
+   * Name of the HTML element that will hold the rendering scene.
    */
-  constructor() {
+  private elementId: string = 'gz-scene';
+
+  /**
+   * Constructor. If a url is specified, then then SceneManager will connect
+   * to the specified websocket server. Otherwise, the `connect` function
+   * should be called after construction.
+   *
+   * @param elemId The id of the HTML element that will hold the rendering
+   * context. If not specified, the id gz-scene will be used.
+   * @param url An optional websocket url that points to a Gazebo server.
+   * @param key An optional authentication key.
+   */
+  constructor(elemId?: string, url?: string, key?: string) {
+    if (typeof elemId !== 'undefined') {
+      this.elementId = elemId;
+    }
+
+    if (typeof url !== 'undefined') {
+      this.connect(url, key);
+    }
   }
 
   /**
@@ -99,8 +131,6 @@ export class Scene {
    */
   public resize(): void {
     if (this.scene) {
-      console.log('REsize',this.sceneElement.clientWidth,
-                         this.sceneElement.clientHeight);
       this.scene.setSize(this.sceneElement.clientWidth,
                          this.sceneElement.clientHeight);
     }
@@ -136,6 +166,10 @@ export class Scene {
     }
   }
 
+  /**
+   * Get the list of models in the scene
+   * @return The list of available models.
+   */
   public getModels(): any[] {
     return this.models;
   }
@@ -145,7 +179,6 @@ export class Scene {
    */
   public disconnect(): void {
     // Remove the canvas. Helpful to disconnect and connect several times.
-    this.sceneElement = window.document.getElementById('scene');
     if (this.sceneElement && this.sceneElement.childElementCount > 0) {
       this.sceneElement.removeChild(this.scene.scene.renderer.domElement);
     }
@@ -169,6 +202,8 @@ export class Scene {
 
   /**
    * Connect to a Gazebo server
+   * @param url A websocket url that points to a Gazebo server.
+   * @param key An optional authentication key.
    */
   public connect(url: string, key?: string): void {
     this.transport.connect(url, key);
@@ -189,29 +224,13 @@ export class Scene {
         this.setupVisualization();
       }
 
-      // Once the status is Ready, we have the world and scene information
+      // Once the status is ready, we have the world and scene information
       // available.
-      if (response === 'ready') {    
-        // Subscribe to the pose topic and modify the models' poses.
-        const poseTopic = new Topic(
-          `/world/${this.transport.getWorld()}/dynamic_pose/info`,
-          (msg) => {
-            msg['pose'].forEach((pose: any) => {
-              // Objects created by Gz3D have an unique name, which is the
-              // name plus the id.
-              const entity = this.scene.getByName(
-                `${pose['name']}${pose['id']}`);
-
-              if (entity) {
-                this.scene.setPose(entity, pose.position, pose.orientation);
-              }
-            });
-          }
-        );
-        this.transport.subscribe(poseTopic);
+      if (response === 'ready') {
+        this.subscribeToTopics();
 
         // create a sun light
-        this.sunLight = this.scene.createLight(3,
+        /*this.sunLight = this.scene.createLight(3,
           new THREE.Color(0.8, 0.8, 0.8), 0.9,
           {position: {x: 0, y: 0, z: 10},
            orientation: {x: 0, y: 0, z: 0, w: 1}},
@@ -219,50 +238,7 @@ export class Scene {
 
         this.scene.add(this.sunLight);
         this.scene.ambient.color = new THREE.Color(0x666666);
-
-
-        // Subscribe to the 'scene/info' topic which sends scene changes.
-        const sceneTopic = new Topic(
-          `/world/${this.transport.getWorld()}/scene/info`,
-          (sceneInfo) => {
-            if (!sceneInfo) {
-              return;
-            }
-
-            // Process each model in the scene.
-            sceneInfo['model'].forEach((model: any) => {
-
-              // Check to see if the model already exists in the scene. This
-              // could happen when a simulation level is loaded multiple times.
-              let foundIndex = -1;
-              for (let i = 0; i < this.models.length; ++i) {
-                // Simulation enforces unique names between models. The ID
-                // of a model may change. This occurs when levels are loaded,
-                // unloaded, and then reloaded.
-                if (this.models[i]['name'] === model['name']) {
-                  foundIndex = i;
-                  break;
-                }
-              }
-
-              // If the model was not found, then add the new model. Otherwise
-              // update the models ID and gz3dName.
-              if (foundIndex < 0) {
-                const entity = this.scene.getByName();
-                const modelObj = this.sdfParser.spawnFromObj({ model }, { enableLights: false });
-                model['gz3dName'] = modelObj.name;
-                this.models.push(model);
-                this.scene.add(modelObj);
-              } else {
-                // Make sure to update the exisiting models so that future pose
-                // messages can update the model.
-                this.models[foundIndex]['gz3dName'] = `${model['name']}${model['id']}`;
-                this.models[foundIndex]['id'] = model['id'];
-              }
-            });
-          }
-        );
-        this.transport.subscribe(sceneTopic);
+       */
       }
     });
 
@@ -282,6 +258,7 @@ export class Scene {
         const modelObj = this.sdfParser.spawnFromObj(
           { model }, { enableLights: false });
 
+          console.log('Adding model', model);
         model['gz3dName'] = modelObj.name;
         this.models.push(model);
         this.scene.add(modelObj);
@@ -304,6 +281,82 @@ export class Scene {
   }
 
   /**
+   * Subscribe to Gazebo topics required to render a scene. This include
+   * /world/WORLD_NAME/dynamic_pose/info and /world/WORLD_NAME/scene/info
+   */
+  private subscribeToTopics(): void {
+    // Subscribe to the pose topic and modify the models' poses.
+    const poseTopic = new Topic(
+      `/world/${this.transport.getWorld()}/dynamic_pose/info`,
+      (msg) => {
+        msg['pose'].forEach((pose: any) => {
+          let entityName = `${pose['name']}${pose['id']}`;
+          // Objects created by Gz3D have an unique name, which is the
+          // name plus the id.
+          const entity = this.scene.getByName(entityName);
+
+          if (entity) {
+            if (pose['name'] === 'box' &&
+                pose['position']['z'] > 1) {
+              console.log('Box pose', pose);
+            }
+            this.scene.setPose(entity, pose.position, pose.orientation);
+          } else {
+            console.warn('Unable to find entity with name ', entityName); 
+          }
+        });
+      }
+    );
+    this.transport.subscribe(poseTopic);
+
+    // Subscribe to the 'scene/info' topic which sends scene changes.
+    const sceneTopic = new Topic(
+      `/world/${this.transport.getWorld()}/scene/info`,
+      (sceneInfo) => {
+        if (!sceneInfo) {
+          return;
+        }
+
+        // Process each model in the scene.
+        sceneInfo['model'].forEach((model: any) => {
+
+          // Check to see if the model already exists in the scene. This
+          // could happen when a simulation level is loaded multiple times.
+          let foundIndex = -1;
+          for (let i = 0; i < this.models.length; ++i) {
+            // Simulation enforces unique names between models. The ID
+            // of a model may change. This occurs when levels are loaded,
+            // unloaded, and then reloaded.
+            if (this.models[i]['name'] === model['name']) {
+              foundIndex = i;
+              break;
+            }
+          }
+
+          // If the model was not found, then add the new model. Otherwise
+          // update the models ID and gz3dName.
+          if (foundIndex < 0) {
+            const entity = this.scene.getByName();
+            const modelObj = this.sdfParser.spawnFromObj(
+              { model }, { enableLights: false });
+            model['gz3dName'] = modelObj.name;
+            console.log('Adding model', model);
+            this.models.push(model);
+            this.scene.add(modelObj);
+          } else {
+            // Make sure to update the exisiting models so that future pose
+            // messages can update the model.
+            this.models[foundIndex]['gz3dName'] =
+              `${model['name']}${model['id']}`;
+            this.models[foundIndex]['id'] = model['id'];
+          }
+        });
+      }
+    );
+    this.transport.subscribe(sceneTopic);
+  }
+
+  /**
    * Setup the visualization scene.
    */
   private setupVisualization(): void {
@@ -320,14 +373,19 @@ export class Scene {
     this.sdfParser = new GZ3D.SdfParser(this.scene);
     this.sdfParser.usingFilesUrls = true;
 
-    this.sceneElement = window.document.getElementById('gz-scene');
+    if (window.document.getElementById(this.elementId)) {
+      this.sceneElement = window.document.getElementById(this.elementId)!;
+    } else {
+      console.error('Unable to find HTML element with an id of',
+                    this.elementId);
+    }
     this.sceneElement.appendChild(this.scene.renderer.domElement);
 
     this.scene.setSize(this.sceneElement.clientWidth, this.sceneElement.clientHeight);
   }
 
   /**
-   * Start the visualization.
+   * Start the visualization rendering loop.
    */
   private startVisualization(): void {
     // Render loop.
@@ -340,6 +398,4 @@ export class Scene {
 
     animate();
   }
-
- 
 }

@@ -1,7 +1,7 @@
 import { BehaviorSubject, Subject } from 'rxjs';
 import { Root, Type, parse } from 'protobufjs';
-import { Topic } from './topic';
-import { Asset, AssetCb } from './asset';
+import { Topic } from './Topic';
+import { Asset, AssetCb } from './Asset';
 
 /**
  * The Trasnport class is in charge of managing the websocket connection to a
@@ -20,7 +20,7 @@ export class Transport {
    * Scene Information behavior subject.
    * Components can subscribe to it to get the scene information once it is obtained.
    */
-  public sceneInfo$ = new BehaviorSubject<object>({});
+  public sceneInfo$ = new BehaviorSubject<any>(null);
 
   /**
    * The Websocket object.
@@ -202,7 +202,7 @@ export class Transport {
     this.availableTopics = [];
     this.root = null;
     this.status$.next('disconnected');
-    this.sceneInfo$.next({});
+    this.sceneInfo$.next(null);
   }
 
   /**

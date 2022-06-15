@@ -1,16 +1,16 @@
-import {Scene} from '../../src/scene'
+import {SceneManager} from '../../src/SceneManager'
 
 // Tests for default construction
 describe('scene construction', () => {
   // Create the scene object
-  let scene: Scene = new Scene();
+  let sceneMgr: SceneManager = new SceneManager();
 
   test('scene connection status is disconnected', () => {
-    expect(scene.getConnectionStatus()).toBe('disconnected');
+    expect(sceneMgr.getConnectionStatus()).toBe('disconnected');
   });
 
   test('model list to be empty', () => {
-    expect(scene.getModels().length).toBe(0);
+    expect(sceneMgr.getModels().length).toBe(0);
   });
 });
 

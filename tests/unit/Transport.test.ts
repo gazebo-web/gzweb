@@ -1,4 +1,4 @@
-import {Transport} from '../../src/transport'
+import {Transport} from '../../src/Transport'
 
 // Tests for default construction
 describe('transport construction', () => {
