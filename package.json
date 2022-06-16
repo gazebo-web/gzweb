@@ -22,7 +22,8 @@
   "dependencies": {
     "eventemitter2": "^6.4.5",
     "protobufjs": "^6.11.3",
-    "rxjs": "^7.5.5"
+    "rxjs": "^7.5.5",
+    "three": "^0.141.0"
   },
   "devDependencies": {
     "@babel/core": "^7.18.2",
@@ -31,6 +32,7 @@
     "@rollup/plugin-node-resolve": "^13.3.0",
     "@rollup/plugin-typescript": "^8.3.2",
     "@types/jest": "^28.1.1",
+    "@types/three": "^0.141.0",
     "jest": "^28.1.1",
     "rimraf": "^3.0.2",
     "rollup": "^2.75.6",

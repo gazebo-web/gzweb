@@ -368,9 +368,9 @@ export class SceneManager {
       that.transport.getAsset(_uri, _cb);
     }
 
-    this.scene = new GZ3D.Scene(new GZ3D.Shaders(), undefined, undefined,
-                                undefined, findAsset);
-    this.sdfParser = new GZ3D.SdfParser(this.scene);
+    this.scene = new Scene(new GZ3D.Shaders(), undefined, undefined,
+                           undefined, findAsset);
+    this.sdfParser = new SdfParser(this.scene);
     this.sdfParser.usingFilesUrls = true;
 
     if (window.document.getElementById(this.elementId)) {
