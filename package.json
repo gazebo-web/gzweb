@@ -20,10 +20,13 @@
     "build": "rimraf dist && tsc --allowJs && rollup -c"
   },
   "dependencies": {
+    "@g.frame/shader-particle-engine": "^1.0.12",
     "eventemitter2": "^6.4.5",
+    "jszip": "^3.10.0",
     "protobufjs": "^6.11.3",
     "rxjs": "^7.5.5",
-    "three": "^0.141.0"
+    "three": "^0.141.0",
+    "xml2json": "^0.12.0"
   },
   "devDependencies": {
     "@babel/core": "^7.18.2",

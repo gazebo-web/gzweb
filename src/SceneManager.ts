@@ -1,3 +1,6 @@
+import { Scene } from './Scene';
+import { SDFParser } from './SDFParser';
+import { Shaders } from './Shaders';
 import { Subscription } from 'rxjs';
 import { Topic } from './Topic';
 import { Transport } from './Transport';
@@ -368,9 +371,9 @@ export class SceneManager {
       that.transport.getAsset(_uri, _cb);
     }
 
-    this.scene = new Scene(new GZ3D.Shaders(), undefined, undefined,
+    this.scene = new Scene(new Shaders(), undefined, undefined,
                            undefined, findAsset);
-    this.sdfParser = new SdfParser(this.scene);
+    this.sdfParser = new SDFParser(this.scene);
     this.sdfParser.usingFilesUrls = true;
 
     if (window.document.getElementById(this.elementId)) {

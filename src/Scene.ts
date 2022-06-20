@@ -1,14 +1,20 @@
 import * as THREE from 'three'; 
 import * as SPE from '../include/SPE.min.js'; 
+import { getDescendants } from './Globals';
 import { ColladaLoader } from '../loaders/ColladaLoader';
-import { OBJLoader } from '../loaders/OBJLoader';
-import { STLLoader } from '../loaders/STLLoader';
+import { Color } from './Color';
+import { EventEmitter2 } from 'eventemitter2';
+import { GzObjLoader } from './GzObjLoader';
+import { ModelUserData } from './ModelUserData';
 import { OrbitControls } from '../loaders/OrbitControls';
 import { Pose } from './Pose';
-import { Shaders } from './Shaders';
 import { SDFParser } from './SDFParser';
+import { Shaders } from './Shaders';
 import { SpawnModel } from './SpawnModel';
-import { EventEmitter2 } from 'eventemitter2';
+import { STLLoader } from '../loaders/STLLoader';
+
+let xmlParser = require('xml2json');
+let jszip = require('jszip');
 
 export type FindResourceCb = (uri: string, cb: any) => void;
 
@@ -44,10 +50,16 @@ enum JointTypes {
  * @constructor
  */
 export class Scene {
+  public meshes: Map<string, THREE.Mesh> = new Map<string,THREE.Mesh>();
+  public showCollisions: boolean = false;
+  public textureLoader: THREE.TextureLoader;
+  public requestHeader: any;
+  public scene: THREE.Scene;
+
   private name: string;
   private emitter: EventEmitter2;
   private shaders: Shaders;
-  private findResourceCb: FindResourceCb;
+  private findResourceCb: FindResourceCb | undefined;
   private defaultCameraPosition: THREE.Vector3;
   private defaultCameraLookAt: THREE.Vector3;
   private backgroundColor: THREE.Color;
@@ -55,7 +67,6 @@ export class Scene {
   private followEntityEvent: string;
   private moveToEntityEvent: string;
   private cameraMode: string;
-  private scene: THREE.Scene;
   private sceneOrtho: THREE.Scene;
   private camera: THREE.PerspectiveCamera;
   private cameraOrtho: THREE.OrthographicCamera;
@@ -67,20 +78,16 @@ export class Scene {
   // Object the camera should track.
   private cameraTrackObject: THREE.Object3D;
   private pointerOnMenu: boolean;
-  private meshes: any;
-  private textureLoader: THREE.TextureLoader;
   private grid: THREE.GridHelper;
   private renderer: THREE.WebGLRenderer;
   private particleGroup: SPE.Group;
   private cameraMoveToClock: THREE.Clock;
   private colladaLoader: ColladaLoader;
   private stlLoader: STLLoader;
-  private requestHeader: any;
   private heightmap: any;
   private selectedEntity: any;
   private manipulationMode: string;
   private ambient: THREE.AmbientLight;
-  private showCollisions: boolean = false;
   private jointAxis: THREE.Object3D;
   private boundingBox: THREE.LineSegments;
   private controls: OrbitControls;
@@ -88,14 +95,18 @@ export class Scene {
   private ray: THREE.Raycaster;
   private simpleShapesMaterial: THREE.MeshPhongMaterial;
   private spawnModel: SpawnModel;
+  private COMVisual: THREE.Object3D = new THREE.Object3D;
 
-  constructor(shaders: Shaders, defaultCameraPosition: THREE.Vector3,
-              defaultCameraLookAt: THREE.Vector3, backgroundColor: THREE.Color,
-              findResourceCb: FindResourceCb)
+  constructor(shaders: Shaders, defaultCameraPosition?: THREE.Vector3,
+              defaultCameraLookAt?: THREE.Vector3,
+              backgroundColor?: THREE.Color,
+              findResourceCb?: FindResourceCb)
   {
     this.emitter = new EventEmitter2({verboseMemoryLeak: true});
     this.shaders = shaders;
-    this.findResourceCb = findResourceCb;
+    if (findResourceCb) {
+      this.findResourceCb = findResourceCb;
+    }
 
     // This matches Gazebo's default camera position
     this.defaultCameraPosition = new THREE.Vector3(-6, 0, 6);
@@ -237,7 +248,6 @@ export class Scene {
     this.name = 'default';
     this.scene = new THREE.Scene();
     // this.scene.name = this.name;
-    this.meshes = {};
   
     // only support one heightmap for now.
     this.heightmap = null;
@@ -251,7 +261,9 @@ export class Scene {
     this.textureLoader = new THREE.TextureLoader();
     this.textureLoader.crossOrigin = '';
     this.colladaLoader = new ColladaLoader();
-    this.colladaLoader.findResourceCb = this.findResourceCb;
+    if (this.findResourceCb) {
+      this.colladaLoader.findResourceCb = this.findResourceCb;
+    }
     this.stlLoader = new STLLoader();
   
     // Progress and Load events.
@@ -285,8 +297,8 @@ export class Scene {
     this.scene.add(this.ambient);
   
     // camera
-    var width = this.getDomElement().width;
-    var height = this.getDomElement().height;
+    let width: number = this.getDomElement().width;
+    let height: number = this.getDomElement().height;
     this.camera = new THREE.PerspectiveCamera(60, width / height, 0.01, 1000);
     this.resetView();
   
@@ -345,9 +357,6 @@ export class Scene {
   
     this.getDomElement().addEventListener( 'mousedown',
         function(event: MouseEvent) {that.onPointerDown(event);}, false );
-  
-    this.getDomElement().addEventListener( 'DOMMouseScroll',
-        function(event: MouseEvent) {that.onMouseScroll(event);}, false ); //firefox
   
     this.getDomElement().addEventListener( 'wheel',
         function(event: MouseEvent) {that.onMouseScroll(event);}, false );
@@ -823,10 +832,10 @@ export class Scene {
     this.ray.setFromCamera(vector, this.camera);
   
     let allObjects: THREE.Object3D[] = [];
-    this.getDescendants(this.scene, allObjects);
-    var objects = this.ray.intersectObjects(allObjects);
+    getDescendants(this.scene, allObjects);
+    let objects: any [] = this.ray.intersectObjects(allObjects);
   
-    var model;
+    let model: THREE.Object3D = new THREE.Object3D();
     var point;
     if (objects.length > 0)
     {
@@ -834,9 +843,8 @@ export class Scene {
       for (var i = 0; i < objects.length; ++i)
       {
         model = objects[i].object;
-        if (model.name.indexOf('_lightHelper') >= 0)
-        {
-          model = model.parent;
+        if (model.name.indexOf('_lightHelper') >= 0) {
+          model = model.parent!;
           break;
         }
   
@@ -853,7 +861,6 @@ export class Scene {
           || model.name === 'COM_VISUAL')
         {
           point = objects[i].point;
-          model = null;
           continue;
         }
   
@@ -868,7 +875,7 @@ export class Scene {
           {
             break modelsloop;
           }*/
-          model = model.parent;
+          model = model.parent!;
         }
   
         /*if (this.radialMenu && model === this.radialMenu.menu)
@@ -876,9 +883,7 @@ export class Scene {
           continue;
         }*/
   
-        if (model.name.indexOf('COLLISION_VISUAL') >= 0)
-        {
-          model = null;
+        if (model.name.indexOf('COLLISION_VISUAL') >= 0) {
           continue;
         }
   
@@ -909,7 +914,7 @@ export class Scene {
    * Get the renderer's DOM element
    * @returns {domElement}
    */
-  public getDomElement(): DOMElement {
+  public getDomElement(): HTMLCanvasElement {
     return this.renderer.domElement;
   }
 
@@ -994,7 +999,7 @@ export class Scene {
    * @param {double} width
    * @param {double} height
    */
-  public setSize(width: Number, height: Number): void {
+  public setSize(width: number, height: number): void {
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
   
@@ -1015,8 +1020,10 @@ export class Scene {
    * Add object to the scene
    * @param {THREE.Object3D} model
    */
-  public add(model) {
-    model.viewAs = 'normal';
+  public add(model: THREE.Object3D) {
+    if (!model.userData) {
+      model.userData = new ModelUserData();
+    }
     this.scene.add(model);
   }
 
@@ -1024,7 +1031,7 @@ export class Scene {
    * Remove object from the scene
    * @param {THREE.Object3D} model
    */
-  public remove(model): void
+  public remove(model: THREE.Object3D): void
   {
     this.scene.remove(model);
   }
@@ -1035,7 +1042,7 @@ export class Scene {
    * @returns {THREE.Object3D} model
    */
   public getByName(name: string): THREE.Object3D {
-    return this.scene.getObjectByName(name);
+    return this.scene.getObjectByName(name)!;
   }
 
   /**
@@ -1045,7 +1052,7 @@ export class Scene {
    * @returns {THREE.Object3D} model
    */
   public getByProperty(property: string, value: string): THREE.Object3D {
-    return this.scene.getObjectByProperty(property, value);
+    return this.scene.getObjectByProperty(property, value)!;
   }
 
   /**
@@ -1102,12 +1109,14 @@ export class Scene {
   public createPlane = function(normalX: number, normalY: number,
                                 normalZ: number, width: number,
                                 height:number): THREE.Mesh {
-    var geometry = new THREE.PlaneGeometry(width, height, 1, 1);
-    var material =  new THREE.MeshPhongMaterial();
-    var mesh = new THREE.Mesh(geometry, material);
-    var normal = new THREE.Vector3(normalX, normalY, normalZ);
-    var cross = normal.crossVectors(normal, mesh.up);
-    mesh.rotation = normal.applyAxisAngle(cross, -(normal.angleTo(mesh.up)));
+    let geometry: THREE.PlaneGeometry =
+      new THREE.PlaneGeometry(width, height, 1, 1);
+    let material:THREE.MeshPhongMaterial = new THREE.MeshPhongMaterial();
+    let mesh: THREE.Mesh = new THREE.Mesh(geometry, material);
+    let normal: THREE.Vector3 = new THREE.Vector3(normalX, normalY, normalZ);
+    let cross: THREE.Vector3 = normal.crossVectors(normal, mesh.up);
+    normal.applyAxisAngle(cross, -(normal.angleTo(mesh.up)))
+    mesh.quaternion.setFromEuler(new THREE.Euler(normal.x, normal.y, normal.z));
     mesh.name = 'plane';
     mesh.receiveShadow = true;
     return mesh;
@@ -1146,15 +1155,18 @@ export class Scene {
    * @returns {THREE.Mesh}
    */
   public createBox(width: number, height: number, depth: number): THREE.Mesh {
-    var geometry = new THREE.BoxGeometry(width, height, depth, 1, 1, 1);
+    let geometry: THREE.BoxGeometry =
+      new THREE.BoxGeometry(width, height, depth, 1, 1, 1);
   
     // Fix UVs so textures are mapped in a way that is consistent to gazebo
     // Some face uvs need to be rotated clockwise, while others anticlockwise
     // After updating to threejs rev 62, geometries changed from quads (6 faces)
     // to triangles (12 faces).
-    geometry.dynamic = true;
     var faceUVFixA = [1, 4, 5];
     var faceUVFixB = [0];
+    let uvAttribute = geometry.getAttribute('uv');
+    /* THREEJS has moved away from faceVertexUvs to BufferGeometry attributes.
+     * Need to migrate this code. See https://discourse.threejs.org/t/facevertexuvs-for-buffergeometry/23040
     for (var i = 0; i < faceUVFixA.length; ++i)
     {
       var idx = faceUVFixA[i]*2;
@@ -1188,7 +1200,8 @@ export class Scene {
         geometry.faceVertexUvs[0][idxB+1][0] = geometry.faceVertexUvs[0][idxB][1];
       }
     }
-    geometry.uvsNeedUpdate = true;
+   */
+    uvAttribute.needsUpdate = true;
   
     var mesh = new THREE.Mesh(geometry, this.simpleShapesMaterial);
     mesh.castShadow = true;
@@ -1211,96 +1224,51 @@ export class Scene {
    * @param {} attenuation_quadratic
    * @returns {THREE.Object3D}
    */
-  public createLight(type: number, diffuse: Color, intensity: number,
-    pose: any, distance: number, cast_shadows: boolean,
-    name: string, direction: THREE.Vector3,
-    specular: Color, attenuation_constant: number,
-    attenuation_linear: number, attenuation_quadratic: number,
-    inner_angle: number, outer_angle: number, falloff: number): THREE.Object3d
+  public createLight(type: number, diffuse?: Color, intensity?: number,
+    pose?: Pose, distance?: number, cast_shadows?: boolean,
+    name?: string, direction?: THREE.Vector3,
+    specular?: Color, attenuation_constant?: number,
+    attenuation_linear?: number, attenuation_quadratic?: number,
+    inner_angle?: number, outer_angle?: number, falloff?: number): THREE.Object3D
   {
-    var obj = new THREE.Object3D();
-    var color = new THREE.Color();
+    let obj: THREE.Object3D = new THREE.Object3D();
   
-    if (typeof(diffuse) === 'undefined')
-    {
-      diffuse = 0xffffff;
+    if (typeof(diffuse) === 'undefined') {
+      diffuse = new Color();
+      diffuse.r = 1;
+      diffuse.g = 1;
+      diffuse.b = 1;
+      diffuse.a = 1;
     }
-    else if (typeof(diffuse) !== THREE.Color)
-    {
-      color.r = diffuse.r;
-      color.g = diffuse.g;
-      color.b = diffuse.b;
-      diffuse = color.clone();
-    }
-    else if (typeof(specular) !== THREE.Color)
-    {
-      color.r = specular.r;
-      color.g = specular.g;
-      color.b = specular.b;
-      specular = color.clone();
-    }
-  
-    if (pose)
-    {
+ 
+    if (pose) {
       this.setPose(obj, pose.position, pose.orientation);
       obj.matrixWorldNeedsUpdate = true;
     }
   
-    var dir = new THREE.Vector3(0, 0, -1);
-  
-    var elements;
-    if (type === 1)
-    {
-      elements = this.createPointLight(obj, diffuse, intensity,
+    let lightObj: THREE.Light;
+ 
+    if (type === 1) {
+      lightObj = this.createPointLight(obj, diffuse, intensity,
           distance, cast_shadows);
+    } else if (type === 2) {
+      lightObj = this.createSpotLight(obj, diffuse, intensity,
+          distance, cast_shadows, inner_angle, outer_angle, falloff, direction);
+    } else if (type === 3) {
+      lightObj = this.createDirectionalLight(obj, diffuse, intensity,
+          cast_shadows, direction);
+    } else {
+      console.error('Unknown light type', type);
+      return obj;
     }
-    else if (type === 2)
-    {
-      elements = this.createSpotLight(obj, diffuse, intensity,
-          distance, cast_shadows, inner_angle, outer_angle, falloff);
-    }
-    else if (type === 3)
-    {
-      elements = this.createDirectionalLight(obj, diffuse, intensity,
-          cast_shadows);
-      if (direction)
-      {
-        dir.x = direction.x;
-        dir.y = direction.y;
-        dir.z = direction.z;
-      }
-    }
-  
-    var lightObj = elements[0];
-    var helper = elements[1];
-  
-    if (name)
-    {
+ 
+    if (name) {
       lightObj.name = name;
       obj.name = name;
-      helper.name = name + '_lightHelper';
     }
-  
-    obj.direction = new THREE.Vector3(dir.x, dir.y, dir.z);
-    var targetObj = new THREE.Object3D();
-    lightObj.add(targetObj);
-  
-    targetObj.position.copy(dir);
-    targetObj.matrixWorldNeedsUpdate = true;
-    lightObj.target = targetObj;
-  
-    // Add properties which exist on the server but have no meaning on THREE.js
-    obj.serverProperties = {};
-    obj.serverProperties.specular = specular;
-    obj.serverProperties.attenuation_constant = attenuation_constant;
-    obj.serverProperties.attenuation_linear = attenuation_linear;
-    obj.serverProperties.attenuation_quadratic = attenuation_quadratic;
-  
+ 
     obj.add(lightObj);
   
-    // Suppress light shape visualization. Renable this when visualization
-    // controls are in place
-    // obj.add(helper);
     return obj;
   }
 
@@ -1314,31 +1282,22 @@ export class Scene {
    * @returns {Object.<THREE.Light, THREE.Mesh>}
    */
   public createPointLight(obj: THREE.Object3D, color: THREE.Color,
-                          intensity: number, distance: number,
-                          cast_shadows: boolean): [THREE.Light, THREE.Mesh] {
-    if (typeof(intensity) === 'undefined')
-    {
+                          intensity?: number, distance?: number,
+                          cast_shadows?: boolean): THREE.Light {
+    if (typeof(intensity) === 'undefined') {
       intensity = 0.5;
     }
   
     var lightObj = new THREE.PointLight(color, intensity);
   
-    if (distance)
-    {
+    if (distance) {
       lightObj.distance = distance;
     }
-    if (cast_shadows)
-    {
+    if (cast_shadows) {
       lightObj.castShadow = cast_shadows;
     }
   
-    var helperGeometry = new THREE.OctahedronGeometry(0.25, 0);
-    helperGeometry.applyMatrix(new THREE.Matrix4().makeRotationX(Math.PI/2));
-    var helperMaterial = new THREE.MeshBasicMaterial(
-          {wireframe: true, color: 0x00ff00});
-    var helper = new THREE.Mesh(helperGeometry, helperMaterial);
-  
-    return [lightObj, helper];
+    return lightObj;
   }
 
   /**
@@ -1350,49 +1309,51 @@ export class Scene {
    * @param {} cast_shadows
    * @returns {Object.<THREE.Light, THREE.Mesh>}
    */
-  public createSpotLight(obj: THREE.Object3d, color: THREE.Color,
-                         intensity: number, distance: number,
-                         cast_shadows: boolean, inner_angle: number,
-                         outer_angle: number, falloff: number): [THREE.Object3D, THREE.Mesh] {
-    if (typeof(intensity) === 'undefined')
-    {
+  public createSpotLight(obj: THREE.Object3D, color: THREE.Color,
+                         intensity?: number, distance?: number,
+                         cast_shadows?: boolean, inner_angle?: number,
+                         outer_angle?: number, falloff?: number,
+                        direction?: THREE.Vector3): THREE.Light {
+    if (typeof(intensity) === 'undefined') {
       intensity = 1;
     }
-    if (typeof(distance) === 'undefined')
-    {
+    if (typeof(distance) === 'undefined') {
       distance = 20;
     }
   
-    var lightObj = new THREE.SpotLight(color, intensity, distance);
+    let lightObj: THREE.SpotLight =
+      new THREE.SpotLight(color, intensity, distance);
     lightObj.position.set(0,0,0);
   
     if (inner_angle !== null && outer_angle !== null) {
-      lightObj.angle = outer_angle;
+      lightObj.angle = outer_angle!;
       lightObj.penumbra = Math.max(1,
-        (outer_angle - inner_angle) / ((inner_angle + outer_angle) / 2.0));
+        (outer_angle! - inner_angle!) / ((inner_angle! + outer_angle!) / 2.0));
     }
   
     if (falloff !== null) {
-      lightObj.decay = falloff;
+      lightObj.decay = falloff!;
     }
   
-    if (cast_shadows)
-    {
-      lightObj.castShadow = cast_shadows;
+    if (cast_shadows) {
+      lightObj.castShadow = cast_shadows!;
     }
+
+    // Set the target
+    let dir: THREE.Vector3 = new THREE.Vector3(0, 0, -1);
+    if (direction) {
+        dir.x = direction!.x;
+        dir.y = direction!.y;
+        dir.z = direction!.z;
+    }
+    let targetObj: THREE.Object3D = new THREE.Object3D();
+    lightObj.add(targetObj);
   
-    var helperGeometry = new THREE.CylinderGeometry(0, 0.3, 0.2, 4, 1, true);
-    helperGeometry.applyMatrix(new THREE.Matrix4().makeRotationX(Math.PI/2));
-    helperGeometry.applyMatrix(new THREE.Matrix4().makeRotationZ(Math.PI/4));
-  
-    // Offset the helper so that the frustum vertex is at the spot light
-    // source. This is half the height of the THREE.CylinderGeometry.
-    helperGeometry.applyMatrix(new THREE.Matrix4().makeTranslation(0, 0, -0.1));
-    var helperMaterial = new THREE.MeshBasicMaterial(
-          {wireframe: true, color: 0x00ff00});
-    var helper = new THREE.Mesh(helperGeometry, helperMaterial);
-  
-    return [lightObj, helper];
+    targetObj.position.copy(dir);
+    targetObj.matrixWorldNeedsUpdate = true;
+    lightObj.target = targetObj;
+ 
+    return lightObj;
   }
 
   /**
@@ -1404,10 +1365,11 @@ export class Scene {
    * @returns {Object.<THREE.Light, THREE.Mesh>}
    */
   public createDirectionalLight(obj: THREE.Object3D, color: THREE.Color,
-                                intensity: number, cast_shadows: boolean): [THREE.Light, THREE.Mesh]
+                                intensity?: number,
+                                cast_shadows?: boolean,
+                                direction?: THREE.Vector3): THREE.Light
   {
-    if (typeof(intensity) === 'undefined')
-    {
+    if (typeof(intensity) === 'undefined') {
       intensity = 1;
     }
   
@@ -1417,202 +1379,30 @@ export class Scene {
     lightObj.shadow.mapSize.width = 4094;
     lightObj.shadow.mapSize.height = 4094;
     lightObj.shadow.camera.bottom = -100;
-    lightObj.shadow.camera.feft = -100;
     lightObj.shadow.camera.right = 100;
     lightObj.shadow.camera.top = 100;
     lightObj.shadow.bias = 0.0001;
     lightObj.position.set(0,0,0);
   
-    if (cast_shadows)
-    {
+    if (cast_shadows) {
       lightObj.castShadow = cast_shadows;
     }
-  
-    var helperGeometry = new THREE.Geometry();
-    helperGeometry.vertices.push(new THREE.Vector3(-0.5, -0.5, 0));
-    helperGeometry.vertices.push(new THREE.Vector3(-0.5,  0.5, 0));
-    helperGeometry.vertices.push(new THREE.Vector3(-0.5,  0.5, 0));
-    helperGeometry.vertices.push(new THREE.Vector3( 0.5,  0.5, 0));
-    helperGeometry.vertices.push(new THREE.Vector3( 0.5,  0.5, 0));
-    helperGeometry.vertices.push(new THREE.Vector3( 0.5, -0.5, 0));
-    helperGeometry.vertices.push(new THREE.Vector3( 0.5, -0.5, 0));
-    helperGeometry.vertices.push(new THREE.Vector3(-0.5, -0.5, 0));
-    helperGeometry.vertices.push(new THREE.Vector3(   0,    0, 0));
-    helperGeometry.vertices.push(new THREE.Vector3(   0,    0, -0.5));
-    var helperMaterial = new THREE.LineBasicMaterial({color: 0x00ff00});
-    var helper = new THREE.Line(helperGeometry, helperMaterial,
-        THREE.LineSegments);
-  
-    return [lightObj, helper];
-  }
 
-  /**
-   * Create roads
-   * @param {} points
-   * @param {} width
-   * @param {} texture
-   * @returns {THREE.Mesh}
-   */
-  public createRoads(points: THREE.Vector3[], width: number, texture: string): THREE.Mesh {
-    var geometry = new THREE.Geometry();
-    geometry.dynamic = true;
-    var texCoord = 0.0;
-    var texMaxLen = width;
-    var factor = 1.0;
-    var curLen = 0.0;
-    var tangent = new THREE.Vector3(0,0,0);
-    var pA;
-    var pB;
-    var prevPt = new THREE.Vector3(0,0,0);
-    var prevTexCoord;
-    var texCoords = [];
-    var j = 0;
-    for (var i = 0; i < points.length; ++i)
-    {
-      var pt0 =  new THREE.Vector3(points[i].x, points[i].y,
-          points[i].z);
-      var pt1;
-      if (i !== points.length - 1)
-      {
-        pt1 =  new THREE.Vector3(points[i+1].x, points[i+1].y,
-            points[i+1].z);
-      }
-      factor = 1.0;
-      if (i > 0)
-      {
-        curLen += pt0.distanceTo(prevPt);
-      }
-      texCoord = curLen/texMaxLen;
-      if (i === 0)
-      {
-        tangent.x = pt1.x;
-        tangent.y = pt1.y;
-        tangent.z = pt1.z;
-        tangent.sub(pt0);
-        tangent.normalize();
-      }
-      else if (i === points.length - 1)
-      {
-        tangent.x = pt0.x;
-        tangent.y = pt0.y;
-        tangent.z = pt0.z;
-        tangent.sub(prevPt);
-        tangent.normalize();
-      }
-      else
-      {
-        var v0 = new THREE.Vector3(0,0,0);
-        var v1 = new THREE.Vector3(0,0,0);
-        v0.x = pt0.x;
-        v0.y = pt0.y;
-        v0.z = pt0.z;
-        v0.sub(prevPt);
-        v0.normalize();
-  
-        v1.x = pt1.x;
-        v1.y = pt1.y;
-        v1.z = pt1.z;
-        v1.sub(pt0);
-        v1.normalize();
-  
-        var dot = v0.dot(v1*-1);
-  
-        tangent.x = pt1.x;
-        tangent.y = pt1.y;
-        tangent.z = pt1.z;
-        tangent.sub(prevPt);
-        tangent.normalize();
-  
-        if (dot > -0.97 && dot < 0.97)
-        {
-          factor = 1.0 / Math.sin(Math.acos(dot) * 0.5);
-        }
-      }
-      var theta = Math.atan2(tangent.x, -tangent.y);
-      pA = new THREE.Vector3(pt0.x,pt0.y,pt0.z);
-      pB = new THREE.Vector3(pt0.x,pt0.y,pt0.z);
-      var w = (width * factor)*0.5;
-      pA.x += Math.cos(theta) * w;
-      pA.y += Math.sin(theta) * w;
-      pB.x -= Math.cos(theta) * w;
-      pB.y -= Math.sin(theta) * w;
-  
-      geometry.vertices.push(pA);
-      geometry.vertices.push(pB);
-  
-      texCoords.push([0, texCoord]);
-      texCoords.push([1, texCoord]);
-  
-      // draw triangle strips
-      if (i > 0)
-      {
-        geometry.faces.push(new THREE.Face3(j, j+1, j+2,
-          new THREE.Vector3(0, 0, 1)));
-        geometry.faceVertexUvs[0].push(
-            [new THREE.Vector2(texCoords[j][0], texCoords[j][1]),
-             new THREE.Vector2(texCoords[j+1][0], texCoords[j+1][1]),
-             new THREE.Vector2(texCoords[j+2][0], texCoords[j+2][1])]);
-        j++;
-  
-        geometry.faces.push(new THREE.Face3(j, j+2, j+1,
-          new THREE.Vector3(0, 0, 1)));
-        geometry.faceVertexUvs[0].push(
-            [new THREE.Vector2(texCoords[j][0], texCoords[j][1]),
-             new THREE.Vector2(texCoords[j+2][0], texCoords[j+2][1]),
-             new THREE.Vector2(texCoords[j+1][0], texCoords[j+1][1])]);
-        j++;
-  
-      }
-  
-      prevPt.x = pt0.x;
-      prevPt.y = pt0.y;
-      prevPt.z = pt0.z;
-  
-      prevTexCoord = texCoord;
+    // Set the target
+    let dir: THREE.Vector3 = new THREE.Vector3(0, 0, -1);
+    if (direction) {
+        dir.x = direction.x;
+        dir.y = direction.y;
+        dir.z = direction.z;
     }
+    let targetObj: THREE.Object3D = new THREE.Object3D();
+    lightObj.add(targetObj);
   
-    // geometry.computeTangents();
-    geometry.computeFaceNormals();
+    targetObj.position.copy(dir);
+    targetObj.matrixWorldNeedsUpdate = true;
+    lightObj.target = targetObj;
   
-    geometry.verticesNeedUpdate = true;
-    geometry.uvsNeedUpdate = true;
-  
-  
-    var material =  new THREE.MeshPhongMaterial();
-  
-   /* var ambient = mat['ambient'];
-    if (ambient)
-    {
-      material.ambient.setRGB(ambient[0], ambient[1], ambient[2]);
-    }
-    var diffuse = mat['diffuse'];
-    if (diffuse)
-    {
-      material.color.setRGB(diffuse[0], diffuse[1], diffuse[2]);
-    }
-    var specular = mat['specular'];
-    if (specular)
-    {
-      material.specular.setRGB(specular[0], specular[1], specular[2]);
-    }*/
-    if (texture)
-    {
-      var tex = this.textureLoader.load(texture,
-              // onLoad
-              undefined,
-              // onProgress
-              undefined,
-              function(_error) {
-                console.error('Error loading texture', _error);
-              });
-  
-      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-      material.map = tex;
-    }
-  
-    var mesh = new THREE.Mesh(geometry, material);
-    mesh.castShadow = false;
-    return mesh;
+    return lightObj;
   }
 
   /**
@@ -1629,7 +1419,7 @@ export class Scene {
    */
   public loadHeightmap(heights: number[], width: number, height: number,
       segmentWidth: number, segmentHeight: number, origin: THREE.Vector3,
-      textures: string[], blends: string[], parent: THREE.Object3D): void {
+      textures: any[], blends: any[], parent: THREE.Object3D): void {
     if (this.heightmap)
     {
       console.error('Only one heightmap can be loaded at a time');
@@ -1655,7 +1445,6 @@ export class Scene {
   
     var geometry = new THREE.PlaneGeometry(width, height,
         (segmentWidth-1) * scale, (segmentHeight-1) * scale);
-    geometry.dynamic = true;
   
     // Mirror the vertices about the X axis
     var vertices = [];
@@ -1668,20 +1457,21 @@ export class Scene {
       }
     }
   
+    let posAttribute = geometry.getAttribute('position');
+
     // Sub-sample
-    var col = (segmentWidth-1) * scale;
-    var row = (segmentHeight-1) * scale;
-    for (var r = 0; r < row; ++r)
-    {
-      for (var c = 0; c < col; ++c)
-      {
-        var index = (r * col * 1/(scale*scale)) +   (c * (1/scale));
-        geometry.vertices[r*col + c].z = vertices[index];
+    let col: number = (segmentWidth-1) * scale;
+    let row: number = (segmentHeight-1) * scale;
+    for (let r = 0; r < row; ++r) {
+      for (let c = 0; c < col; ++c) {
+        let index: number = (r * col * 1/(scale*scale)) +   (c * (1/scale));
+        posAttribute.setZ(r*col + c, vertices[index]);
       }
     }
+    posAttribute.needsUpdate = true;
   
     // Compute normals
-    geometry.computeFaceNormals();
+    geometry.normalizeNormals();
     geometry.computeVertexNormals();
   
     // Material - use shader if textures provided, otherwise use a generic phong
@@ -1691,15 +1481,14 @@ export class Scene {
     {
       var textureLoaded = [];
       var repeats = [];
-      for (var t = 0; t < textures.length; ++t)
-      {
+      for (var t = 0; t < textures.length; ++t) {
         textureLoaded[t] = this.textureLoader.load(
           textures[t].diffuse,
               // onLoad
               undefined,
               // onProgress
               undefined,
-              function(_error) {
+              function(_error: any) {
                 console.error('Error loading diffuse texture', _error);
               });
   
@@ -1730,13 +1519,13 @@ export class Scene {
       var lightDir = new THREE.Vector3(0, 0, 1);
       var lightDiffuse = new THREE.Color(0xffffff);
       let allObjects: THREE.Object3D[] = [];
-      this.getDescendants(this.scene, allObjects);
+      getDescendants(this.scene, allObjects);
       for (var l = 0; l < allObjects.length; ++l)
       {
         if (allObjects[l] instanceof THREE.DirectionalLight)
         {
-          lightDir = allObjects[l].target.position;
-          lightDiffuse = allObjects[l].color;
+          lightDir = (<THREE.DirectionalLight>allObjects[l]).target.position;
+          lightDiffuse = (<THREE.DirectionalLight>allObjects[l]).color;
           break;
         }
       }
@@ -1758,6 +1547,8 @@ export class Scene {
           lightDiffuse: { type: 'c', value: lightDiffuse},
           lightDir: { type: 'v3', value: lightDir}
         },
+        vertexShader: '',
+        fragmentShader: ''
       };
   
       if (this.shaders !== undefined)
@@ -1771,9 +1562,7 @@ export class Scene {
       }
   
       material = new THREE.ShaderMaterial(options);
-    }
-    else
-    {
+    } else {
       material = new THREE.MeshPhongMaterial( { color: 0x555555 } );
     }
   
@@ -1812,10 +1601,9 @@ export class Scene {
   
     // Check if the mesh has already been loaded.
     // Use it in that case.
-    if (this.meshes[uri])
+    if (this.meshes.has(uri))
     {
-      var mesh = this.meshes[uri];
-      mesh = mesh.clone();
+      let mesh: THREE.Mesh = this.meshes.get(uri)!.clone();
       if (submesh && this.useSubMesh(mesh, submesh, centerSubmesh)) {
         onLoad(mesh);
       } else if (!submesh) {
@@ -1825,54 +1613,17 @@ export class Scene {
     }
   
     // load meshes
-    if (uriFile.substr(-4).toLowerCase() === '.dae')
-    {
-      return this.loadCollada(uri, submesh, centerSubmesh, onLoad);
+    if (uriFile.substr(-4).toLowerCase() === '.dae') {
+      return this.loadCollada(uri, submesh, centerSubmesh, onLoad, onError);
     }
-    else if (uriFile.substr(-4).toLowerCase() === '.obj')
-    {
-      var gzObjLoader = new GZ3D.OBJLoader(this, uri, submesh, centerSubmesh,
-                                           onLoad, this.findResourceCb);
-      return gzObjLoader.loadOBJ();
+    else if (uriFile.substr(-4).toLowerCase() === '.obj') {
+      return this.loadOBJ(uri, submesh, centerSubmesh, onLoad, onError);
     }
-    else if (uriFile.substr(-4).toLowerCase() === '.stl')
-    {
-      return this.loadSTL(uri, submesh, centerSubmesh, onLoad);
+    else if (uriFile.substr(-4).toLowerCase() === '.stl') {
+      return this.loadSTL(uri, submesh, centerSubmesh, onLoad, onError);
     }
-    else if (uriFile.substr(-5).toLowerCase() === '.urdf')
-    {
+    else if (uriFile.substr(-5).toLowerCase() === '.urdf') {
       console.error('Attempting to load URDF file, but it\'s not supported.');
-      /*var urdfModel = new ROSLIB.UrdfModel({
-        string : uri
-      });
-  
-      // adapted from ros3djs
-      var links = urdfModel.links;
-      for ( var l in links) {
-        var link = links[l];
-        if (link.visual && link.visual.geometry) {
-          if (link.visual.geometry.type === ROSLIB.URDF_MESH) {
-            var frameID = '/' + link.name;
-            var filename = link.visual.geometry.filename;
-            var meshType = filename.substr(-4).toLowerCase();
-            var mesh = filename.substring(filename.indexOf('://') + 3);
-            // ignore mesh files which are not in Collada format
-            if (meshType === '.dae')
-            {
-              var dae = this.loadCollada(uriPath + '/' + mesh, parent);
-              // check for a scale
-              if(link.visual.geometry.scale)
-              {
-                dae.scale = new THREE.Vector3(
-                    link.visual.geometry.scale.x,
-                    link.visual.geometry.scale.y,
-                    link.visual.geometry.scale.z
-                );
-              }
-            }
-          }
-        }
-      }*/
     }
   }
 
@@ -1909,10 +1660,9 @@ export class Scene {
     var uriPath = uri.substring(0, uri.lastIndexOf('/'));
     var uriFile = uri.substring(uri.lastIndexOf('/') + 1);
   
-    if (this.meshes[uri])
+    if (this.meshes.has(uri))
     {
-      var mesh = this.meshes[uri];
-      mesh = mesh.clone();
+      let mesh: THREE.Mesh = this.meshes.get(uri)!.clone();
       if (submesh && this.useSubMesh(mesh, submesh, centerSubmesh)) {
         onLoad(mesh);
       } else if (!submesh) {
@@ -1925,23 +1675,19 @@ export class Scene {
     if (uriFile.substr(-4).toLowerCase() === '.dae')
     {
       // loadCollada just accepts one file, which is the dae file as string
-      if (files.length < 1 || !files[0])
-      {
+      if (files.length < 1 || !files[0]) {
         console.error('Missing DAE file');
         return;
       }
-      return this.loadCollada(uri, submesh, centerSubmesh, onLoad, onError, files[0]);
+      this.loadCollada(uri, submesh, centerSubmesh, onLoad, onError, files[0]);
     }
     else if (uriFile.substr(-4).toLowerCase() === '.obj')
     {
-      if (files.length < 2 || !files[0] || !files[1])
-      {
+      if (files.length < 2 || !files[0] || !files[1]) {
         console.error('Missing either OBJ or MTL file');
         return;
       }
-      var gzObjLoader = new GZ3D.OBJLoader(this, uri, submesh, centerSubmesh,
-          onLoad, files);
-      return gzObjLoader.loadOBJ();
+      this.loadOBJ(uri, submesh, centerSubmesh, onLoad, onError, files);
     }
   }
 
@@ -1959,25 +1705,24 @@ export class Scene {
    * be made.
    */
   public loadCollada(uri: string, submesh: string, centerSubmesh: boolean,
-    onLoad: any, onError: ant, filestring: string): void
+    onLoad: any, onError: any, filestring?: string): void
   {
-    var dae;
+    let dae: THREE.Mesh;
     var mesh = null;
     var that = this;
   
     /*
     // Crashes: issue #36
-    if (this.meshes[uri])
+    if (this.meshes.has(uri))
     {
-      dae = this.meshes[uri];
+      dae = this.meshes.get(uri);
       dae = dae.clone();
       this.useColladaSubMesh(dae, submesh, centerSubmesh);
       onLoad(dae);
       return;
     }
     */
-    function meshReady(collada)
-    {
+    function meshReady(collada: any): void {
       // check for a scale factor
       /*if(collada.dae.asset.unit)
       {
@@ -1988,7 +1733,7 @@ export class Scene {
       dae = collada.scene;
       dae.updateMatrix();
       that.prepareColladaMesh(dae);
-      that.meshes[uri] = dae;
+      that.meshes.set(uri, dae);
       dae = dae.clone();
       dae.name = uri;
       if (submesh && that.useSubMesh(dae, submesh, centerSubmesh)) {
@@ -1998,202 +1743,172 @@ export class Scene {
       }
     }
   
-    if (!filestring)
-    {
+    if (!filestring) {
       this.colladaLoader.load(uri,
         // onLoad callback
-        function(collada) {
+        function(collada: any) {
           meshReady(collada);
         },
         // onProgress callback
-        function(progress) {
+        function(progress: any) {
         },
         // onError callback
-        function(error) {
-          // Use the find resource callback to get the mesh
-          that.findResourceCb(uri, function(mesh) {
-            meshReady(that.colladaLoader.parse(
-              new TextDecoder().decode(mesh), uri));
-          });
+        function(error: any) {
+          if (that.findResourceCb) {
+            // Use the find resource callback to get the mesh
+            that.findResourceCb(uri, function(mesh: any) {
+              meshReady(that.colladaLoader.parse(
+                new TextDecoder().decode(mesh), uri));
+            });
+          }
         });
-    }
-    else
-    {
+    } else {
       meshReady(this.colladaLoader.parse(filestring, undefined));
     }
   }
 
-/**
- * Prepare collada by removing other non-mesh entities such as lights
- * @param {} dae
- */
-public prepareColladaMesh(dae: any): void {
-  let allChildren: THREE.Object3D[] = [];
-  this.getDescendants(dae, allChildren);
-  for (var i = 0; i < allChildren.length; ++i)
-  {
-    if (allChildren[i] instanceof THREE.Light)
-    {
-      allChildren[i].parent.remove(allChildren[i]);
+  /**
+   * Prepare collada by removing other non-mesh entities such as lights
+   * @param {} dae
+   */
+  public prepareColladaMesh(dae: THREE.Object3D): void {
+    let allChildren: THREE.Object3D[] = [];
+    getDescendants(dae, allChildren);
+    for (let i = 0; i < allChildren.length; ++i) {
+      if (allChildren[1] && allChildren[i] instanceof THREE.Light &&
+          allChildren[i].parent) {
+        allChildren[i].parent!.remove(allChildren[i]);
+      }
     }
   }
-}
 
   /**
    * Prepare mesh by handling submesh-only loading
-   * @param {} mesh
+   * @param {THREE.Mesh} mesh
    * @param {} submesh
    * @param {} centerSubmesh
    * @returns {THREE.Mesh} mesh
    */
-  public useSubMesh(mesh, submesh, centerSubmesh): THREE.Mesh {
-    if (!submesh)
-    {
+  public useSubMesh(mesh: THREE.Object3D, submesh: string, centerSubmesh: boolean): THREE.Mesh | THREE.Group | null {
+
+    if (!submesh) {
       return null;
     }
+
+    let result: THREE.Mesh;
   
-    // The mesh has children for every submesh. Those children are either meshes or groups that contain meshes.
-    // We need to modify the mesh, so only the required submesh is contained in it.
-    // Note: If a submesh is contained in a group, we need to preserve that group, as it may apply matrix transformations
-    // required by the submesh.
-  
-    var result;
+    // The mesh has children for every submesh. Those children are either
+    // meshes or groups that contain meshes. We need to modify the mesh, so
+    // only the required submesh is contained in it. Note: If a submesh is
+    // contained in a group, we need to preserve that group, as it may apply
+    // matrix transformations required by the submesh.
   
     // Auxiliary function used to look for the required submesh.
     // Checks if the given submesh is the one we look for. If it's a Group, look for it within its children.
     // It returns the submesh, if found.
-    function lookForSubmesh(obj, parent) {
-      if (obj instanceof THREE.Mesh && obj.name === submesh && obj.hasOwnProperty('geometry')) {
+    function lookForSubmesh(obj: THREE.Mesh | THREE.Group, parent: THREE.Object3D): THREE.Mesh | THREE.Group {
+      if (obj instanceof THREE.Mesh &&
+          obj.name === submesh && obj.hasOwnProperty('geometry')) {
         // Found the submesh.
   
         // Center the submesh.
         if (centerSubmesh) {
           // obj file
           if (obj.geometry instanceof THREE.BufferGeometry) {
-            var geomPosition = obj.geometry.attributes.position;
-            var dim = geomPosition.itemSize;
-            var minPos = [];
-            var maxPos = [];
-            var centerPos = [];
-            var m = 0;
-            for (m = 0; m < dim; ++m)
-            {
-              minPos[m] = geomPosition.array[m];
-              maxPos[m] = minPos[m];
+            let geomPosition = obj.geometry.getAttribute('position');
+            let minPos: THREE.Vector3 = new THREE.Vector3();
+            let maxPos: THREE.Vector3 = new THREE.Vector3();
+            let centerPos: THREE.Vector3 = new THREE.Vector3();
+
+            minPos.fromBufferAttribute(geomPosition, 0);
+            maxPos.fromBufferAttribute(geomPosition, 0);
+
+            // Get the min and max values.
+            for (let i = 0; i < geomPosition.count; i++) {
+              minPos.x = Math.min(minPos.x, geomPosition.getX(i));
+              minPos.y = Math.min(minPos.y, geomPosition.getY(i));
+              minPos.z = Math.min(minPos.z, geomPosition.getZ(i));
+
+              maxPos.x = Math.min(maxPos.x, geomPosition.getX(i));
+              maxPos.y = Math.min(maxPos.y, geomPosition.getY(i));
+              maxPos.z = Math.min(maxPos.z, geomPosition.getZ(i));
             }
-            var kk = 0;
-            for (kk = dim; kk < geomPosition.count * dim; kk+=dim)
-            {
-              for (m = 0; m < dim; ++m)
-              {
-                minPos[m] = Math.min(minPos[m], geomPosition.array[kk + m]);
-                maxPos[m] = Math.max(maxPos[m], geomPosition.array[kk + m]);
-              }
+
+            // Compute center position
+            centerPos = minPos.add((maxPos.sub(minPos)).multiplyScalar(0.5));
+
+            // Update geometry position
+            for (let i = 0; i < geomPosition.count; i++) {
+              let origPos: THREE.Vector3 = new THREE.Vector3();
+              origPos.fromBufferAttribute(geomPosition, i);
+              let newPos = origPos.sub(centerPos);
+              geomPosition.setXYZ(i, newPos.x, newPos.y, newPos.z);
             }
-  
-            for (m = 0; m < dim; ++m)
-            {
-              centerPos[m] = minPos[m] + (0.5 * (maxPos[m] - minPos[m]));
-            }
-  
-            for (kk = 0; kk < geomPosition.count * dim; kk+=dim)
-            {
-              for (m = 0; m < dim; ++m)
-              {
-                geomPosition.array[kk + m] -= centerPos[m];
-              }
-            }
-            obj.geometry.attributes.position.needsUpdate = true;
+            geomPosition.needsUpdate = true;
   
             // Center the position.
             obj.position.set(0, 0, 0);
             var childParent = obj.parent;
-            while (childParent)
-            {
+            while (childParent) {
               childParent.position.set(0, 0, 0);
               childParent = childParent.parent;
             }
           }
-          // dae file
-          else
-          {
-            var vertices = obj.geometry.vertices;
-            var vMin = new THREE.Vector3();
-            var vMax = new THREE.Vector3();
-            vMin.x = vertices[0].x;
-            vMin.y = vertices[0].y;
-            vMin.z = vertices[0].z;
-            vMax.x = vMin.x;
-            vMax.y = vMin.y;
-            vMax.z = vMin.z;
-  
-            for (var j = 1; j < vertices.length; ++j)
-            {
-              vMin.x = Math.min(vMin.x, vertices[j].x);
-              vMin.y = Math.min(vMin.y, vertices[j].y);
-              vMin.z = Math.min(vMin.z, vertices[j].z);
-              vMax.x = Math.max(vMax.x, vertices[j].x);
-              vMax.y = Math.max(vMax.y, vertices[j].y);
-              vMax.z = Math.max(vMax.z, vertices[j].z);
-            }
-  
-            var center  = new THREE.Vector3();
-            center.x = vMin.x + (0.5 * (vMax.x - vMin.x));
-            center.y = vMin.y + (0.5 * (vMax.y - vMin.y));
-            center.z = vMin.z + (0.5 * (vMax.z - vMin.z));
-  
-            for (var k = 0; k < vertices.length; ++k)
-            {
-              vertices[k].x -= center.x;
-              vertices[k].y -= center.y;
-              vertices[k].z -= center.z;
-            }
-  
-            obj.geometry.verticesNeedUpdate = true;
-            var p = obj.parent;
-            while (p)
-            {
-              p.position.set(0, 0, 0);
-              p = p.parent;
-            }
-          }
         }
   
-        // Filter the children of the parent. Only the required submesh needs to be there.
+        // Filter the children of the parent. Only the required submesh
+        // needs to be there.
         parent.children = [obj];
         return obj;
-      } else {
-        if (obj instanceof THREE.Group) {
-          for (var i = 0; i < obj.children.length; i++) {
-            result = lookForSubmesh(obj.children[i], obj);
+      } else if (obj instanceof THREE.Group) {
+        for (let i: number = 0; i < obj.children.length; i++) {
+          if (obj.children[i] instanceof THREE.Mesh || 
+              obj.children[i] instanceof THREE.Group) {
+            let result = lookForSubmesh(obj.children[i] as any, obj);
             if (result) {
-              // This keeps the Group (obj), and modifies it's children to contain only the submesh.
+              // This keeps the Group (obj), and modifies it's children to
+              // contain only the submesh.
               obj.children = [result];
               return obj;
             }
           }
         }
+      } else {
+        console.error('Unable to load obj ', obj);
       }
+
+      return obj;
     }
   
-    var found = false;
     // Look for the submesh in the children of the mesh.
     for (var i = 0; i < mesh.children.length; i++) {
-      result = lookForSubmesh(mesh.children[i], mesh);
-      if (result) {
-        mesh.children = [ result ];
-        found = true;
-        break;
+      if (mesh.children[i] instanceof THREE.Mesh || 
+          mesh.children[i] instanceof THREE.Group) {
+        let result = lookForSubmesh(mesh.children[i] as any, mesh);
+        if (result) {
+          return result;
+        }
       }
-    }
-  
-    if (found) {
-      result = mesh.children;
-  
-      return result;
     }
   
     return null;
+  }
+
+  /**
+   * Load obj file.
+   * Loads obj mesh given using it's uri
+   * @param {string} uri
+   * @param {} submesh
+   * @param {} centerSubmesh
+   * @param {function} onLoad
+   * @param {function} onError
+   */
+  public loadOBJ(uri: string, submesh: string, centerSubmesh: boolean,
+                 onLoad: any, onError: any, files?: string[]): void
+  {
+    let objLoader = new GzObjLoader(this, uri, submesh, centerSubmesh,
+                                  this.findResourceCb, onLoad, onError, files);
+    objLoader.load();
   }
 
   /**
@@ -2205,25 +1920,39 @@ public prepareColladaMesh(dae: any): void {
    * @param {function} onLoad
    */
   public loadSTL(uri: string, submesh: string, centerSubmesh: boolean,
-                 onLoad: any): void
+                 onLoad: any, onError: any): void
   {
     var mesh = null;
     var that = this;
-    this.stlLoader.load(uri, function(geometry)
-    {
-      mesh = new THREE.Mesh( geometry );
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
+    this.stlLoader.load(uri,
+      // onLoad
+      function(geometry: THREE.BufferGeometry) {
+        mesh = new THREE.Mesh(geometry);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
   
-      that.meshes[uri] = mesh;
-      mesh = mesh.clone();
-      mesh.name = uri;
-      if (submesh && that.useSubMesh(mesh, submesh, centerSubmesh)) {
-        onLoad(mesh);
-      } else if (!submesh) {
-        onLoad(mesh);
+        that.meshes.set(uri, mesh);
+        mesh = mesh.clone();
+        mesh.name = uri;
+        if (submesh && that.useSubMesh(mesh, submesh, centerSubmesh)) {
+          onLoad(mesh);
+        } else if (!submesh) {
+          onLoad(mesh);
+        }
+      },
+      // onProgress
+      function (progress: any) {
+      },
+      // onError
+      function (error: any) {
+        if (that.findResourceCb) {
+          // Use the find resource callback to get the mesh
+          that.findResourceCb(uri, function(mesh: any) {
+            onLoad(that.stlLoader.parse(new TextDecoder().decode(mesh)));
+          });
+        }
       }
-    });
+    );
   }
 
   /**
@@ -2231,34 +1960,36 @@ public prepareColladaMesh(dae: any): void {
    * @param {} obj
    * @param {} material
    */
-  public setMaterial(obj: THREE.Object3D, material: any): void
+  public setMaterial(obj: THREE.Mesh, material: any): void
   {
     var scope = this;
   
-    function fallbackLoader(map, texture) {
-      // Get the image using the find resource callback.
-      scope.findResourceCb(map, function(image) {
-        // Create the image element
-        var imageElem = document.createElementNS(
-          'http://www.w3.org/1999/xhtml', 'img');
+    function fallbackLoader(map: string, texture: any) {
+      if (scope.findResourceCb) {
+        // Get the image using the find resource callback.
+        scope.findResourceCb(map, function(image: any) {
+          // Create the image element
+          let imageElem: HTMLImageElement = <HTMLImageElement>(
+            document.createElementNS('http://www.w3.org/1999/xhtml', 'img'));
   
-        var isJPEG = map.search( /\.jpe?g($|\?)/i ) > 0 || map.search( /^data\:image\/jpeg/ ) === 0;
+          var isJPEG = map.search( /\.jpe?g($|\?)/i ) > 0 || map.search( /^data\:image\/jpeg/ ) === 0;
   
-        var binary = ''; 
-        var len = image.byteLength;
-        for (var i = 0; i < len; i++) {
-          binary += String.fromCharCode(image[i]);
-        }
+          var binary = ''; 
+          var len = image.byteLength;
+          for (var i = 0; i < len; i++) {
+            binary += String.fromCharCode(image[i]);
+          }
   
-        // Set the image source using base64 encoding
-        imageElem.src = isJPEG ? 'data:image/jpg;base64,' :
-          'data:image/png;base64,';
-        imageElem.src += window.btoa(binary);
+          // Set the image source using base64 encoding
+          imageElem.src = isJPEG ? 'data:image/jpg;base64,' :
+            'data:image/png;base64,';
+          imageElem.src += window.btoa(binary);
   
-        texture.format = isJPEG ? THREE.RGBFormat : THREE.RGBAFormat;
-        texture.needsUpdate = true;
-        texture.image = imageElem;
-      });
+          texture.format = isJPEG ? THREE.RGBFormat : THREE.RGBAFormat;
+          texture.needsUpdate = true;
+          texture.image = imageElem;
+        });
+      }
     }
   
     if (obj)
@@ -2274,26 +2005,29 @@ public prepareColladaMesh(dae: any): void {
             var fileLoader = new THREE.FileLoader();
             fileLoader.setResponseType('blob');
             fileLoader.setRequestHeader(this.requestHeader);
-            var texture = new THREE.Texture();
-            var image = document.createElementNS( 'http://www.w3.org/1999/xhtml', 'img' );
+            let texture: THREE.Texture = new THREE.Texture();
+            let image: HTMLImageElement =
+              <HTMLImageElement>(document.createElementNS(
+                'http://www.w3.org/1999/xhtml', 'img'));
   
             // Once the image is loaded, we need to revoke the ObjectURL.
             image.onload = function () {
               image.onload = null;
               URL.revokeObjectURL( image.src );
-              if (onLoad) {
-                onLoad( image );
-              }
               texture.image = image;
               texture.needsUpdate = true;
+
+              if (onLoad) {
+                onLoad(texture);
+              }
             };
   
-            image.onerror = onError;
+            image.onerror = onError as any;
   
             // Once the image is loaded, we need to revoke the ObjectURL.
             fileLoader.load(
               url,
-              function(blob) {
+              function(blob: any) {
                 image.src = URL.createObjectURL(blob);
               },
               onProgress,
@@ -2304,25 +2038,26 @@ public prepareColladaMesh(dae: any): void {
           };
         }
   
-        // If the material has a PBR tag, use a MeshStandardMaterial, which can have albedo, normal,
-        // emissive, roughness and metalness maps. Otherwise use a Phong material.
+        // If the material has a PBR tag, use a MeshStandardMaterial,
+        // which can have albedo, normal, emissive, roughness and metalness
+        // maps. Otherwise use a Phong material.
         if (material.pbr) {
           obj.material = new THREE.MeshStandardMaterial();
           // Array of maps in order to facilitate the repetition and scaling process.
           var maps = [];
   
           if (material.pbr.metal.albedo_map) {
-            var albedoMap = this.textureLoader.load(
+            let albedoMap = this.textureLoader.load(
               material.pbr.metal.albedo_map,
               // onLoad
               undefined,
               // onProgress
               undefined,
               function(_error) {
-                var scopeTexture = albedoMap;
+                let scopeTexture = albedoMap;
                 fallbackLoader(material.pbr.metal.albedo_map, scopeTexture);
               });
-            obj.material.map = albedoMap;
+            (obj.material as any).map = albedoMap;
             maps.push(albedoMap);
   
             // enable alpha test for textures with alpha transparency
@@ -2342,7 +2077,7 @@ public prepareColladaMesh(dae: any): void {
               function(_error) {
                 fallbackLoader(material.pbr.metal.normal_map, normalMap);
               });
-            obj.material.normalMap = normalMap;
+            (obj.material as any).normalMap = normalMap;
             maps.push(normalMap);
           }
   
@@ -2356,7 +2091,7 @@ public prepareColladaMesh(dae: any): void {
               function(_error) {
                 fallbackLoader(material.pbr.metal.emissive_map, emissiveMap);
               });
-            obj.material.emissiveMap = emissiveMap;
+            (obj.material as any).emissiveMap = emissiveMap;
             maps.push(emissiveMap);
           }
   
@@ -2370,7 +2105,7 @@ public prepareColladaMesh(dae: any): void {
               function(_error) {
                 fallbackLoader(material.pbr.metal.roughness_map, roughnessMap);
               });
-            obj.material.roughnessMap = roughnessMap;
+            (obj.material as any).roughnessMap = roughnessMap;
             maps.push(roughnessMap);
           }
   
@@ -2384,7 +2119,7 @@ public prepareColladaMesh(dae: any): void {
               function(_error) {
                 fallbackLoader(material.pbr.metal.metalness_map, metalnessMap);
               });
-            obj.material.metalnessMap = metalnessMap;
+            (obj.material as any).metalnessMap = metalnessMap;
             maps.push(metalnessMap);
           }
   
@@ -2401,9 +2136,8 @@ public prepareColladaMesh(dae: any): void {
           obj.material = new THREE.MeshPhongMaterial();
   
           var specular = material.specular;
-          if (specular)
-          {
-            obj.material.specular.copy(specular);
+          if (specular) {
+            (obj.material as any).specular.copy(specular);
           }
   
           if (material.texture)
@@ -2421,30 +2155,28 @@ public prepareColladaMesh(dae: any): void {
             texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
             texture.repeat.x = 1.0;
             texture.repeat.y = 1.0;
-            if (material.scale)
-            {
+            if (material.scale) {
               texture.repeat.x = 1.0 / material.scale[0];
               texture.repeat.y = 1.0 / material.scale[1];
             }
-            obj.material.map = texture;
+            (obj.material as any).map = texture;
   
             // enable alpha test for textures with alpha transparency
-            if (texture.format === THREE.RGBAFormat)
-            {
+            if (texture.format === THREE.RGBAFormat) {
               obj.material.alphaTest = 0.5;
             }
           }
   
-          if (material.normalMap)
-          {
-            obj.material.normalMap =
+          if (material.normalMap) {
+            (obj.material as any).normalMap =
               this.textureLoader.load(material.normalMap,
                 // onLoad
                 undefined,
                 // onProgress
                 undefined,
                 function(_error) {
-                  fallbackLoader(material.normalMap, obj.material.normalMap);
+                  fallbackLoader(material.normalMap,
+                                 (obj.material as any).normalMap);
                 });
           }
         }
@@ -2467,7 +2199,7 @@ public prepareColladaMesh(dae: any): void {
             dc[1] = ambient.g*a + diffuse.g*d;
             dc[2] = ambient.b*a + diffuse.b*d;
           }
-          obj.material.color.setRGB(dc[0], dc[1], dc[2]);
+          (obj.material as any).color.setRGB(dc[0], dc[1], dc[2]);
         }
         var opacity = material.opacity;
         if (opacity)
@@ -2526,15 +2258,15 @@ public prepareColladaMesh(dae: any): void {
       return;
     }
   
-    var allObjects: THREE.Object3D = [];
-    this.getDescendants(this.scene, allObjects);
-    for (var i = 0; i < allObjects.length; ++i)
+    let allObjects: THREE.Object3D[] = [];
+    getDescendants(this.scene, allObjects);
+    for (let i = 0; i < allObjects.length; ++i)
     {
       if (allObjects[i] instanceof THREE.Object3D &&
           allObjects[i].name.indexOf('COLLISION_VISUAL') >=0)
       {
         let allChildren: THREE.Object3D[] = [];
-        this.getDescendants(allObjects[i], allChildren);
+        getDescendants(allObjects[i], allChildren);
         for (var j =0; j < allChildren.length; ++j)
         {
           if (allChildren[j] instanceof THREE.Mesh)
@@ -2580,7 +2312,7 @@ public prepareColladaMesh(dae: any): void {
     }
   
     /* Helper function to enable all child lights */
-    function enableLightsHelper(obj) {
+    function enableLightsHelper(obj: any) {
       if (obj === null || obj === undefined) {
         return;
       }
@@ -2620,9 +2352,9 @@ public prepareColladaMesh(dae: any): void {
     // See https://threejsfundamentals.org/threejs/lessons/threejs-tips.html, "Taking A Screenshot of the Canvas"
     this.render();
   
-    this.getDomElement().toBlob(function(blob) {
-      var url = URL.createObjectURL(blob);
-      var linkElement = document.createElement('a');
+    this.getDomElement().toBlob(function(blob: any) {
+      let url = URL.createObjectURL(blob);
+      let linkElement = document.createElement('a');
       linkElement.href = url;
       linkElement.download = filename + '.png';
       document.body.appendChild(linkElement);
@@ -2645,15 +2377,15 @@ public prepareColladaMesh(dae: any): void {
     // This allows us to download all the images when they are ready.
     // Note: jshint is ignored as we use Promises.
     /* jshint ignore:start */
-    function getCanvasBlob(canvas) {
-      return new Promise(function(resolve, reject) {
-        canvas.toBlob(function(blob) {
+    function getCanvasBlob(canvas: any) {
+      return new Promise(function(resolve: any, reject: any) {
+        canvas.toBlob(function(blob: any) {
           resolve(blob);
         });
       });
     }
   
-    const zip = new JSZip();
+    const zip = new jszip.JSZip();
     const canvas = this.getDomElement();
     const promises = [];
   
@@ -2733,7 +2465,7 @@ public prepareColladaMesh(dae: any): void {
     promises.push(back);
   
     Promise.all(promises).then(() => {
-      zip.generateAsync({type: 'blob'}).then(function(content) {
+      zip.generateAsync({type: 'blob'}).then(function(content: any) {
         const url = URL.createObjectURL(content);
         const linkElement = document.createElement('a');
         linkElement.href = url;
@@ -2787,57 +2519,35 @@ public prepareColladaMesh(dae: any): void {
     var v = new THREE.Vector3();
     object.updateMatrixWorld( true );
   
-    object.traverse( function ( node )
-    {
-      var i, l;
-      var geometry = node.geometry;
-      if ( geometry !== undefined )
+    object.traverse( function (node: THREE.Object3D) {
+      let i, l;
+      if (node instanceof THREE.Mesh)
       {
+        let geometry = (node as THREE.Mesh).geometry;
   
         if (node.name !== 'INERTIA_VISUAL' && node.name !== 'COM_VISUAL')
         {
+          if (geometry.isBufferGeometry) {
+            let attribute = geometry.getAttribute('position');
   
-          if ( geometry.isGeometry )
-          {
+            if (attribute !== undefined) {
+              for (i = 0, l = attribute.count; i < l; i++) {
   
-            var vertices = geometry.vertices;
+                v.fromBufferAttribute(attribute, i).applyMatrix4(
+                  node.matrixWorld);
   
-            for ( i = 0, l = vertices.length; i < l; i ++ )
-            {
-  
-              v.copy( vertices[ i ] );
-              v.applyMatrix4( node.matrixWorld );
-  
-              expandByPoint( v );
-  
-            }
-  
-          }
-          else if ( geometry.isBufferGeometry )
-          {
-  
-            var attribute = geometry.attributes.position;
-  
-            if ( attribute !== undefined )
-            {
-  
-              for ( i = 0, l = attribute.count; i < l; i ++ )
-              {
-  
-                v.fromBufferAttribute( attribute, i ).applyMatrix4(
-                  node.matrixWorld );
-  
-                expandByPoint( v );
+                expandByPoint(v);
   
               }
             }
+          } else {
+            console.error('Unable to setFromObject');
           }
         }
       }
     });
   
-    function expandByPoint(point)
-    {
+    function expandByPoint(point: THREE.Vector3) {
       box.min.min( point );
       box.max.max( point );
     }
@@ -2848,22 +2558,18 @@ public prepareColladaMesh(dae: any): void {
    * @param {THREE.Object3D} model
    */
   public showBoundingBox(model: THREE.Object3D): void {
-    if (typeof model === 'string')
-    {
-      model = this.scene.getObjectByName(model);
+    if (typeof model === 'string') {
+      model = this.scene.getObjectByName(model)!;
     }
   
-    if (this.boundingBox.visible)
-    {
-      if (this.boundingBox.parent === model)
-      {
+    if (this.boundingBox.visible) {
+      if (this.boundingBox.parent === model) {
         return;
-      }
-      else
-      {
+      } else {
         this.hideBoundingBox();
       }
     }
+
     var box = new THREE.Box3();
     // w.r.t. world
     this.setFromObject(box, model);
@@ -2875,16 +2581,16 @@ public prepareColladaMesh(dae: any): void {
     box.max.y = box.max.y - model.position.y;
     box.max.z = box.max.z - model.position.z;
   
-    var position = this.boundingBox.geometry.attributes.position;
-    var array = position.array;
-    array[  0 ] = box.max.x; array[  1 ] = box.max.y; array[  2 ] = box.max.z;
-    array[  3 ] = box.min.x; array[  4 ] = box.max.y; array[  5 ] = box.max.z;
-    array[  6 ] = box.min.x; array[  7 ] = box.min.y; array[  8 ] = box.max.z;
-    array[  9 ] = box.max.x; array[ 10 ] = box.min.y; array[ 11 ] = box.max.z;
-    array[ 12 ] = box.max.x; array[ 13 ] = box.max.y; array[ 14 ] = box.min.z;
-    array[ 15 ] = box.min.x; array[ 16 ] = box.max.y; array[ 17 ] = box.min.z;
-    array[ 18 ] = box.min.x; array[ 19 ] = box.min.y; array[ 20 ] = box.min.z;
-    array[ 21 ] = box.max.x; array[ 22 ] = box.min.y; array[ 23 ] = box.min.z;
+    let position = this.boundingBox.geometry.getAttribute('position');
+    //var array = position.array;
+    position.setXYZ(0, box.max.x, box.max.y, box.max.z);
+    position.setXYZ(1, box.min.x, box.max.y, box.max.z);
+    position.setXYZ(2, box.min.x, box.min.y, box.max.z);
+    position.setXYZ(3, box.max.x, box.min.y, box.max.z);
+    position.setXYZ(4, box.max.x, box.max.y, box.min.z);
+    position.setXYZ(5, box.min.x, box.max.y, box.min.z);
+    position.setXYZ(6, box.min.x, box.min.y, box.min.z);
+    position.setXYZ(7, box.max.x, box.min.y, box.min.z);
     position.needsUpdate = true;
     this.boundingBox.geometry.computeBoundingSphere();
   
@@ -2933,53 +2639,47 @@ public prepareColladaMesh(dae: any): void {
    * @param {} model
    * @param {} viewAs (normal/transparent/wireframe)
    */
-  public setViewAs(model: any, viewAs: string): void {
+  public setViewAs(model: THREE.Object3D, viewAs: string): void {
     // Toggle
-    if (model.viewAs === viewAs)
-    {
+    if ((<ModelUserData>model.userData).viewAs === viewAs) {
       viewAs = 'normal';
     }
   
     var showWireframe = (viewAs === 'wireframe');
-    function materialViewAs(material)
+    function materialViewAs(material: THREE.Material)
     {
       if (materials.indexOf(material.id) === -1)
       {
         materials.push(material.id);
-        if (viewAs === 'transparent')
-        {
-          if (material.opacity)
-          {
-            material.originalOpacity = material.opacity;
+        if (viewAs === 'transparent') {
+          if (material.opacity) {
+            (material as any).originalOpacity = material.opacity;
           }
-          else
-          {
-            material.originalOpacity = 1.0;
+          else {
+            (material as any).originalOpacity = 1.0;
           }
           material.opacity = 0.25;
           material.transparent = true;
         }
-        else
-        {
-          material.opacity = material.originalOpacity ?
-              material.originalOpacity : 1.0;
-          if (material.opacity >= 1.0)
-          {
+        else {
+          material.opacity = (material as any).originalOpacity ?
+              (material as any).originalOpacity : 1.0;
+          if (material.opacity >= 1.0) {
             material.transparent = false;
           }
         }
         // wireframe handling
-        material.wireframe = showWireframe;
+        (material as any).wireframe = showWireframe;
       }
     }
   
     let wireframe;
     let descendants: THREE.Object3D[] = [];
-    let materials = [];
-    this.getDescendants(model, descendants);
+    let materials: number[] = [];
+    getDescendants(model, descendants);
     for (var i = 0; i < descendants.length; ++i)
     {
-      if (descendants[i].material &&
+      if ((descendants[i] as any).material &&
           descendants[i].name.indexOf('boundingBox') === -1 &&
           descendants[i].name.indexOf('COLLISION_VISUAL') === -1 &&
           !this.getParentByPartialName(descendants[i], 'COLLISION_VISUAL') &&
@@ -2988,28 +2688,19 @@ public prepareColladaMesh(dae: any): void {
           descendants[i].name.indexOf('COM_VISUAL') === -1 &&
           descendants[i].name.indexOf('INERTIA_VISUAL') === -1)
       {
-        // Note: multi-material is being deprecated and will be removed soon
-        if (descendants[i].material instanceof THREE.MultiMaterial)
-        {
-          for (var j = 0; j < descendants[i].material.materials.length; ++j)
-          {
-            materialViewAs(descendants[i].material.materials[j]);
+        if (Array.isArray((descendants[i] as any).material)) {
+          for (var k = 0; k < (descendants[i] as any).material.length; ++k) {
+            materialViewAs((descendants[i] as any).material[k]);
           }
-        }
-        else if (Array.isArray(descendants[i].material))
-        {
-          for (var k = 0; k < descendants[i].material.length; ++k)
-          {
-            materialViewAs(descendants[i].material[k]);
-          }
-        }
-        else
-        {
-          materialViewAs(descendants[i].material);
+        } else {
+          materialViewAs((descendants[i] as any).material);
         }
       }
     }
-    model.viewAs = viewAs;
+    if (!model.userData) {
+      model.userData = new ModelUserData();
+    }
+    (<ModelUserData>model.userData).viewAs = viewAs;
   }
 
   /**
@@ -3017,12 +2708,10 @@ public prepareColladaMesh(dae: any): void {
    * @param {} object
    * @param {} name
    */
-  public getParentByPartialName(object: THREE.Object3D, name: string): THREE.Object3D {
+  public getParentByPartialName(object: THREE.Object3D, name: string): THREE.Object3D | null {
     var parent = object.parent;
-    while (parent && parent !== this.scene)
-    {
-      if (parent.name.indexOf(name) !== -1)
-      {
+    while (parent && parent !== this.scene) {
+      if (parent.name.indexOf(name) !== -1) {
         return parent;
       }
   
@@ -3035,7 +2724,7 @@ public prepareColladaMesh(dae: any): void {
    * Select entity
    * @param {} object
    */
-  public selectEntity(object: THREE.Object3D): void
+  public selectEntity(object: THREE.Object3D | null): void
   {
     if (object)
     {
@@ -3237,7 +2926,8 @@ public prepareColladaMesh(dae: any): void {
    * Toggle: if there are COM visuals, hide, otherwise, show.
    * @param {} model
    */
-  public viewCOM(model: any): void {
+  // This function needs to be migrated to ES6 and the latest THREE
+  /*public viewCOM(model: any): void {
     if (model === undefined || model === null)
     {
       return;
@@ -3288,20 +2978,27 @@ public prepareColladaMesh(dae: any): void {
     else
     {
       model.COMVisuals = [];
-      var box, COMVisual, line_1, line_2, line_3, helperGeometry_1,
-      helperGeometry_2, helperGeometry_3, helperMaterial, points = new Array(6);
+      let COMVisual: THREE.Object3D;
+      let helperGeometry_1: THREE.BufferGeometry;
+      let helperGeometry_2: THREE.BufferGeometry;
+      let helperGeometry_3: THREE.BufferGeometry;
+
+      var box, line_1, line_2, line_3, helperMaterial, points = new Array(6);
       for (var j = 0; j < model.children.length; ++j)
       {
         child = model.getObjectByName(model.children[j].name);
   
-        if (!child)
-        {
+        if (!child) {
           continue;
         }
   
         if (child.userData.inertial)
         {
-          var mesh, radius, inertialMass, userdatapose, inertialPose = {};
+          let inertialPose: Pose = new Pose();
+          let userdatapose: Pose = new Pose();
+          let inertialMass: number = 0;
+          let radius: number = 0;
+          var mesh = {};
           var inertial = child.userData.inertial;
   
           userdatapose = child.userData.inertial.pose;
@@ -3323,18 +3020,17 @@ public prepareColladaMesh(dae: any): void {
           quaternion.setFromEuler(euler);
   
           inertialPose = {
-            'position': position,
-            'orientation': quaternion
+            position: position,
+            orientation: quaternion
           };
   
-          if (userdatapose !== undefined)
-          {
+          if (userdatapose !== undefined) {
             this.setPose(COMVisual, userdatapose.position,
               userdatapose.orientation);
               inertialPose = userdatapose;
           }
   
-          COMVisual.crossLines = [];
+          (COMVisual as any).crossLines = [];
   
           // Store link's original rotation (w.r.t. the model)
           var originalRotation = new THREE.Euler();
@@ -3373,11 +3069,11 @@ public prepareColladaMesh(dae: any): void {
           points[5] = new THREE.Vector3(inertialPose.position.x,
             inertialPose.position.y, box.max.z);
   
-          helperGeometry_1 = new THREE.Geometry();
+          helperGeometry_1 = new THREE.BufferGeometry();
           helperGeometry_1.vertices.push(points[0]);
           helperGeometry_1.vertices.push(points[1]);
   
-          helperGeometry_2 = new THREE.Geometry();
+          helperGeometry_2 = new THREE.BufferGeometry();
           helperGeometry_2.vertices.push(points[2]);
           helperGeometry_2.vertices.push(points[3]);
   
@@ -3408,7 +3104,7 @@ public prepareColladaMesh(dae: any): void {
          }
       }
     }
-  }
+  }*/
 
   // TODO: Issue https://bitbucket.org/osrf/gzweb/issues/138
   /**
@@ -3416,7 +3112,8 @@ public prepareColladaMesh(dae: any): void {
    * Toggle: if there are inertia visuals, hide, otherwise, show.
    * @param {} model
    */
-  public viewInertia(model: any): void {
+  // This function needs to be migrated to ES6 and the latest THREE
+  /*public viewInertia(model: any): void {
     if (model === undefined || model === null)
     {
       return;
@@ -3598,14 +3295,15 @@ public prepareColladaMesh(dae: any): void {
         }
       }
     }
-  }
+  }*/
 
   /**
    * Update a light entity from a message
    * @param {} entity
    * @param {} msg
    */
-  public updateLight(entity: any, msg: any): void {
+  // This function needs to be migrated to ES6 and the latest THREE
+  /*public updateLight(entity: any, msg: any): void {
     // TODO: Generalize this and createLight
     var lightObj = entity.children[0];
     var dir;
@@ -3624,7 +3322,6 @@ public prepareColladaMesh(dae: any): void {
       color.r = msg.specular.r;
       color.g = msg.specular.g;
       color.b = msg.specular.b;
-      entity.serverProperties.specular = color.clone();
     }
   
     var matrixWorld;
@@ -3653,16 +3350,14 @@ public prepareColladaMesh(dae: any): void {
   
     if (msg.attenuation_constant)
     {
-      entity.serverProperties.attenuation_constant = msg.attenuation_constant;
+      // no-op
     }
     if (msg.attenuation_linear)
     {
-      entity.serverProperties.attenuation_linear = msg.attenuation_linear;
       lightObj.intensity = lightObj.intensity/(1+msg.attenuation_linear);
     }
     if (msg.attenuation_quadratic)
     {
-      entity.serverProperties.attenuation_quadratic = msg.attenuation_quadratic;
       lightObj.intensity = lightObj.intensity/(1+msg.attenuation_quadratic);
     }
   
@@ -3690,14 +3385,15 @@ public prepareColladaMesh(dae: any): void {
         lightObj.target.position.copy(dir);
       }
     }
-  }
+  }*/
 
   /**
    * Adds an sdf model to the scene.
    * @param {object} sdf - It is either SDF XML string or SDF XML DOM object
    * @returns {THREE.Object3D}
    */
-  public createFromSdf(sdf: any): THREE.Object3D {
+  // This function needs to be migrated to ES6 and the latest THREE
+  /*public createFromSdf(sdf: any): THREE.Object3D {
     if (sdf === undefined)
     {
       console.error(' No argument provided ');
@@ -3709,7 +3405,7 @@ public prepareColladaMesh(dae: any): void {
     var sdfXml = this.spawnModel.sdfParser.parseXML(sdf);
     // sdfXML is always undefined, the XML parser doesn't work while testing
     // while it does work during normal usage.
-    var myjson = xml2json(sdfXml, '\t');
+    var myjson = xmlParser.xml2json(sdfXml, '\t');
     var sdfObj = JSON.parse(myjson).sdf;
   
     var mesh = this.spawnModel.sdfParser.spawnFromSDF(sdf);
@@ -3722,94 +3418,93 @@ public prepareColladaMesh(dae: any): void {
     obj.add(mesh);
   
     return obj;
-  }
+  }*/
 
   /**
    * Adds a lighting setup that is great for single model visualization. This
    * will not alter existing lights.
    */
-  public addModelLighting(): void
-  {
+  public addModelLighting(): void {
     this.ambient.color = new THREE.Color(0x666666);
   
     // And light1. Upper back fill light.
     var light1 = this.createLight(3,
       // Diffuse
-      new THREE.Color(0.2, 0.2, 0.2),
+      new Color(0.2, 0.2, 0.2, 1.0),
       // Intensity
       0.5,
       // Pose
-      {position: {x: 0, y: 10, z: 10}, orientation: {x: 0, y: 0, z: 0, w: 1}},
+      new Pose(new THREE.Vector3(0, 10, 10), new THREE.Quaternion(0, 0, 0, 1)),
       // Distance
-      null,
+      undefined,
       // Cast shadows
       true,
       // Name
       '__model_light1__',
       // Direction
-      {x: 0, y: -0.707, z: -0.707},
+      new THREE.Vector3(0, -0.707, -0.707),
       // Specular
-      new THREE.Color(0.3, 0.3, 0.3));
+      new Color(0.3, 0.3, 0.3, 1.0));
     this.add(light1);
   
     // And light2. Lower back fill light
     var light2 = this.createLight(3,
       // Diffuse
-      new THREE.Color(0.4, 0.4, 0.4),
+      new Color(0.4, 0.4, 0.4, 1.0),
       // Intensity
       0.5,
       // Pose
-      {position: {x: 0, y: 10, z: -10}, orientation: {x: 0, y: 0, z: 0, w: -1}},
+      new Pose(new THREE.Vector3(0, 10, -10), new THREE.Quaternion(0, 0, 0, -1)),
       // Distance
-      null,
+      undefined,
       // Cast shadows
       true,
       // Name
       '__model_light2__',
       // Direction
-      {x: 0, y: -0.707, z: 0.707},
+      new THREE.Vector3(0, -0.707, 0.707),
       // Specular
-      new THREE.Color(0.3, 0.3, 0.3));
+      new Color(0.3, 0.3, 0.3, 1.0));
     this.add(light2);
   
     // And light3. Front fill light.
     var light3 = this.createLight(3,
       // Diffuse
-      new THREE.Color(0.5, 0.5, 0.5),
+      new Color(0.5, 0.5, 0.5, 1.0),
       // Intensity
       0.4,
       // Pose
-      {position: {x: -10, y: -10, z: 10}, orientation: {x: 0, y: 0, z: 0, w: 1}},
+      new Pose(new THREE.Vector3(-10, -10, 10), new THREE.Quaternion(0, 0, 0, 1)),
       // Distance
-      null,
+      undefined,
       // Cast shadows
       true,
       // Name
       '__model_light2__',
       // Direction
-      {x: 0.707, y: 0.707, z: 0},
+      new THREE.Vector3(0.707, 0.707, 0),
       // Specular
-      new THREE.Color(0.3, 0.3, 0.3));
+      new Color(0.3, 0.3, 0.3, 1.0));
     this.add(light3);
   
     // And light4. Front key light.
     var light4 = this.createLight(3,
       // Diffuse
-      new THREE.Color(1, 1, 1),
+      new Color(1, 1, 1, 1.0),
       // Intensity
       0.8,
       // Pose
-      {position: {x: 10, y: -10, z: 10}, orientation: {x: 0, y: 0, z: 0, w: 1}},
+      new Pose(new THREE.Vector3(10, -10, 10), new THREE.Quaternion(0, 0, 0, 1)),
       // Distance
-      null,
+      undefined,
       // Cast shadows
       true,
       // Name
       '__model_light2__',
       // Direction
-      {x: -0.707, y: 0.707, z: 0},
+      new THREE.Vector3(-0.707, 0.707,  0),
       // Specular
-      new THREE.Color(0.8, 0.8, 0.8));
+      new Color(0.8, 0.8, 0.8, 1.0));
     this.add(light4);
   }
 
@@ -3820,29 +3515,29 @@ public prepareColladaMesh(dae: any): void {
    * See: https://threejs.org/docs/index.html#manual/en/introduction/How-to-dispose-of-objects
    */
   public cleanup(): void {
-    let objects: THREE.Object3D = [];
-    this.getDescendants(this.scene, objects);
+    let objects: THREE.Object3D[] = [];
+    getDescendants(this.scene, objects);
   
     var that = this;
     objects.forEach(function(obj: THREE.Object3D) {
       that.scene.remove(obj);
   
       // Dispose geometries.
-      if (obj.geometry) {
-        obj.geometry.dispose();
+      if ((obj as any).geometry) {
+        (obj as any).geometry.dispose();
       }
   
       // Dispose materials and their textures.
-      if (obj.material) {
+      if ((obj as any).material) {
         // Materials can be an array. If there is only one, convert it to an array for easier handling.
-        if (!(obj.material instanceof Array)) {
-          obj.material = [obj.material];
+        if (!((obj as any).material instanceof Array)) {
+          (obj as any).material = [(obj as any).material];
         }
   
         // Materials can have different texture maps, depending on their type.
         // We check each property of the Material and dispose them if they are Textures.
-        obj.material.forEach(function(material) {
-          Object.keys(material).forEach(function(property) {
+        (obj as any).material.forEach(function(material: any) {
+          Object.keys(material).forEach(function(property: any) {
             if (material[property] instanceof THREE.Texture) {
               material[property].dispose();
             }
@@ -3886,19 +3581,5 @@ public prepareColladaMesh(dae: any): void {
   public addParticleGroup(particleGroup: SPE.Group): void
   {
     this.particleGroup = particleGroup;
-  }
-
-  private getDescendants(obj: THREE.Object3D, array:THREE.Object3D[]): THREE.Object3D[] {
-    if (array === undefined){
-      array = [];
-    }
-
-    Array.prototype.push.apply(array, obj.children);
-
-    for (var i = 0, l = obj.children.length; i < l; i++) {
-        this.getDescendants(obj.children[ i ], array );
-    }
-
-    return array;
   }
 }

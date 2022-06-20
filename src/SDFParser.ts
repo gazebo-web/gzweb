@@ -1,10 +1,24 @@
 import * as THREE from 'three'; 
+import { getDescendants } from './Globals';
 import { FuelServer } from './FuelServer';
 import { Color } from './Color';
+import { Inertia } from './Inertia';
 import { Material } from './Material';
+import { PBRMaterial } from './PBRMaterial';
 import { Pose } from './Pose';
 import { Scene } from './Scene';
 import { EventEmitter2 } from 'eventemitter2';
+
+let SPE: any = require('@g.frame/shader-particle-engine');
+let xmlParser = require('xml2json');
+
+class PendingMesh {
+  public meshUri: string = '';
+  public submesh: string = '';
+  public parent: THREE.Object3D;
+  public material: Material;
+  public centerSubmesh: boolean = false;
+}
 
 export class SDFParser {
   private scene: Scene;
@@ -26,7 +40,7 @@ export class SDFParser {
   private meshes = {};
   // Used to avoid loading meshes multiple times. An array that contains:
   // meshUri, submesh, material and the parent visual Object of the mesh.
-  private pendingMeshes = [];
+  private pendingMeshes: PendingMesh[] = [];
 
   // This map is used to handle included models and avoid duplicated requests.
   // The key is the model's URI.
@@ -50,6 +64,8 @@ export class SDFParser {
 
   // Used for communication with Fuel Servers.
   private fuelServer: FuelServer;
+  private requestHeaderKey: string
+  private requestHeaderValue: string;
 
   /**
   * SDF parser constructor initializes SDF parser with the given parameters
@@ -153,7 +169,7 @@ export class SDFParser {
    * according to given properties. The type of light object is determined
    * according to light type
    */
-  public spawnLight(light: any): THREE.Light {
+  public spawnLight(light: any): THREE.Object3D {
     if (light.type !== undefined && !(light.type instanceof String)) {
       return this.spawnLightFromProto(light);
     } else {
@@ -165,11 +181,11 @@ export class SDFParser {
    * Creates THREE light object according to properties of sdf object
    * which is parsed from sdf model of the light
    * @param {object} sdfObj - object which is parsed from the sdf string
-   * @returns {THREE.Light} lightObj - THREE light object created
-   * according to given properties. The type of light object is determined
-   * according to light type
+   * @returns {THREE.Object3D} lightObj - THREE.Object3D that holds the
+   * THREE.Light created according to given properties. The type of light
+   * object is determined according to light type
    */
-  public spawnLightFromSDF(sdfObj: any): THREE.Light {
+  public spawnLightFromSDF(sdfObj: any): THREE.Object3D {
     let light = sdfObj.light;
     let name: string = light['@name'] || light['name'];
     let diffuse: Color = this.parseColor(light.diffuse);
@@ -243,7 +259,7 @@ export class SDFParser {
       type = 3;
       direction = this.parse3DVector(light.direction);
     }
-    let lightObj = this.scene.createLight(type, diffuse, intensity, pose,
+    let lightObj: THREE.Object3D = this.scene.createLight(type, diffuse, intensity, pose,
         distance, castShadows, name, direction, specular,
         attConst, attLin, attQuad, innerAngle, outerAngle, falloff);
   
@@ -253,22 +269,22 @@ export class SDFParser {
   /**
    * Creates THREE light object according to properties of protobuf object
    * @param {object} pbObj - object which is parsed from a Protobuf string
-   * @returns {THREE.Light} lightObj - THREE light object created
-   * according to given properties. The type of light object is determined
-   * according to light type
+   * @returns {THREE.Light} lightObj - THREE.Object3d that holds the
+   * THREE.Light object created according to given properties. The type of
+   * light object is determined according to light type
    */
-  public spawnLightFromProto(light: any): THREE.Light {
+  public spawnLightFromProto(light: any): THREE.Object3D {
     // equation taken from
     // eslint-disable-next-line
     // https://docs.blender.org/manual/en/dev/render/blender_render/lighting/lights/light_attenuation.html
-    var E = 1;
-    var D = 1;
-    var r = 1;
-    var L = light.attenuation_linear;
-    var Q = light.attenuation_quadratic;
-    var intensity = E*(D/(D+L*r))*(Math.pow(D,2)/(Math.pow(D,2)+Q*Math.pow(r,2)));
+    let E = 1;
+    let D = 1;
+    let r = 1;
+    let L = light.attenuation_linear;
+    let Q = light.attenuation_quadratic;
+    let intensity = E*(D/(D+L*r))*(Math.pow(D,2)/(Math.pow(D,2)+Q*Math.pow(r,2)));
   
-    var lightObj = this.scene.createLight(
+    let lightObj: THREE.Object3D = this.scene.createLight(
       // Protobuf light type starts at zero.
       light.type + 1,
       light.diffuse,
@@ -389,153 +405,67 @@ export class SDFParser {
    * already parsed by gzbridge and saved by SDFParser.
    * If `usingFilesUrls` is true, the texture URLs will be loaded from the
    * to the customUrls array.
-   * @param {object} material - SDF material object
+   * @param {object} material - SDF or Protobuf material object
    * @returns {object} material - material object which has the followings:
    * texture, normalMap, ambient, diffuse, specular, opacity
    */
-  public createMaterial(sdfMaterial: object): Material {
+  public createMaterial(srcMaterial: any): Material {
     var texture, mat;
     let material: Material = new Material();
   
-    if (!sdfMaterial) {
+    if (!srcMaterial) {
       return material;
     }
   
-    if (sdfMaterial.ambient) {
-      material.ambient = this.parseColor(sdfMaterial.ambient);
+    if (srcMaterial.ambient) {
+      material.ambient = this.parseColor(srcMaterial.ambient);
     }
   
-    if (sdfMaterial.diffuse) {
-      material.diffuse = this.parseColor(sdfMaterial.diffuse);
+    if (srcMaterial.diffuse) {
+      material.diffuse = this.parseColor(srcMaterial.diffuse);
     }
   
-    if (sdfMaterial.specular) {
-      material.specular = this.parseColor(sdfMaterial.specular);
+    if (srcMaterial.specular) {
+      material.specular = this.parseColor(srcMaterial.specular);
     }
   
-    material.opacity = sdfMaterial.opacity;
-    material.normalMap = sdfMaterial.normalMap;
-    material.scale = sdfMaterial.scale;
-  
-    /*var script = material.script;
-    if (script)
-    {
-      // if there is just one uri convert it to array
-      if (!script.uri)
-      {
-        script.uri = ['file://media/materials/scripts/gazebo.material'];
-      }
-  
-      if (!(script.uri instanceof Array))
-      {
-        script.uri = [script.uri];
-      }
-  
-      if (script.name)
-      {
-        mat = this.materials[script.name];
-        // if we already cached the materials
-  
-        // If the material script is not handled and their materials are not cached, the model will
-        // rely on the materials from its SDF and/or its Collada mesh (if available).
-        if (mat)
-        {
-          ambient = mat.ambient;
-          diffuse = mat.diffuse;
-          specular = mat.specular;
-          opacity = mat.opacity;
-          scale = mat.scale;
-  
-          if (mat.texture)
-          {
-            for (var i = 0; i < script.uri.length; ++i)
-            {
-              var uriType = script.uri[i].substring(0, script.uri[i]
-                      .indexOf('://'));
-              if (uriType === 'model')
-              {
-                // if texture uri
-                if (script.uri[i].indexOf('textures') > 0)
-                {
-                  textureUri = script.uri[i].substring(script.uri[i]
-                          .indexOf('://') + 3);
-                  break;
-                }
-              }
-              else if (uriType === 'file')
-              {
-                if (script.uri[i].indexOf('materials') > 0)
-                {
-                  textureUri = script.uri[i].substring(script.uri[i]
-                          .indexOf('://') + 3, script.uri[i]
-                          .indexOf('materials') + 9)
-                          + '/textures';
-                  break;
-                }
-              }
-            }
-            // Map texture name to the corresponding texture.
-            if (!this.usingFilesUrls)
-            {
-              texture = this.textures[mat.texture];
-            }
-            else
-            {
-              if (this.customUrls.length !== 0)
-              {
-                for (var k = 0; k < this.customUrls.length; k++)
-                {
-                  if (this.customUrls[k].indexOf(mat.texture) > -1)
-                  {
-                    texture = this.customUrls[k];
-                    break;
-                  }
-                }
-              }
-              else
-              {
-                texture = this.MATERIAL_ROOT + '/' + textureUri + '/' +
-                  mat.texture;
-              }
-            }
-          }
-        }
-      }
-    }*/
+    material.opacity = srcMaterial.opacity;
+    material.normalMap = srcMaterial.normalMap;
+    material.scale = srcMaterial.scale;
   
     // normal map
-    if (sdfMaterial.normal_map)
+    if (srcMaterial.normal_map)
     {
       let mapUri: string = '';
-      if (sdfMaterial.normal_map.indexOf('://') > 0)
+      if (srcMaterial.normal_map.indexOf('://') > 0)
       {
-        mapUri = sdfMaterial.normal_map.substring(
-                sdfMaterial.normal_map.indexOf('://') + 3,
-                sdfMaterial.normal_map.lastIndexOf('/'));
+        mapUri = srcMaterial.normal_map.substring(
+                srcMaterial.normal_map.indexOf('://') + 3,
+                srcMaterial.normal_map.lastIndexOf('/'));
       }
 
       if (mapUri != '')
       {
-        var startIndex = sdfMaterial.normal_map.lastIndexOf('/') + 1;
+        var startIndex = srcMaterial.normal_map.lastIndexOf('/') + 1;
         if (startIndex < 0) {
           startIndex = 0;
         }
 
-        var normalMapName = sdfMaterial.normal_map.substr(startIndex,
-          sdfMaterial.normal_map.lastIndexOf('.') - startIndex);
+        var normalMapName = srcMaterial.normal_map.substr(startIndex,
+          srcMaterial.normal_map.lastIndexOf('.') - startIndex);
         // Map texture name to the corresponding texture.
         if (!this.usingFilesUrls) {
-          normalMap = this.textures[normalMapName + '.png'];
+          material.normalMap = this.textures[normalMapName + '.png'];
         } else {
           if (this.customUrls.length !== 0) {
             for (var j = 0; j < this.customUrls.length; j++) {
               if (this.customUrls[j].indexOf(normalMapName + '.png') > -1) {
-                normalMap = this.customUrls[j];
+                material.normalMap = this.customUrls[j];
                 break;
               }
             }
           } else {
-            normalMap = this.MATERIAL_ROOT + '/' + mapUri + '/' +
+            material.normalMap = this.MATERIAL_ROOT + '/' + mapUri + '/' +
               normalMapName + '.png';
           }
         }
@@ -544,46 +474,46 @@ export class SDFParser {
   
     // Material properties received via a protobuf message are formatted
     // differently from SDF. This will map protobuf format onto sdf.
-    if (sdfMaterial.pbr) {
+    if (srcMaterial.pbr) {
       material.pbr = new PBRMaterial();
-      if (sdfMaterial.pbr.metal) {
+      if (srcMaterial.pbr.metal) {
         // Must be SDF with metal properties.
-        material.pbr.albedo_map = sdfMaterial.pbr.metal.albedo_map;
-        material.pbr.metalness = sdfMaterial.pbr.metal.metalness;
-        material.pbr.metalness_map = sdfMaterial.pbr.metal.metalness_map;
-        material.pbr.normal_map = sdfMaterial.pbr.metal.normal_map;
-        material.pbr.roughness = sdfMaterial.pbr.metal.roughness;
-        material.pbr.roughness_map = sdfMaterial.pbr.metal.roughness_map;
-        material.pbr.emissive_map = sdfMaterial.pbr.metal.emissive_map;
-        material.pbr.light_map = sdfMaterial.pbr.metal.light_map;
-        material.pbr.environment_map = sdfMaterial.pbr.metal.environment_map;
-        material.pbr.ambient_occlusion_map = sdfMaterial.pbr.metal.ambient_occlusion_map;
-      } else if (sdfMaterial.pbr.specular) {
+        material.pbr.albedoMap = srcMaterial.pbr.metal.albedo_map;
+        material.pbr.metalness = srcMaterial.pbr.metal.metalness;
+        material.pbr.metalnessMap = srcMaterial.pbr.metal.metalness_map;
+        material.pbr.normalMap = srcMaterial.pbr.metal.normal_map;
+        material.pbr.roughness = srcMaterial.pbr.metal.roughness;
+        material.pbr.roughnessMap = srcMaterial.pbr.metal.roughness_map;
+        material.pbr.emissiveMap = srcMaterial.pbr.metal.emissive_map;
+        material.pbr.lightMap = srcMaterial.pbr.metal.light_map;
+        material.pbr.environmentMap = srcMaterial.pbr.metal.environment_map;
+        material.pbr.ambientOcclusionMap = srcMaterial.pbr.metal.ambient_occlusion_map;
+      } else if (srcMaterial.pbr.specular) {
         // Must be SDF with specular properties.
-        material.pbr.albedo_map = sdfMaterial.pbr.specular.albedo_map;
-        material.pbr.specular_map = sdfMaterial.pbr.specular.specular_map;
-        material.pbr.glossiness_map = sdfMaterial.pbr.specular.glossiness_map;
-        material.pbr.glossiness = sdfMaterial.pbr.specular.glossiness;
-        material.pbr.environment_map = sdfMaterial.pbr.specular.environment_map;
-        material.pbr.ambient_occlusion_map = sdfMaterial.pbr.specular.ambient_occlusion_map;
-        material.pbr.normal_map = sdfMaterial.pbr.specular.normal_map;
-        material.pbr.emissive_map = sdfMaterial.pbr.specular.emissive_map;
-        material.pbr.light_map = sdfMaterial.pbr.specular.light_map;
+        material.pbr.albedoMap = srcMaterial.pbr.specular.albedo_map;
+        material.pbr.specularMap = srcMaterial.pbr.specular.specular_map;
+        material.pbr.glossinessMap = srcMaterial.pbr.specular.glossiness_map;
+        material.pbr.glossiness = srcMaterial.pbr.specular.glossiness;
+        material.pbr.environmentMap = srcMaterial.pbr.specular.environment_map;
+        material.pbr.ambientOcclusionMap = srcMaterial.pbr.specular.ambient_occlusion_map;
+        material.pbr.normalMap = srcMaterial.pbr.specular.normal_map;
+        material.pbr.emissiveMap = srcMaterial.pbr.specular.emissive_map;
+        material.pbr.lightMap = srcMaterial.pbr.specular.light_map;
       } else {
         // Must be a protobuf message.
-        material.pbr.albedo_map = sdfMaterial.pbr.albedo_map;
-        material.pbr.normal_map = sdfMaterial.pbr.normal_map;
-        material.pbr.metalness = sdfMaterial.pbr.metalness;
-        material.pbr.metalness_map = sdfMaterial.pbr.metalness_map;
-        material.pbr.roughness = sdfMaterial.pbr.roughness;
-        material.pbr.roughness_map = sdfMaterial.pbr.roughness_map;
-        material.pbr.glossiness = sdfMaterial.pbr.glossiness;
-        material.pbr.glossiness_map = sdfMaterial.pbr.glossiness_map;
-        material.pbr.specular_map = sdfMaterial.pbr.specular_map;
-        material.pbr.environment_map = sdfMaterial.pbr.environment_map;
-        material.pbr.emissive_map = sdfMaterial.pbr.emissive_map;
-        material.pbr.light_map = sdfMaterial.pbr.light_map;
-        material.pbr.ambient_occlusion_map = sdfMaterial.pbr.ambient_occlusion_map;
+        material.pbr.albedoMap = srcMaterial.pbr.albedo_map;
+        material.pbr.normalMap = srcMaterial.pbr.normal_map;
+        material.pbr.metalness = srcMaterial.pbr.metalness;
+        material.pbr.metalnessMap = srcMaterial.pbr.metalness_map;
+        material.pbr.roughness = srcMaterial.pbr.roughness;
+        material.pbr.roughnessMap = srcMaterial.pbr.roughness_map;
+        material.pbr.glossiness = srcMaterial.pbr.glossiness;
+        material.pbr.glossinessMap = srcMaterial.pbr.glossiness_map;
+        material.pbr.specularMap = srcMaterial.pbr.specular_map;
+        material.pbr.environmentMap = srcMaterial.pbr.environment_map;
+        material.pbr.emissiveMap = srcMaterial.pbr.emissive_map;
+        material.pbr.lightMap = srcMaterial.pbr.light_map;
+        material.pbr.ambientOcclusionMap = srcMaterial.pbr.ambient_occlusion_map;
       }
     }
   
@@ -592,37 +522,38 @@ export class SDFParser {
       // Iterator for the subsequent for loops. Used to avoid a linter warning.
       // Loops (and all variables in general) should use let/const when ported to ES6.
       var u;
-      if (material.pbr.albedo_map) {
-        var albedoMap;
-        var albedoMapName = material.pbr.albedo_map.split('/').pop();
+      if (material.pbr.albedoMap) {
+        let albedoMap: string = '';
+        let albedoMapName: string = material.pbr.albedoMap.split('/').pop()!;
   
-        if (material.pbr.albedo_map.startsWith('https://')) {
-          this.addUrl(material.pbr.albedo_map);
+        if (material.pbr.albedoMap.startsWith('https://')) {
+          this.addUrl(material.pbr.albedoMap);
         }
   
         if (this.usingFilesUrls && this.customUrls.length !== 0) {
-          for (u = 0; u < this.customUrls.length; u++) {
+          for (let u = 0; u < this.customUrls.length; u++) {
             if (this.customUrls[u].indexOf(albedoMapName) > -1) {
               albedoMap = this.customUrls[u];
               break;
             }
           }
           if (albedoMap) {
-            material.pbr.albedo_map = albedoMap;
+            material.pbr.albedoMap = albedoMap;
           } else {
-            console.error('Missing Albedo Map file [' + material.pbr.albedo_map + ']');
+            console.error('Missing Albedo Map file [' + material.pbr.albedoMap + ']');
             // Prevent the map from loading, as it hasn't been found.
-            material.pbr.albedo_map = null;
+            material.pbr.albedoMap = '';
           }
         }
       }
   
-      if (material.pbr.emissive_map) {
-        var emissiveMap;
-        var emissiveMapName = material.pbr.emissive_map.split('/').pop();
+      if (material.pbr.emissiveMap) {
+        let emissiveMap: string = '';
+        let emissiveMapName: string =
+          material.pbr.emissiveMap.split('/').pop()!;
   
-        if (material.pbr.emissive_map.startsWith('https://')) {
-          this.addUrl(material.pbr.emissive_map);
+        if (material.pbr.emissiveMap.startsWith('https://')) {
+          this.addUrl(material.pbr.emissiveMap);
         }
   
         if (this.usingFilesUrls && this.customUrls.length !== 0) {
@@ -633,21 +564,21 @@ export class SDFParser {
             }
           }
           if (emissiveMap) {
-            material.pbr.emissive_map = emissiveMap;
+            material.pbr.emissiveMap = emissiveMap;
           } else {
-            console.error('Missing Emissive Map file [' + material.pbr.emissive_map + ']');
+            console.error('Missing Emissive Map file [' + material.pbr.emissiveMap + ']');
             // Prevent the map from loading, as it hasn't been found.
-            material.pbr.emissive_map = null;
+            material.pbr.emissiveMap = '';
           }
         }
       }
   
-      if (material.pbr.normal_map) {
-        var pbrNormalMap;
-        var pbrNormalMapName = material.pbr.normal_map.split('/').pop();
+      if (material.pbr.normalMap) {
+        let pbrNormalMap: string = '';
+        let pbrNormalMapName: string = material.pbr.normalMap.split('/').pop()!;
   
-        if (material.pbr.normal_map.startsWith('https://')) {
-          this.addUrl(material.pbr.normal_map);
+        if (material.pbr.normalMap.startsWith('https://')) {
+          this.addUrl(material.pbr.normalMap);
         }
   
         if (this.usingFilesUrls && this.customUrls.length !== 0) {
@@ -658,21 +589,21 @@ export class SDFParser {
             }
           }
           if (pbrNormalMap) {
-            material.pbr.normal_map = pbrNormalMap;
+            material.pbr.normalMap = pbrNormalMap;
           } else {
-            console.error('Missing Normal Map file [' + material.pbr.normal_map + ']');
+            console.error('Missing Normal Map file [' + material.pbr.normalMap + ']');
             // Prevent the map from loading, as it hasn't been found.
-            material.pbr.normal_map = null;
+            material.pbr.normalMap = '';
           }
         }
       }
   
-      if (material.pbr.roughness_map) {
-        var roughnessMap;
-        var roughnessMapName = material.pbr.roughness_map.split('/').pop();
+      if (material.pbr.roughnessMap) {
+        let roughnessMap: string = '';
+        let roughnessMapName: string = material.pbr.roughnessMap.split('/').pop()!;
   
-        if (material.pbr.roughness_map.startsWith('https://')) {
-          this.addUrl(material.pbr.roughness_map);
+        if (material.pbr.roughnessMap.startsWith('https://')) {
+          this.addUrl(material.pbr.roughnessMap);
         }
   
         if (this.usingFilesUrls && this.customUrls.length !== 0) {
@@ -683,21 +614,22 @@ export class SDFParser {
             }
           }
           if (roughnessMap) {
-            material.pbr.roughness_map = roughnessMap;
+            material.pbr.roughnessMap = roughnessMap;
           } else {
-            console.error('Missing Roughness Map file [' + material.pbr.roughness_map + ']');
+            console.error('Missing Roughness Map file [' + material.pbr.roughnessMap + ']');
             // Prevent the map from loading, as it hasn't been found.
-            material.pbr.roughness_map = null;
+            material.pbr.roughnessMap = '';
           }
         }
       }
   
-      if (material.pbr.metalness_map) {
-        var metalnessMap;
-        var metalnessMapName = material.pbr.metalness_map.split('/').pop();
+      if (material.pbr.metalnessMap) {
+        let metalnessMap: string = '';
+        let metalnessMapName: string =
+          material.pbr.metalnessMap.split('/').pop()!;
   
-        if (material.pbr.metalness_map.startsWith('https://')) {
-          this.addUrl(material.pbr.metalness_map);
+        if (material.pbr.metalnessMap.startsWith('https://')) {
+          this.addUrl(material.pbr.metalnessMap);
         }
   
         if (this.usingFilesUrls && this.customUrls.length !== 0) {
@@ -708,11 +640,11 @@ export class SDFParser {
             }
           }
           if (metalnessMap) {
-            material.pbr.metalness_map = metalnessMap;
+            material.pbr.metalnessMap = metalnessMap;
           } else {
-            console.error('Missing Metalness Map file [' + material.pbr.metalness_map + ']');
+            console.error('Missing Metalness Map file [' + material.pbr.metalnessMap + ']');
             // Prevent the map from loading, as it hasn't been found.
-            material.pbr.metalness_map = null;
+            material.pbr.metalnessMap = '';
           }
         }
       }
@@ -729,21 +661,16 @@ export class SDFParser {
    * @returns {object} size - size object which denotes
    * size of an object in x,y,z
    */
-  public parseSize(sizeInput: string | object): THREE.Vector3 {
-    var sizeObj;
-    var values = [];
+  public parseSize(sizeInput: string | THREE.Vector3): THREE.Vector3 {
     if (typeof sizeInput === 'string') {
-      values = sizeInput.split(/\s+/);
-    } else {
-      values = [sizeInput.x, sizeInput.y, sizeInput.z];
-    }
-  
-    var x = parseFloat(values[0]);
-    var y = parseFloat(values[1]);
-    var z = parseFloat(values[2]);
-    sizeObj = new THREE.Vector3(x, y, z);
-  
-    return sizeObj;
+      let values: string[] = sizeInput.split(/\s+/);
+      return new THREE.Vector3(
+        parseFloat(values[0]),
+        parseFloat(values[1]),
+        parseFloat(values[2]));
+    } 
+
+    return new THREE.Vector3(sizeInput.x, sizeInput.y, sizeInput.z);
   }
 
   /**
@@ -764,10 +691,10 @@ export class SDFParser {
    *                 - fuelName - Name of the resource in Fuel. Helps to match URLs to the correct path. Requires 'fuelOwner'.
    *                 - fuelOwner - Name of the resource's owner in Fuel. Helps to match URLs to the correct path. Requires 'fuelName'.
    */
-  public createGeom(geom: object, mat: object, parent: object, options: object): void {
-    var that = this;
-    var obj;
-    var size, normal;
+  public createGeom(geom: any, mat: any, parent: THREE.Object3D, options: any): void {
+    let that = this;
+    let obj;
+    let size, normal;
   
     var material = this.createMaterial(mat);
   
@@ -806,10 +733,10 @@ export class SDFParser {
     }
     else if (geom.mesh)
     {
-      var meshUri = geom.mesh.uri || geom.mesh.filename;
-      var submesh;
-      var centerSubmesh;
-      var modelName;
+      let meshUri: string = geom.mesh.uri || geom.mesh.filename;
+      let submesh: string = '';
+      let centerSubmesh: boolean = false;
+      let modelName: string = '';
   
       if (geom.mesh.submesh)
       {
@@ -846,12 +773,12 @@ export class SDFParser {
       }
   
       // Create a valid Fuel URI from the model name
-      var modelUri = this.createFuelUri(modelName);
+      let modelUri: string = this.createFuelUri(modelName);
   
-      var ext = modelUri.substr(-4).toLowerCase();
-      var materialName = parent.name + '::' + modelUri;
+      let ext: string = modelUri.substr(-4).toLowerCase();
+      let materialName: string = parent.name + '::' + modelUri;
       this.entityMaterial[materialName] = material;
-      var meshFileName = meshUri.substring(meshUri.lastIndexOf('/'));
+      let meshFileName: string = meshUri.substring(meshUri.lastIndexOf('/'));
   
       if (!this.usingFilesUrls)
       {
@@ -873,10 +800,8 @@ export class SDFParser {
           }
   
           that.scene.loadMeshFromString(modelUri, submesh, centerSubmesh,
-            function(obj)
-            {
-              if (!obj)
-              {
+            function(obj: any): void {
+              if (!obj) {
                 console.error('Failed to load mesh.');
                 return;
               }
@@ -886,7 +811,7 @@ export class SDFParser {
             }, 
   
             // onError callback
-            function(error) {
+            function(error: any): void {
               console.error(error);
             },
             [meshFile, mtlFile]);
@@ -894,23 +819,21 @@ export class SDFParser {
         else if (ext === '.dae')
         {
           that.scene.loadMeshFromString(modelUri, submesh, centerSubmesh,
-            function(dae)
-            {
-              if (!dae)
-              {
+            function(dae: THREE.Object3D): void {
+              if (!dae) {
                 console.error('Failed to load mesh.');
                 return;
               }
   
-              if (material)
-              {
-                var allChildren = [];
-                dae.getDescendants(allChildren);
+              if (material) {
+                let allChildren: THREE.Object3D[] = [];
+                getDescendants(dae, allChildren);
                 for (var c = 0; c < allChildren.length; ++c)
                 {
                   if (allChildren[c] instanceof THREE.Mesh)
                   {
-                    that.scene.setMaterial(allChildren[c], material);
+                    that.scene.setMaterial(allChildren[c] as THREE.Mesh,
+                                           material);
                     break;
                   }
                 }
@@ -919,7 +842,7 @@ export class SDFParser {
               loadGeom(parent);
             }, 
             // onError callback
-            function(error) {
+            function(error: any): void {
               console.error(error);
             },
             [meshFile]);
@@ -967,13 +890,11 @@ export class SDFParser {
               centerSubmesh: centerSubmesh
             });
   
-            // Attempt to get the mesh.
-            var mesh = this.scene.meshes[modelUri];
-  
             // If the mesh exists, then create another version and add it to
             // the parent object.
-            if (mesh !== null && mesh !== undefined) {
-              if (parent.getObjectByName(mesh['name']) === undefined) {
+            if (this.scene.meshes.has(modelUri)) {
+              let mesh: THREE.Mesh = this.scene.meshes.get(modelUri)!;
+              if (parent.getObjectByName(mesh.name) === undefined) {
                 mesh = mesh.clone();
                 this.scene.useSubMesh(mesh, submesh, centerSubmesh);
                 parent.add(mesh);
@@ -995,7 +916,7 @@ export class SDFParser {
         // Once the mesh is loaded, it will be stored on Gz3D.Scene.
         this.scene.loadMeshFromUri(modelUri, submesh, centerSubmesh,
           // onLoad
-          function (mesh)
+          function (mesh: THREE.Mesh)
           {
             // Check for the pending meshes.
             for (var i = 0; i < that.pendingMeshes.length; i++) {
@@ -1003,30 +924,32 @@ export class SDFParser {
   
                 // No submesh: Load the result.
                 if (!that.pendingMeshes[i].submesh) {
-                  loadMesh(mesh, that.pendingMeshes[i].material, that.pendingMeshes[i].parent);
+                  loadMesh(mesh, that.pendingMeshes[i].material,
+                           that.pendingMeshes[i].parent, ext);
                 } else {
                   // Check if the mesh belongs to a submesh.
-                  var allChildren = [];
-                  mesh.getDescendants(allChildren);
+                  let allChildren: THREE.Object3D[] = [];
+                  getDescendants(mesh, allChildren);
                   for (var c = 0; c < allChildren.length; ++c) {
                     if (allChildren[c] instanceof THREE.Mesh) {
                       if (allChildren[c].name === that.pendingMeshes[i].submesh) {
-                        loadMesh(mesh, that.pendingMeshes[i].material, that.pendingMeshes[i].parent);
+                        loadMesh(mesh, that.pendingMeshes[i].material,
+                                 that.pendingMeshes[i].parent, ext);
                       } else {
-                        // The mesh is already stored in Gz3D.Scene. The new submesh will be parsed.
-                        // Suppress linter warning.
-                        /* jshint ignore:start */
-                        that.scene.loadMeshFromUri(mesh.name, that.pendingMeshes[i].submesh, that.pendingMeshes[i].centerSubmesh, 
+                        // The mesh is already stored in Scene.
+                        // The new submesh will be parsed.
+                        that.scene.loadMeshFromUri(mesh.name,
+                          that.pendingMeshes[i].submesh,
+                          that.pendingMeshes[i].centerSubmesh, 
                           // on load
-                          function(mesh) {
+                          function(mesh: THREE.Mesh): void {
                             loadMesh(mesh, that.pendingMeshes[i].material,
-                              that.pendingMeshes[i].parent);
+                              that.pendingMeshes[i].parent, ext);
                           },
                           // on error
-                          function(error) {
+                          function(error: any): void {
                             console.error('Mesh loading error', error);
                           });
-                        /* jshint ignore:end */
                       }
                     }
                   }
@@ -1035,7 +958,7 @@ export class SDFParser {
             }
           },
           // onError
-          function(error) {
+          function(error: any) {
             console.error('Mesh loading error', modelUri);
           });
       }
@@ -1088,34 +1011,36 @@ export class SDFParser {
     }
   
     // Callback function when the mesh is ready.
-    function loadMesh(mesh, material, parent)
+    function loadMesh(mesh: THREE.Mesh, material: Material,
+                      parent: THREE.Object3D, ext: string)
     {
-      if (!mesh)
-      {
+      if (!mesh) {
         console.error('Failed to load mesh.');
         return;
       }
   
       // Note: This material is the one created by the createMaterial method,
       // which is the material defined by the SDF file or the material script.
-      if (material)
-      {
+      if (material) {
         // Because the stl mesh doesn't have any children we cannot set
         // the materials like other mesh types.
-        if (ext !== '.stl')
-        {
-          var allChildren = [];
-          mesh.getDescendants(allChildren);
-          for (var c = 0; c < allChildren.length; ++c)
+        if (ext !== '.stl') {
+          let allChildren: THREE.Object3D[] = [];
+          getDescendants(mesh, allChildren);
+          for (let c = 0; c < allChildren.length; ++c)
           {
             if (allChildren[c] instanceof THREE.Mesh)
             {
-              // Some Collada files load their own textures. If the mesh already has a material with
-              // a texture, we skip this step (but only if there is no PBR materials involved).
-              var isColladaWithTexture = ext === '.dae' && allChildren[c].material && allChildren[c].material.map;
+              // Some Collada files load their own textures.
+              // If the mesh already has a material with
+              // a texture, we skip this step (but only if there is no
+              // PBR materials involved).
+              let isColladaWithTexture: boolean = ext === '.dae' &&
+                (<THREE.Mesh>allChildren[c]).material !== undefined &&
+                (<THREE.MeshBasicMaterial>(<THREE.Mesh>allChildren[c]).material).map !== undefined;
   
               if (!isColladaWithTexture || material.pbr) {
-                that.scene.setMaterial(allChildren[c], material);
+                that.scene.setMaterial(allChildren[c] as THREE.Mesh, material);
                 break;
               }
             }
@@ -1140,10 +1065,9 @@ export class SDFParser {
       loadGeom(parent);
     }
   
-    function loadGeom(visualObj)
-    {
-      var allChildren = [];
-      visualObj.getDescendants(allChildren);
+    function loadGeom(visualObj: THREE.Object3D) {
+      let allChildren: THREE.Object3D[] = [];
+      getDescendants(visualObj, allChildren);
       for (var c = 0; c < allChildren.length; ++c)
       {
         if (allChildren[c] instanceof THREE.Mesh)
@@ -1151,13 +1075,13 @@ export class SDFParser {
           allChildren[c].castShadow = true;
           allChildren[c].receiveShadow = true;
   
-          if (visualObj.castShadows)
+          if (visualObj.castShadow)
           {
-            allChildren[c].castShadow = visualObj.castShadows;
+            allChildren[c].castShadow = visualObj.castShadow;
           }
-          if (visualObj.receiveShadows)
+          if (visualObj.receiveShadow)
           {
-            allChildren[c].receiveShadow = visualObj.receiveShadows;
+            allChildren[c].receiveShadow = visualObj.receiveShadow;
           }
   
           if (visualObj.name.indexOf('COLLISION_VISUAL') >= 0)
@@ -1165,7 +1089,7 @@ export class SDFParser {
             allChildren[c].castShadow = false;
             allChildren[c].receiveShadow = false;
   
-            allChildren[c].visible = this.scene.showCollisions;
+            allChildren[c].visible = that.scene.showCollisions;
           }
           break;
         }
@@ -1177,67 +1101,56 @@ export class SDFParser {
    * Parses SDF visual element and creates THREE 3D object by parsing
    * geometry element using createGeom function
    * @param {object} visual - SDF visual element
-   * @param {object} options - Options to send to the creation process. It can include:
-   *                 - enableLights - True to have lights visible when the object is created.
-   *                                  False to create the lights, but set them to invisible (off).
-   *                 - fuelName - Name of the resource in Fuel. Helps to match URLs to the correct path. Requires 'fuelOwner'.
-   *                 - fuelOwner - Name of the resource's owner in Fuel. Helps to match URLs to the correct path. Requires 'fuelName'.
-   *                 - scopedName - Scoped name of the element's parent. Used to create the element's scoped name.
+   * @param {object} options - Options to send to the creation process.
+   * It can include:
+   *   - enableLights - True to have lights visible when the object is created.
+   *                    False to create the lights, but set them to invisible
+   *                    (off).
+   *   - fuelName - Name of the resource in Fuel. Helps to match URLs to the
+   *                correct path. Requires 'fuelOwner'.
+   *   - fuelOwner - Name of the resource's owner in Fuel. Helps to match URLs
+   *                 to the correct path. Requires 'fuelName'.
    * @returns {THREE.Object3D} visualObj - 3D object which is created
    * according to SDF visual element.
    */
-  public createVisual(visual: object, options: object): THREE.Object3D {
+  public createVisual(visual: any, options: any): THREE.Object3D {
+    let visualObj: THREE.Object3D = new THREE.Object3D();
     //TODO: handle these node values
     // cast_shadow, receive_shadows
     if (visual.geometry)
     {
-      var visualObj = new THREE.Object3D();
       visualObj.name = visual['@name'] || visual['name'];
-      visualObj.scopedName = this.createScopedName(visual, options['scopedName']);
-  
-      // Create an unique name to disambiguate from topic messages.
-      if (visual['id'] !== undefined) {
-        visualObj.uniqueName = this.createUniqueName(visual);
-      }
-  
-      if (visual.pose)
-      {
+ 
+      if (visual.pose) {
         var visualPose = this.parsePose(visual.pose);
-        this.scene
-          .setPose(visualObj, visualPose.position, visualPose.orientation);
+        this.scene.setPose(visualObj, visualPose.position,
+                           visualPose.orientation);
       }
   
       this.createGeom(visual.geometry, visual.material, visualObj, options);
-  
-      return visualObj;
     }
   
-    return null;
+    return visualObj;
   }
 
   /**
    * Parses SDF sensor element and creates THREE 3D object
    * @param {object} sensor - SDF sensor element
-   * @param {object} options - Options to send to the creation process. It can include:
-   *                 - fuelName - Name of the resource in Fuel. Helps to match URLs to the correct path. Requires 'fuelOwner'.
-   *                 - fuelOwner - Name of the resource's owner in Fuel. Helps to match URLs to the correct path. Requires 'fuelName'.
-   *                 - scopedName - Scoped name of the element's parent. Used to create the element's scoped name.
+   * @param {object} options - Options to send to the creation process.
+   * It can include:
+   *  - fuelName - Name of the resource in Fuel. Helps to match URLs to the
+   *               correct path. Requires 'fuelOwner'.
+   *  - fuelOwner - Name of the resource's owner in Fuel. Helps to match URLs
+   *                to the correct path. Requires 'fuelName'.
    * @returns {THREE.Object3D} sensorObj - 3D object which is created
    * according to SDF sensor element.
    */
-  public createSensor(sensor: object, options: object): THREE.Object3D {
-    var sensorObj = new THREE.Object3D();
+  public createSensor(sensor: any, options: any): THREE.Object3D {
+    let sensorObj: THREE.Object3D = new THREE.Object3D();
     sensorObj.name = sensor['name'] || sensor['@name'] || '';
-    sensorObj.scopedName = this.createScopedName(sensor, options['scopedName']);
   
-    // Create an unique name to disambiguate from topic messages.
-    if (sensor['id'] !== undefined) {
-      sensorObj.uniqueName = this.createUniqueName(sensor);
-    }
-  
-    if (sensor.pose)
-    {
-      var sensorPose = this.parsePose(sensor.pose);
+    if (sensor.pose) {
+      let sensorPose: Pose = this.parsePose(sensor.pose);
       this.scene.setPose(sensorObj, sensorPose.position, sensorPose.orientation);
     }
   
@@ -1248,27 +1161,30 @@ export class SDFParser {
    * Parses an object and spawns the given 3D object.
    * @param {object} obj - The object, obtained after parsing the SDF or from
    * a world message.
-   * @param {object} options - Options to send to the creation process. It can include:
-   *                 - enableLights - True to have lights visible when the object is created.
-   *                                  False to create the lights, but set them to invisible (off).
-   *                 - fuelName - Name of the resource in Fuel. Helps to match URLs to the correct path. Requires 'fuelOwner'.
-   *                 - fuelOwner - Name of the resource's owner in Fuel. Helps to match URLs to the correct path. Requires 'fuelName'.
+   * @param {object} options - Options to send to the creation process.
+   * It can include:
+   *  - enableLights - True to have lights visible when the object is created.
+   *                   False to create the lights, but set them to invisible
+   *                   (off).
+   *  - fuelName - Name of the resource in Fuel. Helps to match URLs to the
+   *               correct path. Requires 'fuelOwner'.
+   *  - fuelOwner - Name of the resource's owner in Fuel. Helps to match URLs
+   *                to the correct path. Requires 'fuelName'.
    * @returns {THREE.Object3D} object - 3D object which is created from the
    * given object.
    */
-  public spawnFromObj(obj: object, options: object): THREE.Object3D {
-    if (obj.model)
-    {
+  public spawnFromObj(obj: any, options: any): THREE.Object3D {
+    if (obj.model) {
       return this.spawnModelFromSDF(obj, options);
     }
-    else if (obj.light)
-    {
+    else if (obj.light) {
       return this.spawnLight(obj);
     }
-    else if (obj.world)
-    {
+    else if (obj.world) {
       return this.spawnWorldFromSDF(obj, options);
     }
+    console.error('Unable to spawn from obj', obj);
+    return new THREE.Object3D();
   }
 
   /**
@@ -1277,8 +1193,8 @@ export class SDFParser {
    * @returns {THREE.Object3D} object - 3D object which is created from the
    * given SDF.
    */
-  public spawnFromSDF(sdf: object): THREE.Object3D {
-    var sdfObj = this.parseSDF(sdf);
+  public spawnFromSDF(sdf: any): THREE.Object3D {
+    let sdfObj: any = this.parseSDF(sdf);
     return this.spawnFromObj(sdfObj, {
       enableLights: true
     });
@@ -1289,21 +1205,18 @@ export class SDFParser {
    * @param {object} sdf - It is either SDF XML string or SDF XML DOM object
    * @returns {object} object - The parsed SDF object.
    */
-  public parseSDF(sdf: object): object {
+  public parseSDF(sdf: any): any {
     // Parse sdfXML
     var sdfXML;
-    if ((typeof sdf) === 'string')
-    {
+    if ((typeof sdf) === 'string') {
       sdfXML = this.parseXML(sdf);
-    }
-    else
-    {
+    } else {
       sdfXML = sdf;
     }
   
     // Convert SDF XML to Json string and parse JSON string to object
     // TODO: we need better xml 2 json object convertor
-    var sdfJson = xml2json(sdfXML, '\t');
+    var sdfJson = xmlParser.xml2json(sdfXML, '\t');
     var sdfObj = JSON.parse(sdfJson).sdf;
     // it is easier to manipulate json object
   
@@ -1321,43 +1234,37 @@ export class SDFParser {
    * @param {function} callback - The callback to use once the SDF file is ready.
    */
   public loadSDF(sdfName: string, callback: any): void {
-    if (!sdfName)
-    {
-      var m = 'Must provide either a model/world name or the URL of an SDF file';
+    if (!sdfName) {
+      let m: string = 'Must provide either a model/world name or the URL of an SDF file';
       console.error(m);
       return;
     }
-    var lowerCaseName = sdfName.toLowerCase();
-    var filename = null;
+    let lowerCaseName: string = sdfName.toLowerCase();
+    let filename: string = '';
   
     // In case it is a full URL
-    if (lowerCaseName.indexOf('http') === 0)
-    {
+    if (lowerCaseName.indexOf('http') === 0) {
       filename = sdfName;
     }
     // In case it is just the model/world name, look for it on the default URL
-    else
-    {
-      if (lowerCaseName.endsWith('.world') || lowerCaseName.endsWith('.sdf'))
-      {
+    else {
+      if (lowerCaseName.endsWith('.world') || lowerCaseName.endsWith('.sdf')) {
         filename = this.MATERIAL_ROOT + '/worlds/' + sdfName;
-      }
-      else
-      {
+      } else {
         filename = this.MATERIAL_ROOT + '/' + sdfName + '/model.sdf';
       }
     }
   
-    if (!filename)
-    {
+    if (!filename) {
       console.error('Error: unable to load ' + sdfName + ' - file not found');
       return;
     }
   
-    var that = this;
-    this.fileFromUrl(filename, function(sdf) {
+    let that = this;
+    this.fileFromUrl(filename, function(sdf: any) {
       if (!sdf) {
-        console.error('Error: Failed to get the SDF file (' + filename + '). The XML is likely invalid.');
+        console.error('Error: Failed to get the SDF file (' + filename +
+                      '). The XML is likely invalid.');
         return;
       }
       callback(that.spawnFromSDF(sdf));
@@ -1367,32 +1274,25 @@ export class SDFParser {
   /**
    * Creates 3D object from parsed model SDF
    * @param {object} sdfObj - parsed SDF object
-   * @param {object} options - Options to send to the creation process. It can include:
-   *                 - enableLights - True to have lights visible when the object is created.
-   *                                  False to create the lights, but set them to invisible (off).
-   *                 - fuelName - Name of the resource in Fuel. Helps to match URLs to the correct path. Requires 'fuelOwner'.
-   *                 - fuelOwner - Name of the resource's owner in Fuel. Helps to match URLs to the correct path. Requires 'fuelName'.
+   * @param {object} options - Options to send to the creation process.
+   * It can include:
+   *  - enableLights - True to have lights visible when the object is created.
+   *                   False to create the lights, but set them to invisible (off).
+   *  - fuelName - Name of the resource in Fuel. Helps to match URLs to the correct path. Requires 'fuelOwner'.
+   *  - fuelOwner - Name of the resource's owner in Fuel. Helps to match URLs to the correct path. Requires 'fuelName'.
    * @returns {THREE.Object3D} modelObject - 3D object which is created
    * according to SDF model object.
    */
-  public spawnModelFromSDF(sdfObj: object, options: object): THREE.Object3D {
+  public spawnModelFromSDF(sdfObj: any, options: any): THREE.Object3D {
     // create the model
-    var modelObj = new THREE.Object3D();
+    let modelObj: THREE.Object3D = new THREE.Object3D();
     modelObj.name = sdfObj.model['name'] || sdfObj.model['@name'];
-    modelObj.uniqueName = this.createUniqueName(sdfObj.model);
-  
-    if (options['scopedName'] !== undefined) {
-      modelObj.scopedName = options.scopedName;
-    } else {
-      modelObj.scopedName = modelObj.name;
-    }
-  
-    options.scopedName = modelObj.scopedName;
-  
-    var pose;
-    var i, j, k;
-    var visualObj;
-    var linkObj, linkPose;
+ 
+    let pose: Pose;
+    let i, j, k: number;
+    let visualObj: THREE.Object3D;
+    let linkObj: THREE.Object3D;
+    let linkPose: Pose;
   
     if (sdfObj.model.pose)
     {
@@ -1426,7 +1326,6 @@ export class SDFParser {
       }
       for (i = 0; i < sdfObj.model.model.length; ++i)
       {
-        options.scopedName = this.createScopedName(sdfObj.model.model[i], modelObj.scopedName);
         var tmpModelObj = {model:sdfObj.model.model[i]};
         var nestedModelObj = this.spawnModelFromSDF(tmpModelObj, options);
         if (nestedModelObj)
@@ -1444,11 +1343,9 @@ export class SDFParser {
       }
   
       // Ignore linter warnings. We use arrow functions to avoid binding 'this'.
-      /* jshint ignore:start */
-      sdfObj.model.include.forEach((includedModel) => {
+      sdfObj.model.include.forEach((includedModel: any) => {
         this.includeModel(includedModel, modelObj);
       });
-      /* jshint ignore:end */
     }
   
     return modelObj;
@@ -1457,15 +1354,16 @@ export class SDFParser {
   /**
    * Creates 3D object from parsed world SDF
    * @param {object} sdfObj - parsed SDF object
-   * @param {object} options - Options to send to the creation process. It can include:
-   *                 - enableLights - True to have lights visible when the object is created.
-   *                                  False to create the lights, but set them to invisible (off).
-   *                 - fuelName - Name of the resource in Fuel. Helps to match URLs to the correct path. Requires 'fuelOwner'.
-   *                 - fuelOwner - Name of the resource's owner in Fuel. Helps to match URLs to the correct path. Requires 'fuelName'.
+   * @param {object} options - Options to send to the creation process.
+   * It can include:
+   *   - enableLights - True to have lights visible when the object is created.
+   *                    False to create the lights, but set them to invisible (off).
+   *   - fuelName - Name of the resource in Fuel. Helps to match URLs to the correct path. Requires 'fuelOwner'.
+   *   - fuelOwner - Name of the resource's owner in Fuel. Helps to match URLs to the correct path. Requires 'fuelName'.
    * @returns {THREE.Object3D} worldObject - 3D object which is created
    * according to SDF world object.
    */
-  public spawnWorldFromSDF(sdfObj: object, options: object): THREE.Object3D
+  public spawnWorldFromSDF(sdfObj: any, options: any): THREE.Object3D
   {
     var worldObj = new THREE.Object3D();
     worldObj.name = this.createUniqueName(sdfObj.world);
@@ -1524,11 +1422,9 @@ export class SDFParser {
       }
   
       // Ignore linter warnings. We use arrow functions to avoid binding 'this'.
-      /* jshint ignore:start */
-      sdfObj.world.include.forEach((includedModel) => {
+      sdfObj.world.include.forEach((includedModel: any) => {
         this.includeModel(includedModel, worldObj);
       });
-      /* jshint ignore:end */
     }
   
     return worldObj;
@@ -1541,30 +1437,33 @@ export class SDFParser {
    * @param {object} includedModel - The included model.
    * @param {THREE.Object3D} parent - The parent that is including the given model.
    */
-  public includeModel(includedModel: object, parent: THREE.Object3D): void {
-    // Suppress linter warnings. This shouldn't be necessary after switching to es6 or more.
-    /* jshint ignore:start */
+  public includeModel(includedModel: any, parent: THREE.Object3D): void {
+    // Suppress linter warnings. This shouldn't be necessary after
+    // switching to es6 or more.
   
-    // The included model is copied. This allows the SDF to be reused without modifications.
-    // The parent is stored in the model, so we don't lose their context once the model's
-    // Object3D is created.
+    // The included model is copied. This allows the SDF to be reused
+    // without modifications. The parent is stored in the model, so we
+    // don't lose their context once the model's Object3D is created.
     const model = {...includedModel, parent: parent};
   
     // We need to request the files of the model to the Server.
-    // In order to avoid duplicated requests, we store the model in an array until their files
-    // are available.
+    // In order to avoid duplicated requests, we store the model in an
+    // array until their files are available.
     if (!this.pendingModels.has(model.uri)) {
-      // The URI is not in the cache map. We have to make the request to the Server.
-      // Add the model to the models array of the map, to use them once the request resolves.
+      // The URI is not in the cache map. We have to make the request to
+      // the Server. Add the model to the models array of the map, to use
+      // them once the request resolves.
       this.pendingModels.set(model.uri, { models: [model] });
   
-      // Request the files from the server, and create the pending models on it's callback.
+      // Request the files from the server, and create the pending
+      // models on it's callback.
       if (this.requestHeaderKey && this.requestHeaderValue) {
-        this.fuelServer.setRequestHeader(this.requestHeaderKey, this.requestHeaderValue);
+        this.fuelServer.setRequestHeader(this.requestHeaderKey,
+                                         this.requestHeaderValue);
       }
-      this.fuelServer.getFiles(model.uri, (files) => {
+      this.fuelServer.getFiles(model.uri, (files: string[]) => {
         // The files were obtained.
-        let sdfUrl;
+        let sdfUrl: string = '';
         files.forEach((file) => {
           if (file.endsWith('model.sdf')) {
             sdfUrl = file;
@@ -1574,9 +1473,10 @@ export class SDFParser {
         });
   
         // Read and parse the SDF.
-        this.fileFromUrl(sdfUrl, (sdf) => {
+        this.fileFromUrl(sdfUrl, (sdf: any) => {
           if (!sdf) {
-            console.error('Error: Failed to get the SDF file (' + filename + '). The XML is likely invalid.');
+            console.error('Error: Failed to get the SDF file (' + sdfUrl +
+                          '). The XML is likely invalid.');
             return;
           }
           const sdfObj = this.parseSDF(sdf);
@@ -1585,18 +1485,18 @@ export class SDFParser {
           entry.sdf = sdfObj;
   
           // Extract Fuel owner and name. Used to match the correct URL.
-          let options;
-          if (model.uri.startsWith('https://') || model.uri.startsWith('file://')) {
+          let options: any;
+          if (model.uri.startsWith('https://') || 
+              model.uri.startsWith('file://')) {
             const uriSplit = model.uri.split('/');
             const modelsIndex = uriSplit.indexOf('models');
             options = {
               fuelOwner: uriSplit[modelsIndex - 1],
               fuelName: uriSplit[modelsIndex + 1],
-              scopedName: parent.scopedName
             }
           }
   
-          entry.models.forEach((pendingModel) => {
+          entry.models.forEach((pendingModel: any) => {
             // Create the Object3D.
             const modelObj = this.spawnFromObj(sdfObj, options);
   
@@ -1627,18 +1527,17 @@ export class SDFParser {
       // If the SDF was already obtained, apply it to this model.
       if (entry.sdf) {
         // Extract Fuel owner and name. Used to match the correct URL.
-        let options;
+        let options: any;
         if (model.uri.startsWith('https://') || model.uri.startsWith('file://')) {
           const uriSplit = model.uri.split('/');
           const modelsIndex = uriSplit.indexOf('models');
           options = {
             fuelOwner: uriSplit[modelsIndex - 1],
             fuelName: uriSplit[modelsIndex + 1],
-            scopedName: parent.scopedName
           }
         }
   
-        entry.models.forEach((pendingModel) => {
+        entry.models.forEach((pendingModel: any) => {
           const sdfObj = entry.sdf;
           const modelObj = this.spawnFromObj(sdfObj, options);
   
@@ -1661,7 +1560,6 @@ export class SDFParser {
         entry.models = [];
       }
     }
-    /* jshint ignore:end */
   }
 
   /**
@@ -1674,26 +1572,20 @@ export class SDFParser {
    *                                  False to create the lights, but set them to invisible (off).
    *                 - fuelName - Name of the resource in Fuel. Helps to match URLs to the correct path. Requires 'fuelOwner'.
    *                 - fuelOwner - Name of the resource's owner in Fuel. Helps to match URLs to the correct path. Requires 'fuelName'.
-   *                 - scopedName - Scoped name of the element's parent. Used to create the element's scoped name.
    * @returns {THREE.Object3D} linkObject - 3D link object
    */
-  public createLink(link: object, options: object): THREE.Object3D {
-    var linkPose, visualObj, sensorObj;
-    var linkObj = new THREE.Object3D();
+  public createLink(link: any, options: any): THREE.Object3D {
+    let linkPose: Pose;
+    let visualObj: THREE.Object3D;
+    let sensorObj: THREE.Object3D;
+    let linkObj: THREE.Object3D = new THREE.Object3D();
   
     linkObj.name = link['name'] || link['@name'] || '';
-    linkObj.scopedName = this.createScopedName(link, options['scopedName']);
-  
-    // Create an unique name to disambiguate from topic messages.
-    if (link['id'] !== undefined) {
-      linkObj.uniqueName = this.createUniqueName(link);
-    }
-  
-    options['scopedName'] = linkObj.scopedName;
-  
-    if (link.inertial)
-    {
-      var inertialPose, inertialMass, inertia = {};
+ 
+    if (link.inertial) {
+      let inertialPose: Pose;
+      let inertialMass: number
+      let inertia: Inertia = new Inertia();
       linkObj.userData.inertial = {};
       inertialPose = link.inertial.pose;
       inertialMass = link.inertial.mass;
@@ -1704,48 +1596,38 @@ export class SDFParser {
       inertia.iyz = link.inertial.iyz;
       inertia.izz = link.inertial.izz;
       linkObj.userData.inertial.inertia = inertia;
-      if (inertialMass)
-      {
+      if (inertialMass) {
         linkObj.userData.inertial.mass = inertialMass;
       }
-      if (inertialPose)
-      {
+      if (inertialPose) {
         linkObj.userData.inertial.pose = inertialPose;
       }
     }
   
-    if (link.pose)
-    {
+    if (link.pose) {
       linkPose = this.parsePose(link.pose);
       this.scene.setPose(linkObj, linkPose.position, linkPose.orientation);
     }
   
-    if (link.visual)
-    {
-      if (!(link.visual instanceof Array))
-      {
+    if (link.visual) {
+      if (!(link.visual instanceof Array)) {
         link.visual = [link.visual];
       }
   
-      for (var i = 0; i < link.visual.length; ++i)
-      {
+      for (var i = 0; i < link.visual.length; ++i) {
         visualObj = this.createVisual(link.visual[i], options);
-        if (visualObj && !visualObj.parent)
-        {
+        if (visualObj && !visualObj.parent) {
           linkObj.add(visualObj);
         }
       }
     }
   
-    if (link.collision)
-    {
-      if (!(link.collision instanceof Array))
-      {
+    if (link.collision) {
+      if (!(link.collision instanceof Array)) {
         link.collision = [link.collision];
       }
   
-      for (var j = 0; j < link.collision.length; ++j)
-      {
+      for (var j = 0; j < link.collision.length; ++j) {
         visualObj = this.createVisual(link.collision[j], options);
         if (visualObj && !visualObj.parent)
         {
@@ -1757,14 +1639,12 @@ export class SDFParser {
       }
     }
   
-    if (link.light)
-    {
-      if (!(link.light instanceof Array))
-      {
+    if (link.light) {
+      if (!(link.light instanceof Array)) {
         link.light = [link.light];
       }
-      for (var k = 0; k < link.light.length; ++k)
-      {
+
+      for (var k = 0; k < link.light.length; ++k) {
         var light = this.spawnLight(link.light[k]);
         if (light !== null && light !== undefined) {
           if (options && options.enableLights !== undefined) {
@@ -1776,14 +1656,11 @@ export class SDFParser {
       }
     }
   
-    if (link.particle_emitter)
-    {
-      if (!(link.particle_emitter instanceof Array))
-      {
+    if (link.particle_emitter) {
+      if (!(link.particle_emitter instanceof Array)) {
         link.particle_emitter = [link.particle_emitter];
       }
-      for (var em = 0; em < link.particle_emitter.length; ++em)
-      {
+      for (var em = 0; em < link.particle_emitter.length; ++em) {
         var emitter = this.createParticleEmitter(link.particle_emitter[em]);
         if (emitter !== null && emitter !== undefined) {
           linkObj.userData = {
@@ -1794,18 +1671,14 @@ export class SDFParser {
       }
     }
   
-    if (link.sensor)
-    {
-      if (!(link.sensor instanceof Array))
-      {
+    if (link.sensor) {
+      if (!(link.sensor instanceof Array)) {
         link.sensor = [link.sensor];
       }
   
-      for (var sidx = 0; sidx < link.sensor.length; ++sidx)
-      {
+      for (var sidx = 0; sidx < link.sensor.length; ++sidx) {
         sensorObj = this.createSensor(link.sensor[sidx], options);
-        if (sensorObj && !sensorObj.parent)
-        {
+        if (sensorObj && !sensorObj.parent) {
           linkObj.add(sensorObj);
         }
       }
@@ -1826,7 +1699,7 @@ export class SDFParser {
   
     // Auxliar function to extract the value of an emitter property from
     // either SDF or protobuf object (stored in a data property).
-    function extractValue(property) {
+    function extractValue(property: any) {
       if (emitter && emitter[property] !== undefined) {
         if (emitter[property]['data'] !== undefined) {
           return emitter[property].data;
@@ -1836,12 +1709,13 @@ export class SDFParser {
       }
       return undefined;
     }
+    let particleEmitterObj = new THREE.Object3D();
   
     // Given name of the emitter.
-    var emitterName = this.createUniqueName(emitter);
+    let emitterName: string = this.createUniqueName(emitter);
   
     // Whether the emitter is generating particles or not.
-    var emitting = this.parseBool(extractValue('emitting')) || false;
+    let emitting: boolean = this.parseBool(extractValue('emitting')) || false;
   
     // Duration of the particle emitter. Infinite if null.
     var duration = extractValue('duration');
@@ -1892,7 +1766,7 @@ export class SDFParser {
         'data' in colorRangeImage) {
       colorRangeImage = colorRangeImage.data;
     }
-    var colorRangeImageUrl;
+    let colorRangeImageUrl: string = '';
   
     var particleTexture;
   
@@ -1906,7 +1780,7 @@ export class SDFParser {
         particleTexture = emitter['material']['pbr']['albedo_map'];
       }
     }
-    var particleTextureUrl;
+    let particleTextureUrl: string = '';
   
     // Get the URL of the images used.
     if (this.usingFilesUrls) {
@@ -1934,18 +1808,18 @@ export class SDFParser {
   
     if (!colorRangeImageUrl) {
       console.error('color_range_image is missing, the particle emitter will not work');
-      return;
+      return particleEmitterObj ;
     }
   
     if (!particleTextureUrl) {
       console.error('albedo_map is missing, the particle emitter will not work');
-      return;
+      return particleEmitterObj ;
     }
   
     // Create the Particle Group.
     // This is the container for the Particle Emitter.
     // For more information, check http://squarefeet.github.io/ShaderParticleEngine/docs/api/SPE.Group.html
-    var particleGroup = new SPE.Group({
+    let particleGroup = new SPE.Group({
       // TODO(german) SPE requires just a texture, leaving the SDF Material related information out.
       // We might want to change the engine or write our if this proves to be an issue in the future.
       texture: {
@@ -2002,7 +1876,6 @@ export class SDFParser {
   
     // Create a new THREE.Object to hold the particle emitter. This allows us
     // to easily apply the particle emitter's position and orientation.
-    var particleEmitterObj = new THREE.Object3D();
     console.log(pose.orientation);
     this.scene.setPose(particleEmitterObj, pose.position, pose.orientation);
     particleEmitterObj.add(particleGroup.mesh);
@@ -2013,19 +1886,18 @@ export class SDFParser {
     // Determine Color and Opacity information from the Color Range Image.
     // Note: SPE supports 4 values of opacity and color in an array. The engine automatically interpolates between them.
     // This means we cannot have all the colors from the image, instead, we pick only 4.
-    /* jshint ignore:start */
     this.scene.textureLoader.load(colorRangeImageUrl, (texture) => {
       // Load the Color Range Image and read the color information from its pixels.
       // A canvas is required to do so.
-      const width = texture.image.width;
-      const height = texture.image.height;
+      const width: number = texture.image.width;
+      const height: number = texture.image.height;
   
       const canvas = document.createElement('canvas');
       canvas.width = width;
       canvas.height = height;
       const context = canvas.getContext('2d');
-      context.drawImage(texture.image, 0, 0);
-      const imageData = context.getImageData(0, 0, width, height);
+      context!.drawImage(texture.image, 0, 0);
+      const imageData = context!.getImageData(0, 0, width, height)!;
   
       const colorImgData = [];
       const opacityData = [];
@@ -2059,7 +1931,6 @@ export class SDFParser {
       }
     });
     return particleEmitterObj;
-    /* jshint ignore:end */
   }
 
   /**
@@ -2070,54 +1941,41 @@ export class SDFParser {
    * sphere, cylinder, spotlight, directionallight, pointlight
    */
   public addModelByType(model: THREE.Object3D, type: string): void {
-    var sdf, translation, euler;
-    var quaternion = new THREE.Quaternion();
-    var modelObj;
-    var that = this;
+    let sdf: any;
+    let translation: THREE.Vector3 = new THREE.Vector3();
+    let quaternion = new THREE.Quaternion();
+    let modelObj: THREE.Object3D;
+    let that = this;
   
-    if (model.matrixWorld)
-    {
-      var matrix = model.matrixWorld;
-      translation = new THREE.Vector3();
-      euler = new THREE.Euler();
-      var scale = new THREE.Vector3();
-      matrix.decompose(translation, euler, scale);
-      quaternion.setFromEuler(euler);
+    if (model.matrixWorld) {
+      let matrix: THREE.Matrix4 = model.matrixWorld;
+      let scale: THREE.Vector3 = new THREE.Vector3();
+      matrix.decompose(translation, quaternion, scale);
     }
+
+    let euler: THREE.Euler = new THREE.Euler();
+    euler.setFromQuaternion(quaternion);
   
-    if (type === 'box')
-    {
+    if (type === 'box') {
       sdf = this.createBoxSDF(translation, euler);
       modelObj = this.spawnFromSDF(sdf);
-    }
-    else if (type === 'sphere')
-    {
+    } else if (type === 'sphere') {
       sdf = this.createSphereSDF(translation, euler);
       modelObj = this.spawnFromSDF(sdf);
-    }
-    else if (type === 'cylinder')
-    {
+    } else if (type === 'cylinder') {
       sdf = this.createCylinderSDF(translation, euler);
       modelObj = this.spawnFromSDF(sdf);
-    }
-    else if (type === 'spotlight')
-    {
+    } else if (type === 'spotlight') {
       modelObj = this.scene.createLight(2);
       this.scene.setPose(modelObj, translation, quaternion);
-    }
-    else if (type === 'directionallight')
-    {
+    } else if (type === 'directionallight') {
       modelObj = this.scene.createLight(3);
       this.scene.setPose(modelObj, translation, quaternion);
-    }
-    else if (type === 'pointlight')
-    {
+    } else if (type === 'pointlight') {
       modelObj = this.scene.createLight(1);
       this.scene.setPose(modelObj, translation, quaternion);
-    }
-    else
-    {
-      this.loadSDF(type, function(sdfObj) {
+    } else {
+      this.loadSDF(type, function(sdfObj: any) {
         modelObj = new THREE.Object3D();
         modelObj.add(sdfObj);
         modelObj.name = model.name;
@@ -2125,8 +1983,7 @@ export class SDFParser {
       });
     }
   
-    var addModelFunc;
-    addModelFunc = function()
+    let addModelFunc = function()
     {
       // check whether object is removed
       var obj = that.scene.getByName(modelObj.name);
@@ -2155,7 +2012,7 @@ export class SDFParser {
    * @returns {string} sdf - SDF string of the simple shape
    */
   public createSimpleShapeSDF(type: string, translation: THREE.Vector3,
-          euler: THREE.Euler, geomSDF: strign): string {
+          euler: THREE.Euler, geomSDF: string): string {
     var sdf;
   
     sdf = '<sdf version="' + this.SDF_VERSION + '">' + '<model name="' + type
@@ -2214,41 +2071,13 @@ export class SDFParser {
   }
 
   /**
-   * Creates an unique name for the resource, which is the name plus it's ID
-   * @param {object} object - the object that contains the name and ID.
-   * @returns {string} uniqueName - A concatenation of the name and ID of the object.
-   */
-  public createUniqueName = function(obj: object): string {
-    var objectName = obj['name'] || obj['@name'] || '';
-    var objectId = obj['id'] || obj['@id'] || '';
-  
-    return objectName + objectId;
-  }
-
-  /**
-   * Creates a scoped name for the resource.
-   * @param {object} object - the object that contains the name.
-   * @param {string} parentScopedName - the scoped name of the parents.
-   * @returns {string} scoped name - A concatenation of the name and parents name sepparated with double colons.
-   */
-  public createScopedName(obj: object, parentScopedName: string): string {
-    var objectName = obj['name'] || obj['@name'] || '';
-  
-    if (parentScopedName && parentScopedName.length > 0) {
-      return parentScopedName + '::' + objectName;
-    }
-  
-    return objectName;
-  }
-
-  /**
    * Set a request header for internal requests.
    * Parser uses XMLHttpRequest, which handle headers with key-value pairs instead of an object (like THREE uses).
    *
    * @param {string} header - The header to send in the request.
    * @param {string} value - The value to set to the header.
    */
-  public setRequestHeader(header: strign, value: string): void {
+  public setRequestHeader(header: string, value: string): void {
     this.requestHeaderKey = header;
     this.requestHeaderValue = value;
   }
@@ -2318,14 +2147,17 @@ export class SDFParser {
       console.error(xhttp.statusText);
     };
   
-    try
-    {
+    try {
       xhttp.send();
-    }
-    catch(err)
-    {
+    } catch(err: any) {
       console.error('Failed to get URL [' + url + ']: ' + err.message);
       return;
     }
+  }
+
+  private createUniqueName(obj: any): string {
+    let objectName: string = obj['name'] || obj['@name'] || '';
+    let objectId: string = obj['id'] || obj['@id'] || '';
+    return objectName + objectId;
   }
 }

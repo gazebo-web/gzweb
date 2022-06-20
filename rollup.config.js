@@ -19,6 +19,7 @@ export default {
         eventemitter2: 'eventemitter2',
         protobufjs: 'protobufjs',
         rxjs: 'rxjs',
+        three: 'three'
       }
     },
     {
@@ -30,6 +31,7 @@ export default {
         eventemitter2: 'eventemitter2',
         protobufjs: 'protobufjs',
         rxjs: 'rxjs',
+        three: 'three'
       }
     }
   ],
