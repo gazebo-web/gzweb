@@ -2,39 +2,150 @@
 // import typescript from '@rollup/plugin-typescript';
 import { terser } from 'rollup-plugin-terser';
 import babel from '@rollup/plugin-babel';
+// import { nodeResolve } from '@rollup/plugin-node-resolve';
+//import commonjs from '@rollup/plugin-commonjs';
 
-export default {
-  input: 'tsc-out/src/gzweb.js',
-  external: [
-    'eventemitter2',
-    'protobufjs',
-    'rxjs',
-  ],
-  output: [
-    {
-      file: 'dist/gzweb.js',
-      format: 'umd',
-      name: 'gzweb',
-      globals: {
-        eventemitter2: 'eventemitter2',
-        protobufjs: 'protobufjs',
-        rxjs: 'rxjs',
-        three: 'three'
+let builds = [
+  // Module
+  {
+    input: 'tsc-out/src/gzweb.js',
+    plugins: [ ],
+    external: [
+      'eventemitter2',
+      'protobufjs',
+      'rxjs',
+      'three',
+    ],
+    output: [
+      {
+        format: 'esm',
+        name: 'gzweb',
+        file: 'dist/gzweb.module.js',
+        globals: {
+          eventemitter2: 'eventemitter2',
+          protobufjs: 'protobufjs',
+          rxjs: 'rxjs',
+          three: 'three'
+        }
       }
-    },
-    {
-      file: 'dist/gzweb.min.js',
-      format: 'umd',
-      name: 'gzweb',
-      plugins: [terser()],
-      globals: {
-        eventemitter2: 'eventemitter2',
-        protobufjs: 'protobufjs',
-        rxjs: 'rxjs',
-        three: 'three'
-      }
-    }
-  ],
+    ]
+  },
 
-  plugins: [babel({ babelHelpers: 'bundled' })]
-};
+  // UMD unminified
+  {
+    input: 'tsc-out/src/gzweb.js',
+    plugins: [
+      /*commonjs(),
+      nodeResolve({
+        browser: true,
+      }),*/
+      babel({
+        babelHelpers: 'bundled',
+        exclude: 'node_modules/**',
+        compact: false
+      })
+    ],
+    external: [
+      'eventemitter2',
+      'protobufjs',
+      'rxjs',
+      'three',
+    ],
+    output: [
+      {
+        format: 'umd',
+        name: 'gzweb',
+        file: 'dist/gzweb.js',
+        globals: {
+          eventemitter2: 'eventemitter2',
+          protobufjs: 'protobufjs',
+          rxjs: 'rxjs',
+          three: 'three'
+        }
+      }
+    ]
+  },
+
+  // UMD minified
+  {
+    input: 'tsc-out/src/gzweb.js',
+    plugins: [
+      /*commonjs(),
+      nodeResolve({
+        browser: true,
+      }),*/
+      babel({
+        babelHelpers: 'bundled',
+        exclude: 'node_modules/**'
+      }),
+      terser()
+    ],
+    external: [
+      'eventemitter2',
+      'protobufjs',
+      'rxjs',
+      'three',
+    ],
+    output: [
+      {
+        format: 'umd',
+        name: 'gzweb',
+        file: 'dist/gzweb.min.js',
+        globals: {
+          eventemitter2: 'eventemitter2',
+          protobufjs: 'protobufjs',
+          rxjs: 'rxjs',
+          three: 'three'
+        }
+      }
+    ]
+  }
+]
+
+export default builds;
+//{
+//  input: 'tsc-out/src/gzweb.js',
+//  external: [
+//    'eventemitter2',
+//    'protobufjs',
+//    'rxjs',
+//    'three',
+//  ],
+//  output: [
+//    {
+//      file: 'dist/gzweb.js',
+//      format: 'umd',
+//      name: 'gzweb',
+//      sourcemap: 'inline',
+//      globals: {
+//        eventemitter2: 'eventemitter2',
+//        protobufjs: 'protobufjs',
+//        rxjs: 'rxjs',
+//        three: 'three'
+//      }
+//    },
+//    {
+//      file: 'dist/gzweb.min.js',
+//      format: 'umd',
+//      name: 'gzweb',
+//      plugins: [terser()],
+//      globals: {
+//        eventemitter2: 'eventemitter2',
+//        protobufjs: 'protobufjs',
+//        rxjs: 'rxjs',
+//        three: 'three'
+//      }
+//    }
+//  ],
+//
+//  plugins: [
+//    /*commonjs(),
+//    nodeResolve({
+//      browser: true,
+//    }),*/
+//    babel({
+//      babelHelpers: 'bundled',
+//      exclude: 'node_modules/**'
+//    })
+//  ]
+//};

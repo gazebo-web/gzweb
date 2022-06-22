@@ -1,12 +1,10 @@
+import * as THREE from 'three';
 import { Scene } from './Scene';
 import { SDFParser } from './SDFParser';
 import { Shaders } from './Shaders';
 import { Subscription } from 'rxjs';
 import { Topic } from './Topic';
 import { Transport } from './Transport';
-
-declare let GZ3D: any;
-declare let THREE: any;
 
 /**
  * SceneManager handles the interface between a Gazebo server and the
@@ -73,7 +71,7 @@ export class SceneManager {
   private cancelAnimation: number;
 
   /**
-   * The container of the GZ3D scene.
+   * The container of the Scene.
    */
   private sceneElement: HTMLElement;
 

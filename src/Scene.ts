@@ -319,7 +319,7 @@ export class Scene {
   
     // Ortho camera and scene for rendering sprites
     // Currently only used for the radial menu
-    if (typeof GZ3D.RadialMenu === 'function')
+    /*if (typeof GZ3D.RadialMenu === 'function')
     {
       this.cameraOrtho = new THREE.OrthographicCamera(-width * 0.5, width * 0.5,
           height*0.5, -height*0.5, 1, 10);
@@ -329,7 +329,7 @@ export class Scene {
       // Radial menu (only triggered by touch)
       // this.radialMenu = new GZ3D.RadialMenu(this.getDomElement());
       // this.sceneOrtho.add(this.radialMenu.menu);
-    }
+    }*/
   
     // Grid
     this.grid = new THREE.GridHelper(20, 20, 0xCCCCCC, 0x4D4D4D);

@@ -2,7 +2,15 @@
   "name": "gzweb",
   "version": "2.0.12-beta.18",
   "description": "A library for Gazebo and data visualization.",
-  "main": "dist/gzweb.js",
+  "type": "module",
+  "main": "./dist/gzweb.js",
+  "module": "./dist/gzweb.module.js",
+  "exports": {
+    ".": {
+      "import": "./dist/gzweb.module.js"
+    },
+    "./src/*": "./src/*"
+  },
   "repository": {
     "type": "git",
     "url": "git@github.com:gazebo-web/gzweb.git"
@@ -32,6 +40,7 @@
     "@babel/core": "^7.18.2",
     "@babel/preset-env": "^7.18.2",
     "@rollup/plugin-babel": "^5.3.1",
+    "@rollup/plugin-commonjs": "^22.0.0",
     "@rollup/plugin-node-resolve": "^13.3.0",
     "@rollup/plugin-typescript": "^8.3.2",
     "@types/jest": "^28.1.1",

@@ -23,7 +23,7 @@ export class GzObjLoader {
    *
    * @constructor
    *
-   * @param {GZ3D.Scene} _scene - The scene to load into
+   * @param {Scene} _scene - The scene to load into
    * @param {string} _uri - mesh uri which is used by mtlloader and the objloader
    * to load both the mesh file and the mtl file using XMLHttpRequests.
    * @param {} _submesh
