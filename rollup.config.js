@@ -15,7 +15,8 @@ let builds = [
       'protobufjs',
       'rxjs',
       'three',
-      'three/examples/jsm/controls/OrbitControls'
+      'three/examples/jsm/controls/OrbitControls',
+      'shader-particle-engine'
     ],
     output: [
       {
@@ -26,7 +27,8 @@ let builds = [
           eventemitter2: 'eventemitter2',
           protobufjs: 'protobufjs',
           rxjs: 'rxjs',
-          three: 'three',
+          three: 'THREE',
+          'shader-particle-engine': 'shader-particle-engine',
           'three/examples/jsm/controls/OrbitControls': 'OrbitControls'
         }
       }
@@ -52,7 +54,8 @@ let builds = [
       'protobufjs',
       'rxjs',
       'three',
-      'three/examples/jsm/controls/OrbitControls'
+      'three/examples/jsm/controls/OrbitControls',
+      'shader-particle-engine'
     ],
     output: [
       {
@@ -63,7 +66,8 @@ let builds = [
           eventemitter2: 'eventemitter2',
           protobufjs: 'protobufjs',
           rxjs: 'rxjs',
-          three: 'three',
+          three: 'THREE',
+          'shader-particle-engine': 'shader-particle-engine',
           'three/examples/jsm/controls/OrbitControls': 'OrbitControls'
         }
       }
@@ -89,7 +93,8 @@ let builds = [
       'protobufjs',
       'rxjs',
       'three',
-      'three/examples/jsm/controls/OrbitControls'
+      'three/examples/jsm/controls/OrbitControls',
+      'shader-particle-engine'
     ],
     output: [
       {
@@ -100,7 +105,8 @@ let builds = [
           eventemitter2: 'eventemitter2',
           protobufjs: 'protobufjs',
           rxjs: 'rxjs',
-          three: 'three',
+          three: 'THREE',
+          'shader-particle-engine': 'shader-particle-engine',
           'three/examples/jsm/controls/OrbitControls': 'OrbitControls'
         }
       }

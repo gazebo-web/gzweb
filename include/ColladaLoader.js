@@ -39,7 +39,7 @@ import {
 	VectorKeyframeTrack,
 	sRGBEncoding
 } from 'three';
-import { TGALoader } from '../loaders/TGALoader.js';
+import { TGALoader } from './TGALoader';
 
 /**
  * @author mrdoob / http://mrdoob.com/

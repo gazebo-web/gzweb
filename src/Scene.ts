@@ -1,5 +1,5 @@
 import * as THREE from 'three'; 
-import * as SPE from '../include/SPE.min.js'; 
+import * as SPE from 'shader-particle-engine';
 import { getDescendants } from './Globals';
 import { ColladaLoader } from '../include/ColladaLoader';
 import { Color } from './Color';
@@ -35,7 +35,7 @@ enum JointTypes {
  * Supports radial menu on an orthographic scene when gzradialmenu.js has been
  * included (useful for mobile devices).
  *
- * @param shaders GZ3D.Shaders instance, if not provided, custom shaders will
+ * @param shaders Shaders instance, if not provided, custom shaders will
  *                not be set.
  * @param defaultCameraPosition THREE.Vector3 Default, and starting, camera
  *                              position. A value of [0, -5, 5] will be used
@@ -319,7 +319,7 @@ export class Scene {
   
     // Ortho camera and scene for rendering sprites
     // Currently only used for the radial menu
-    /*if (typeof GZ3D.RadialMenu === 'function')
+    /*if (typeof RadialMenu === 'function')
     {
       this.cameraOrtho = new THREE.OrthographicCamera(-width * 0.5, width * 0.5,
           height*0.5, -height*0.5, 1, 10);
@@ -327,7 +327,7 @@ export class Scene {
       this.sceneOrtho = new THREE.Scene();
   
       // Radial menu (only triggered by touch)
-      // this.radialMenu = new GZ3D.RadialMenu(this.getDomElement());
+      // this.radialMenu = new RadialMenu(this.getDomElement());
       // this.sceneOrtho.add(this.radialMenu.menu);
     }*/
   
@@ -369,7 +369,7 @@ export class Scene {
        */
   
     // Handles for translating and rotating objects
-    //this.modelManipulator = new GZ3D.Manipulator(this.camera, false,
+    //this.modelManipulator = new Manipulator(this.camera, false,
     //    this.getDomElement());
   
     // this.timeDown = null;
@@ -721,7 +721,7 @@ export class Scene {
     {
       this.setManipulationMode('view');
       // TODO: Remove jquery from scene
-      if (typeof GZ3D.Gui === 'function')
+      if (typeof Gui === 'function')
       {
         $( '#view-mode' ).click();
         $('input[type="radio"]').checkboxradio('refresh');
@@ -797,7 +797,7 @@ export class Scene {
   
     // Esc/R/T for changing manipulation modes
     // TODO: Remove jquery from scene
-    if (typeof GZ3D.Gui === 'function')
+    if (typeof Gui === 'function')
     {
       if (event.keyCode === 27) // Esc
       {

@@ -9,7 +9,7 @@ import { Pose } from './Pose';
 import { Scene } from './Scene';
 import { EventEmitter2 } from 'eventemitter2';
 
-let SPE: any = require('@g.frame/shader-particle-engine');
+import * as SPE from 'shader-particle-engine';
 let xmlParser = require('xml2json');
 
 class PendingMesh {
