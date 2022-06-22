@@ -10,7 +10,8 @@ import { Pose } from './Pose';
 import { Scene } from './Scene';
 import { EventEmitter2 } from 'eventemitter2';
 
-let xmlParser = require('xml2json');
+import * as xml2json from 'xml2json';
+// let xmlParser = require('xml2json');
 
 class PendingMesh {
   public meshUri: string = '';
@@ -1216,7 +1217,7 @@ export class SDFParser {
   
     // Convert SDF XML to Json string and parse JSON string to object
     // TODO: we need better xml 2 json object convertor
-    var sdfJson = xmlParser.xml2json(sdfXML, '\t');
+    var sdfJson = xml2json.toJson(sdfXML);
     var sdfObj = JSON.parse(sdfJson).sdf;
     // it is easier to manipulate json object
   
