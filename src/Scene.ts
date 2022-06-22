@@ -1,5 +1,5 @@
 import * as THREE from 'three'; 
-import * as SPE from 'shader-particle-engine';
+import * as SPE from '../include/SPE.min.js';
 import { getDescendants } from './Globals';
 import { ColladaLoader } from '../include/ColladaLoader';
 import { Color } from './Color';

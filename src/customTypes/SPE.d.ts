@@ -1,3 +1,3 @@
-declare module 'shader-particle-engine' {
+declare module 'SPE' {
   export {SPE, distributions, Group, Emitter};
 };
