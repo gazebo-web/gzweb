@@ -10,11 +10,7 @@
     "strict": true,
     "skipLibCheck": true,
     "outDir":"./tsc-out",
-    "lib": ["dom", "es2015"],
-    "typeRoots": ["./src/customTypes"],
-    "paths": {
-      "*": [ "./node_modules/*", "./src/customTypes/*" ]
-    }
+    "lib": ["dom", "es2015"]
   },
   "include": ["./src/*"]
 }

@@ -1,4 +1,5 @@
 import * as THREE from 'three'; 
+// Nate disabled import *  as SPE from '../include/SPE';
 import { getDescendants } from './Globals';
 import { FuelServer } from './FuelServer';
 import { Color } from './Color';
@@ -9,7 +10,6 @@ import { Pose } from './Pose';
 import { Scene } from './Scene';
 import { EventEmitter2 } from 'eventemitter2';
 
-import * as SPE from 'SPE';
 let xmlParser = require('xml2json');
 
 class PendingMesh {
@@ -1710,6 +1710,7 @@ export class SDFParser {
       return undefined;
     }
     let particleEmitterObj = new THREE.Object3D();
+    /* Nate disabled
   
     // Given name of the emitter.
     let emitterName: string = this.createUniqueName(emitter);
@@ -1757,7 +1758,8 @@ export class SDFParser {
     scaleRate = scaleRate !== undefined ? parseFloat(scaleRate) : 1;
   
     // Image that determines the color range. This image should be 1px in height.
-    // NOTE: SPE can have up to four different values, and internally it interpolates between these
+    // NOTE: SPE can have up to four different values, and internally it
+    // interpolates between these
     // values for the lifetime of the particle.
     var colorRangeImage = emitter['color_range_image'] || '';
     // Handle the case where the emitter information is from a protobuf
@@ -1820,8 +1822,10 @@ export class SDFParser {
     // This is the container for the Particle Emitter.
     // For more information, check http://squarefeet.github.io/ShaderParticleEngine/docs/api/SPE.Group.html
     let particleGroup = new SPE.Group({
-      // TODO(german) SPE requires just a texture, leaving the SDF Material related information out.
-      // We might want to change the engine or write our if this proves to be an issue in the future.
+      // TODO(german) SPE requires just a texture, leaving the SDF Material
+      // related information out.
+      // We might want to change the engine or write our if this proves to be
+      // an issue in the future.
       texture: {
         value: this.scene.textureLoader.load(particleTextureUrl),
       },
@@ -1930,6 +1934,7 @@ export class SDFParser {
         particleEmitter.disable();
       }
     });
+   */
     return particleEmitterObj;
   }
 

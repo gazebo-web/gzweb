@@ -1,5 +1,5 @@
 import * as THREE from 'three'; 
-import * as SPE from '../include/SPE.min.js';
+// Nate disabled import * as SPE from '../include/SPE';
 import { getDescendants } from './Globals';
 import { ColladaLoader } from '../include/ColladaLoader';
 import { Color } from './Color';
@@ -80,7 +80,7 @@ export class Scene {
   private pointerOnMenu: boolean;
   private grid: THREE.GridHelper;
   private renderer: THREE.WebGLRenderer;
-  private particleGroup: SPE.Group;
+  // Nate disabled: private particleGroup: SPE.Group;
   private cameraMoveToClock: THREE.Clock;
   private colladaLoader: ColladaLoader;
   private stlLoader: STLLoader;
@@ -979,10 +979,10 @@ export class Scene {
       this.radialMenu.update();
     }*/
   
-    if (this.particleGroup) {
+    /* Nate disabled if (this.particleGroup) {
       var clock = new THREE.Clock();
       this.particleGroup.tick( clock.getDelta() );
-    }
+    }*/
   
     this.renderer.clear();
     this.renderer.render(this.scene, this.camera);
@@ -3575,8 +3575,8 @@ export class Scene {
    *
    * @param {SPE.Group} particleGroup - A SPE Particle Group to render.
    */
-  public addParticleGroup(particleGroup: SPE.Group): void
+  /* Nate disabled public addParticleGroup(particleGroup: SPE.Group): void
   {
     this.particleGroup = particleGroup;
-  }
+  }*/
 }
