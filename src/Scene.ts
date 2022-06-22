@@ -14,8 +14,7 @@ import { Shaders } from './Shaders';
 import { SpawnModel } from './SpawnModel';
 import { STLLoader } from '../include/STLLoader';
 
-let xmlParser = require('xml2json');
-let jszip = require('jszip');
+import * as JSZip from 'jszip';
 
 export type FindResourceCb = (uri: string, cb: any) => void;
 
@@ -2376,17 +2375,15 @@ export class Scene {
   public createThumbnails(filename: string, center: THREE.Vector3): void {
     // Auxiliary method to return the canvas as a Promise.
     // This allows us to download all the images when they are ready.
-    // Note: jshint is ignored as we use Promises.
-    /* jshint ignore:start */
-    function getCanvasBlob(canvas: any) {
-      return new Promise(function(resolve: any, reject: any) {
-        canvas.toBlob(function(blob: any) {
+    function getCanvasBlob(canvas: HTMLCanvasElement) {
+      return new Promise((resolve, reject) => {
+        canvas.toBlob(function(blob: Blob | null) {
           resolve(blob);
         });
       });
     }
   
-    const zip = new jszip.JSZip();
+    let zip: JSZip = new JSZip();
     const canvas = this.getDomElement();
     const promises = [];
   
@@ -2412,7 +2409,7 @@ export class Scene {
     this.render();
     const perspective = getCanvasBlob(canvas);
     perspective.then(function(blob) {
-      zip.file('thumbnails/1.png', blob);
+      zip.file('thumbnails/1.png', <Blob>(blob));
     });
     promises.push(perspective);
   
@@ -2424,7 +2421,7 @@ export class Scene {
     this.render();
     const top = getCanvasBlob(canvas);
     top.then(function(blob) {
-      zip.file('thumbnails/2.png', blob);
+      zip.file('thumbnails/2.png', <Blob>(blob));
     });
     promises.push(top);
   
@@ -2436,7 +2433,7 @@ export class Scene {
     this.render();
     const front = getCanvasBlob(canvas);
     front.then(function(blob) {
-      zip.file('thumbnails/3.png', blob);
+      zip.file('thumbnails/3.png', <Blob>(blob));
     });
     promises.push(front);
   
@@ -2448,7 +2445,7 @@ export class Scene {
     this.render();
     const side = getCanvasBlob(canvas);
     side.then(function(blob) {
-      zip.file('thumbnails/4.png', blob);
+      zip.file('thumbnails/4.png', <Blob>(blob));
     });
     promises.push(side);
   
@@ -2461,7 +2458,7 @@ export class Scene {
     this.render();
     const back = getCanvasBlob(canvas);
     back.then(function(blob) {
-      zip.file('thumbnails/5.png', blob);
+      zip.file('thumbnails/5.png', <Blob>(blob));
     });
     promises.push(back);
   
@@ -2480,7 +2477,6 @@ export class Scene {
       this.scene.remove(light);
       this.scene.remove(lightTarget);
     });
-    /* jshint ignore:end */
   }
 
   /**
