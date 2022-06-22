@@ -12,10 +12,11 @@ let builds = [
     plugins: [ ],
     external: [
       'eventemitter2',
+      'jszip',
       'protobufjs',
       'rxjs',
       'three',
-      'three/examples/jsm/controls/OrbitControls'
+      'three/examples/jsm/controls/OrbitControls',
     ],
     output: [
       {
@@ -27,7 +28,8 @@ let builds = [
           protobufjs: 'protobufjs',
           rxjs: 'rxjs',
           three: 'THREE',
-          'three/examples/jsm/controls/OrbitControls': 'OrbitControls'
+          jszip: 'JSZip',
+          'three/examples/jsm/controls/OrbitControls': 'OrbitControls',
         }
       }
     ]
@@ -49,10 +51,11 @@ let builds = [
     ],
     external: [
       'eventemitter2',
+      'jszip',
       'protobufjs',
       'rxjs',
       'three',
-      'three/examples/jsm/controls/OrbitControls'
+      'three/examples/jsm/controls/OrbitControls',
     ],
     output: [
       {
@@ -64,7 +67,8 @@ let builds = [
           protobufjs: 'protobufjs',
           rxjs: 'rxjs',
           three: 'THREE',
-          'three/examples/jsm/controls/OrbitControls': 'OrbitControls'
+          jszip: 'JSZip',
+          'three/examples/jsm/controls/OrbitControls': 'OrbitControls',
         }
       }
     ]
@@ -86,10 +90,11 @@ let builds = [
     ],
     external: [
       'eventemitter2',
+      'jszip',
       'protobufjs',
       'rxjs',
       'three',
-      'three/examples/jsm/controls/OrbitControls'
+      'three/examples/jsm/controls/OrbitControls',
     ],
     output: [
       {
@@ -101,7 +106,8 @@ let builds = [
           protobufjs: 'protobufjs',
           rxjs: 'rxjs',
           three: 'THREE',
-          'three/examples/jsm/controls/OrbitControls': 'OrbitControls'
+          jszip: 'JSZip',
+          'three/examples/jsm/controls/OrbitControls': 'OrbitControls',
         }
       }
     ]

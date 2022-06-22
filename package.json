@@ -1,6 +1,6 @@
 {
   "name": "gzweb",
-  "version": "2.0.12-beta.22",
+  "version": "2.0.12-beta.24",
   "description": "A library for Gazebo and data visualization.",
   "type": "module",
   "main": "dist/gzweb.js",
@@ -29,13 +29,11 @@
     "build": "rimraf dist && tsc --allowJs && rollup -c"
   },
   "dependencies": {
-    "@types/xml2json": "^0.11.4",
     "eventemitter2": "^6.4.5",
     "jszip": "^3.10.0",
     "protobufjs": "^6.11.3",
     "rxjs": "^7.5.5",
-    "three": "^0.141.0",
-    "xml2json": "^0.12.0"
+    "three": "^0.141.0"
   },
   "devDependencies": {
     "@babel/core": "^7.18.2",
