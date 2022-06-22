@@ -15,6 +15,7 @@ let builds = [
       'protobufjs',
       'rxjs',
       'three',
+      'three/examples/jsm/controls/OrbitControls'
     ],
     output: [
       {
@@ -25,7 +26,8 @@ let builds = [
           eventemitter2: 'eventemitter2',
           protobufjs: 'protobufjs',
           rxjs: 'rxjs',
-          three: 'three'
+          three: 'three',
+          'three/examples/jsm/controls/OrbitControls': 'OrbitControls'
         }
       }
     ]
@@ -50,6 +52,7 @@ let builds = [
       'protobufjs',
       'rxjs',
       'three',
+      'three/examples/jsm/controls/OrbitControls'
     ],
     output: [
       {
@@ -60,7 +63,8 @@ let builds = [
           eventemitter2: 'eventemitter2',
           protobufjs: 'protobufjs',
           rxjs: 'rxjs',
-          three: 'three'
+          three: 'three',
+          'three/examples/jsm/controls/OrbitControls': 'OrbitControls'
         }
       }
     ]
@@ -85,6 +89,7 @@ let builds = [
       'protobufjs',
       'rxjs',
       'three',
+      'three/examples/jsm/controls/OrbitControls'
     ],
     output: [
       {
@@ -95,7 +100,8 @@ let builds = [
           eventemitter2: 'eventemitter2',
           protobufjs: 'protobufjs',
           rxjs: 'rxjs',
-          three: 'three'
+          three: 'three',
+          'three/examples/jsm/controls/OrbitControls': 'OrbitControls'
         }
       }
     ]

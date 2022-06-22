@@ -6,7 +6,8 @@ import { Color } from './Color';
 import { EventEmitter2 } from 'eventemitter2';
 import { GzObjLoader } from './GzObjLoader';
 import { ModelUserData } from './ModelUserData';
-import { OrbitControls } from '../loaders/OrbitControls';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+
 import { Pose } from './Pose';
 import { SDFParser } from './SDFParser';
 import { Shaders } from './Shaders';
