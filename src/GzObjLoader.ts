@@ -1,8 +1,8 @@
 import { getDescendants } from './Globals';
 import { Scene } from './Scene';
 import { FileLoader, Group, Material, Mesh, Object3D } from 'three';
-import { OBJLoader } from '../loaders/OBJLoader';
-import { MTLLoader, MaterialCreator } from '../loaders/MTLLoader';
+import { OBJLoader } from '../include/OBJLoader';
+import { MTLLoader, MaterialCreator } from '../include/MTLLoader';
 
 export class GzObjLoader {
   private scene: Scene;

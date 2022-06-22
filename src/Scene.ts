@@ -1,7 +1,7 @@
 import * as THREE from 'three'; 
 import * as SPE from '../include/SPE.min.js'; 
 import { getDescendants } from './Globals';
-import { ColladaLoader } from '../loaders/ColladaLoader';
+import { ColladaLoader } from '../include/ColladaLoader';
 import { Color } from './Color';
 import { EventEmitter2 } from 'eventemitter2';
 import { GzObjLoader } from './GzObjLoader';
@@ -12,7 +12,7 @@ import { Pose } from './Pose';
 import { SDFParser } from './SDFParser';
 import { Shaders } from './Shaders';
 import { SpawnModel } from './SpawnModel';
-import { STLLoader } from '../loaders/STLLoader';
+import { STLLoader } from '../include/STLLoader';
 
 let xmlParser = require('xml2json');
 let jszip = require('jszip');
