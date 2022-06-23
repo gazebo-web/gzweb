@@ -694,7 +694,8 @@ export class SDFParser {
   public createGeom(geom: any, mat: any, parent: THREE.Object3D, options: any): void {
     let that = this;
     let obj;
-    let size, normal;
+    let size;
+    let normal: THREE.Vector3 = new THREE.Vector3(0, 0, 1);
   
     var material = this.createMaterial(mat);
   
@@ -721,15 +722,14 @@ export class SDFParser {
     {
       if (geom.plane.normal) {
         normal = this.parseSize(geom.plane.normal);
-      } else {
-        normal = {x: 0, y: 0, z: 1};
       }
+
       if (geom.plane.size) {
         size = this.parseSize(geom.plane.size);
       } else {
         size = {x: 1, y: 1};
       }
-      obj = this.scene.createPlane(normal.x, normal.y, normal.z, size.x, size.y);
+      obj = this.scene.createPlane(normal, size.x, size.y);
     }
     else if (geom.mesh)
     {

@@ -1099,24 +1099,36 @@ export class Scene {
 
   /**
    * Create plane
-   * @param {double} normalX
-   * @param {double} normalY
-   * @param {double} normalZ
+   * @param {THREE.Vector3} normal
    * @param {double} width
    * @param {double} height
    * @returns {THREE.Mesh}
    */
-  public createPlane = function(normalX: number, normalY: number,
-                                normalZ: number, width: number,
+  public createPlane = function(normal: THREE.Vector3, width: number,
                                 height:number): THREE.Mesh {
+    // Create plane where width is along the x-axis and
+    // and height along y-axi
     let geometry: THREE.PlaneGeometry =
       new THREE.PlaneGeometry(width, height, 1, 1);
+
+    // Manually specify the up vector to be along the z-axis since
+    // the plane is created on XY plane
+    let up: THREE.Vector3 = new THREE.Vector3(0, 0, 1);
+
     let material:THREE.MeshPhongMaterial = new THREE.MeshPhongMaterial();
     let mesh: THREE.Mesh = new THREE.Mesh(geometry, material);
-    let normal: THREE.Vector3 = new THREE.Vector3(normalX, normalY, normalZ);
-    let cross: THREE.Vector3 = normal.crossVectors(normal, mesh.up);
-    normal.applyAxisAngle(cross, -(normal.angleTo(mesh.up)))
-    mesh.quaternion.setFromEuler(new THREE.Euler(normal.x, normal.y, normal.z));
+
+    // Make sure the normal is normalized.
+    normal = normal.normalize();
+
+    // Rotate the plane according to the normal.
+    let axis: THREE.Vector3 = new THREE.Vector3();
+    axis.crossVectors(up, normal);
+    console.log('Normal', normal);
+    console.log('Axis', axis);
+    console.log('Angle', normal.angleTo(up));
+    mesh.setRotationFromAxisAngle(axis, normal.angleTo(up));
+
     mesh.name = 'plane';
     mesh.receiveShadow = true;
     return mesh;
