@@ -259,7 +259,6 @@ export class SceneManager {
         const modelObj = this.sdfParser.spawnFromObj(
           { model }, { enableLights: false });
 
-          console.log('Adding model', model);
         model['gz3dName'] = modelObj.name;
         this.models.push(model);
         this.scene.add(modelObj);
@@ -299,7 +298,6 @@ export class SceneManager {
           if (entity) {
             if (pose['name'] === 'box' &&
                 pose['position']['z'] > 1) {
-              console.log('Box pose', pose);
             }
             this.scene.setPose(entity, pose.position, pose.orientation);
           } else {
@@ -330,7 +328,6 @@ export class SceneManager {
           if (foundIndex < 0) {
             const modelObj = this.sdfParser.spawnFromObj(
               { model }, { enableLights: false });
-            console.log('Adding model', model);
             this.models.push(model);
             this.scene.add(modelObj);
           } else {
