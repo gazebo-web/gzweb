@@ -15,8 +15,7 @@ let builds = [
       'jszip',
       'protobufjs',
       'rxjs',
-      'three',
-      'three/examples/jsm/controls/OrbitControls',
+      'three'
     ],
     output: [
       {
@@ -28,8 +27,7 @@ let builds = [
           protobufjs: 'protobufjs',
           rxjs: 'rxjs',
           three: 'THREE',
-          jszip: 'JSZip',
-          'three/examples/jsm/controls/OrbitControls': 'OrbitControls',
+          jszip: 'JSZip'
         }
       }
     ]
@@ -54,8 +52,7 @@ let builds = [
       'jszip',
       'protobufjs',
       'rxjs',
-      'three',
-      'three/examples/jsm/controls/OrbitControls',
+      'three'
     ],
     output: [
       {
@@ -67,8 +64,7 @@ let builds = [
           protobufjs: 'protobufjs',
           rxjs: 'rxjs',
           three: 'THREE',
-          jszip: 'JSZip',
-          'three/examples/jsm/controls/OrbitControls': 'OrbitControls',
+          jszip: 'JSZip'
         }
       }
     ]
@@ -93,8 +89,7 @@ let builds = [
       'jszip',
       'protobufjs',
       'rxjs',
-      'three',
-      'three/examples/jsm/controls/OrbitControls',
+      'three'
     ],
     output: [
       {
@@ -106,8 +101,7 @@ let builds = [
           protobufjs: 'protobufjs',
           rxjs: 'rxjs',
           three: 'THREE',
-          jszip: 'JSZip',
-          'three/examples/jsm/controls/OrbitControls': 'OrbitControls',
+          jszip: 'JSZip'
         }
       }
     ]

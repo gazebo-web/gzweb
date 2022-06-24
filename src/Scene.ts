@@ -6,7 +6,7 @@ import { Color } from './Color';
 import { EventEmitter2 } from 'eventemitter2';
 import { GzObjLoader } from './GzObjLoader';
 import { ModelUserData } from './ModelUserData';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { OrbitControls } from '../include/OrbitControls';
 
 import { Pose } from './Pose';
 import { SDFParser } from './SDFParser';
@@ -625,7 +625,7 @@ export class Scene {
     }
   
     var mainPointer = true;
-    var pos;
+    let pos: THREE.Vector2;
     /*if (event.touches)
     {
       if (event.touches.length === 1)
@@ -686,7 +686,7 @@ export class Scene {
       {
         if (mainPointer && model.parent === this.scene)
         {
-          this.selectEntity(model);
+          //this.selectEntity(model);
         }
       }
       // Manipulator pickers, for mouse
@@ -737,13 +737,12 @@ export class Scene {
   public onMouseScroll(event: MouseEvent): void {
     event.preventDefault();
   
-    var pos = new THREE.Vector2(event.clientX, event.clientY);
+    const pos: THREE.Vector2 = new THREE.Vector2(event.clientX, event.clientY);
   
-    var intersect = new THREE.Vector3();
-    var model = this.getRayCastModel(pos, intersect);
+    let intersect: THREE.Vector3 = new THREE.Vector3();
+    let model: THREE.Object3D = this.getRayCastModel(pos, intersect);
   
-    if (intersect)
-    {
+    if (intersect) {
       this.controls.target = intersect;
     }
   }
