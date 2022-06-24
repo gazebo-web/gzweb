@@ -287,8 +287,8 @@ export class Scene {
     this.renderer.setPixelRatio(window.devicePixelRatio);
     this.renderer.setClearColor(this.backgroundColor);
     this.renderer.autoClear = false;
-    // this.renderer.shadowMapEnabled = true;
-    // this.renderer.shadowMapSoft = true;
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     // Particle group to render.
   
     // Add a default ambient value. This is equivalent to
