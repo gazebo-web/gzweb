@@ -29,6 +29,7 @@ import {
 	Quaternion,
 	QuaternionKeyframeTrack,
 	RepeatWrapping,
+  RGBAFormat,
 	Scene,
 	Skeleton,
 	SkinnedMesh,
@@ -44,6 +45,60 @@ import { TGALoader } from './TGALoader';
 /**
  * @author mrdoob / http://mrdoob.com/
  * @author Mugen87 / https://github.com/Mugen87
+ *
+ *
+ * Diff of modification by Nate Koenig:
+ *
+diff --git a/include/ColladaLoader.js b/include/ColladaLoader.js
+index cea5ac1..1980da1 100644
+--- a/include/ColladaLoader.js
++++ b/include/ColladaLoader.js
+@@ -29,6 +29,7 @@ import {
+ 	Quaternion,
+ 	QuaternionKeyframeTrack,
+ 	RepeatWrapping,
++  RGBAFormat,
+ 	Scene,
+ 	Skeleton,
+ 	SkinnedMesh,
+@@ -1644,14 +1645,14 @@ class ColladaLoader extends Loader {
+ 
+ 					if ( loader !== undefined ) {
+ 
+-						const texture = loader.load( image );
++						let texture;
+ 
+ 						// Check against the cache, if enabled.
+ 						if (scope.enableTexturesCache && scope.texturesCache.has(image)) {
+ 							texture = scope.texturesCache.get(image);
+ 							return texture;
+ 						} else {
+-							savedPath = loader.path;
++							const savedPath = loader.path;
+ 							// Remove the path if the image has a full URL.
+ 							if (image.startsWith('https://')) {
+ 								loader.path = undefined;
+@@ -1689,7 +1690,7 @@ class ColladaLoader extends Loader {
+                       imageElem.src = isJPEG ? "data:image/jpg;base64,": "data:image/png;base64,";
+                       imageElem.src += window.btoa(binary);
+ 
+-                      scopeTexture.format = isJPEG ? THREE.RGBFormat : THREE.RGBAFormat;
++                      scopeTexture.format = isJPEG ? RGBFormat : RGBAFormat;
+                       scopeTexture.needsUpdate = true;
+                       scopeTexture.image = imageElem;
+                     });
+@@ -4216,9 +4217,9 @@ class ColladaLoader extends Loader {
+ 		const scene = parseScene( getElementsByTagName( collada, 'scene' )[ 0 ] );
+ 		scene.animations = animations;
+ 
+-		if ( asset.upAxis === 'Z_UP' ) {
++		if ( asset.upAxis === 'Y_UP' ) {
+ 
+-			scene.quaternion.setFromEuler( new Euler( - Math.PI / 2, 0, 0 ) );
++			scene.quaternion.setFromEuler( new Euler( Math.PI / 2, 0, 0 ) );
+ 
+ 		}
+ * 
  *
  *
  * Modified by Nate Koenig :
@@ -1644,14 +1699,14 @@ class ColladaLoader extends Loader {
 
 					if ( loader !== undefined ) {
 
-						const texture = loader.load( image );
+						let texture;
 
 						// Check against the cache, if enabled.
 						if (scope.enableTexturesCache && scope.texturesCache.has(image)) {
 							texture = scope.texturesCache.get(image);
 							return texture;
 						} else {
-							savedPath = loader.path;
+							const savedPath = loader.path;
 							// Remove the path if the image has a full URL.
 							if (image.startsWith('https://')) {
 								loader.path = undefined;
@@ -1689,7 +1744,7 @@ class ColladaLoader extends Loader {
                       imageElem.src = isJPEG ? "data:image/jpg;base64,": "data:image/png;base64,";
                       imageElem.src += window.btoa(binary);
 
-                      scopeTexture.format = isJPEG ? THREE.RGBFormat : THREE.RGBAFormat;
+                      scopeTexture.format = isJPEG ? RGBFormat : RGBAFormat;
                       scopeTexture.needsUpdate = true;
                       scopeTexture.image = imageElem;
                     });
@@ -4216,9 +4271,9 @@ class ColladaLoader extends Loader {
 		const scene = parseScene( getElementsByTagName( collada, 'scene' )[ 0 ] );
 		scene.animations = animations;
 
-		if ( asset.upAxis === 'Z_UP' ) {
+		if ( asset.upAxis === 'Y_UP' ) {
 
-			scene.quaternion.setFromEuler( new Euler( - Math.PI / 2, 0, 0 ) );
+			scene.quaternion.setFromEuler( new Euler( Math.PI / 2, 0, 0 ) );
 
 		}
 
@@ -4241,3 +4296,4 @@ class ColladaLoader extends Loader {
 }
 
 export { ColladaLoader };
+

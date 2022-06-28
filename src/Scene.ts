@@ -245,6 +245,7 @@ export class Scene {
    * Initialize scene
    */
   public init(): void {
+    THREE.Object3D.DefaultUp.set(0, 0, 1)
     this.name = 'default';
     this.scene = new THREE.Scene();
     // this.scene.name = this.name;
@@ -1123,10 +1124,8 @@ export class Scene {
     // Rotate the plane according to the normal.
     let axis: THREE.Vector3 = new THREE.Vector3();
     axis.crossVectors(up, normal);
-    console.log('Normal', normal);
-    console.log('Axis', axis);
-    console.log('Angle', normal.angleTo(up));
     mesh.setRotationFromAxisAngle(axis, normal.angleTo(up));
+    mesh.updateMatrix();
 
     mesh.name = 'plane';
     mesh.receiveShadow = true;
@@ -1587,7 +1586,6 @@ export class Scene {
     this.heightmap = parent;
   }
 
-  /* eslint-disable */
   /**
    * Load mesh
    * @example
@@ -1604,7 +1602,6 @@ export class Scene {
    * @param {function} onLoad
    * @param {function} onError
    */
-  /* eslint-enable */
   public loadMeshFromUri(uri: string, submesh: string, centerSubmesh: boolean,
     onLoad: any, onError: any): void {
     var uriPath = uri.substring(0, uri.lastIndexOf('/'));
@@ -1638,7 +1635,6 @@ export class Scene {
     }
   }
 
-  /* eslint-disable */
   /**
    * Load mesh
    * @example
@@ -1664,7 +1660,6 @@ export class Scene {
    * @param {array} files - files needed by the loaders[dae] in case of a collada
    * mesh, [obj, mtl] in case of object mesh, all as strings
    */
-  /* eslint-enable */
   public loadMeshFromString(uri: string, submesh: string,
                             centerSubmesh: boolean, onLoad: any,
                             onError: any, files: string[]): void {
@@ -3590,4 +3585,18 @@ export class Scene {
   {
     this.particleGroup = particleGroup;
   }*/
+
+ /**
+  * Print out the scene graph with position of each node.
+  */
+ public printScene() {
+   function printGraph(obj: THREE.Object3D): void {
+     console.group( ' <' + obj.type + '> ' + obj.name + ' pos: ' +
+                   obj.position.x + ', ' + obj.position.y + ', ' +
+                   obj.position.z );
+     obj.children.forEach( printGraph );
+     console.groupEnd();
+   }
+   printGraph(this.scene);
+ }
 }

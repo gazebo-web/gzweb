@@ -693,7 +693,7 @@ export class SDFParser {
    */
   public createGeom(geom: any, mat: any, parent: THREE.Object3D, options: any): void {
     let that = this;
-    let obj;
+    let obj: THREE.Mesh | undefined = undefined;
     let size;
     let normal: THREE.Vector3 = new THREE.Vector3(0, 0, 1);
   
@@ -755,17 +755,13 @@ export class SDFParser {
       }
   
       var uriType = meshUri.substring(0, meshUri.indexOf('://'));
-      if (uriType === 'file' || uriType === 'model')
-      {
+      if (uriType === 'file' || uriType === 'model') {
         modelName = meshUri.substring(meshUri.indexOf('://') + 3);
-      }
-      else
-      {
+      } else {
         modelName = meshUri;
       }
   
-      if (geom.mesh.scale)
-      {
+      if (geom.mesh.scale) {
         var scale = this.parseScale(geom.mesh.scale);
         parent.scale.x = scale.x;
         parent.scale.y = scale.y;
@@ -780,21 +776,17 @@ export class SDFParser {
       this.entityMaterial[materialName] = material;
       let meshFileName: string = meshUri.substring(meshUri.lastIndexOf('/'));
   
-      if (!this.usingFilesUrls)
-      {
+      if (!this.usingFilesUrls) {
         var meshFile = this.meshes[meshFileName];
-        if (!meshFile)
-        {
+        if (!meshFile) {
           console.error('Missing mesh file [' + meshFileName + ']');
           return;
         }
   
-        if (ext === '.obj')
-        {
+        if (ext === '.obj') {
           var mtlFileName = meshFileName.split('.')[0]+'.mtl';
           var mtlFile = this.mtls[mtlFileName];
-          if (!mtlFile)
-          {
+          if (!mtlFile) {
             console.error('Missing MTL file [' + mtlFileName + ']');
             return;
           }
@@ -816,8 +808,7 @@ export class SDFParser {
             },
             [meshFile, mtlFile]);
         }
-        else if (ext === '.dae')
-        {
+        else if (ext === '.dae') {
           that.scene.loadMeshFromString(modelUri, submesh, centerSubmesh,
             function(dae: THREE.Object3D): void {
               if (!dae) {
@@ -828,10 +819,8 @@ export class SDFParser {
               if (material) {
                 let allChildren: THREE.Object3D[] = [];
                 getDescendants(dae, allChildren);
-                for (var c = 0; c < allChildren.length; ++c)
-                {
-                  if (allChildren[c] instanceof THREE.Mesh)
-                  {
+                for (var c = 0; c < allChildren.length; ++c) {
+                  if (allChildren[c] instanceof THREE.Mesh) {
                     that.scene.setMaterial(allChildren[c] as THREE.Mesh,
                                            material);
                     break;
@@ -847,27 +836,19 @@ export class SDFParser {
             },
             [meshFile]);
         }
-      }
-      else
-      {
-        if (this.customUrls.length !== 0)
-        {
-          for (var k = 0; k < this.customUrls.length; k++)
-          {
-            if (this.customUrls[k].indexOf(meshFileName) > -1)
-            {
-              // If we have Fuel name and owner information, make sure the path includes them.
-              if (options && options.fuelName && options.fuelOwner)
-              {
+      } else {
+        if (this.customUrls.length !== 0) {
+          for (var k = 0; k < this.customUrls.length; k++) {
+            if (this.customUrls[k].indexOf(meshFileName) > -1) {
+              // If we have Fuel name and owner information, make sure the
+              // path includes them.
+              if (options && options.fuelName && options.fuelOwner) {
                 if (this.customUrls[k].indexOf(options.fuelName) > -1 &&
-                    this.customUrls[k].indexOf(options.fuelOwner) > -1)
-                {
+                    this.customUrls[k].indexOf(options.fuelOwner) > -1) {
                   modelUri = this.customUrls[k];
                   break;
                 }
-              }
-              else
-              {
+              } else {
                 // No Fuel name and owner provided. Use the filename.
                 modelUri = this.customUrls[k];
                 break;
@@ -877,11 +858,10 @@ export class SDFParser {
         }
   
         // Avoid loading the mesh multiple times.
-        for (var i = 0; i < this.pendingMeshes.length; i++)
-        {
-          if (this.pendingMeshes[i].meshUri === modelUri)
-          {
-            // The mesh is already pending, but submesh and the visual object parent are different.
+        for (var i = 0; i < this.pendingMeshes.length; i++) {
+          if (this.pendingMeshes[i].meshUri === modelUri) {
+            // The mesh is already pending, but submesh and the visual object
+            // parent are different.
             this.pendingMeshes.push({
               meshUri: modelUri,
               submesh: submesh,
@@ -997,10 +977,8 @@ export class SDFParser {
     //    //this.scene.loadHeightmap(parent)
     //  }
   
-    if (obj)
-    {
-      if (material)
-      {
+    if (obj) {
+      if (material) {
         // texture mapping for simple shapes and planes only,
         // not used by mesh and terrain
         this.scene.setMaterial(obj, material);
@@ -1012,8 +990,7 @@ export class SDFParser {
   
     // Callback function when the mesh is ready.
     function loadMesh(mesh: THREE.Mesh, material: Material,
-                      parent: THREE.Object3D, ext: string)
-    {
+                      parent: THREE.Object3D, ext: string) {
       if (!mesh) {
         console.error('Failed to load mesh.');
         return;
@@ -1126,7 +1103,7 @@ export class SDFParser {
         this.scene.setPose(visualObj, visualPose.position,
                            visualPose.orientation);
       }
-  
+ 
       this.createGeom(visual.geometry, visual.material, visualObj, options);
     }
   

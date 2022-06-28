@@ -296,9 +296,6 @@ export class SceneManager {
           const entity = this.scene.getByName(entityName);
 
           if (entity) {
-            if (pose['name'] === 'box' &&
-                pose['position']['z'] > 1) {
-            }
             this.scene.setPose(entity, pose.position, pose.orientation);
           } else {
             console.warn('Unable to find entity with name ', entityName, entity); 
