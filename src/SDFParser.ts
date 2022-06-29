@@ -943,8 +943,11 @@ export class SDFParser {
           });
       }
     }
-    //TODO: how to handle height map without connecting to the server
-    //  else if (geom.heightmap)
+    else if (geom.heightmap) {
+      let texture = this.scene.loadTexture(geom.heightmap.filename);
+      console.log('heightmap', texture);
+    }
+
     //  {
     //    var request = new ROSLIB.ServiceRequest({
     //      name : that.scene.name
@@ -1103,7 +1106,7 @@ export class SDFParser {
         this.scene.setPose(visualObj, visualPose.position,
                            visualPose.orientation);
       }
- 
+
       this.createGeom(visual.geometry, visual.material, visualObj, options);
     }
   

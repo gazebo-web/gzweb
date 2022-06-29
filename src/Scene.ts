@@ -833,6 +833,7 @@ export class Scene {
   
     let allObjects: THREE.Object3D[] = [];
     getDescendants(this.scene, allObjects);
+    console.log('Intersecting');
     let objects: any [] = this.ray.intersectObjects(allObjects);
   
     let model: THREE.Object3D = new THREE.Object3D();
@@ -1430,14 +1431,13 @@ export class Scene {
   public loadHeightmap(heights: number[], width: number, height: number,
       segmentWidth: number, segmentHeight: number, origin: THREE.Vector3,
       textures: any[], blends: any[], parent: THREE.Object3D): void {
-    if (this.heightmap)
-    {
+    console.log('loadHeightmap');
+    if (this.heightmap) {
       console.error('Only one heightmap can be loaded at a time');
       return;
     }
   
-    if (parent === undefined)
-    {
+    if (parent === undefined) {
       console.error('Missing parent, heightmap won\'t be loaded.');
       return;
     }
@@ -1970,79 +1970,13 @@ export class Scene {
   {
     var scope = this;
   
-    function fallbackLoader(map: string, texture: any) {
-      if (scope.findResourceCb) {
-        // Get the image using the find resource callback.
-        scope.findResourceCb(map, function(image: any) {
-          // Create the image element
-          let imageElem: HTMLImageElement = <HTMLImageElement>(
-            document.createElementNS('http://www.w3.org/1999/xhtml', 'img'));
-  
-          var isJPEG = map.search( /\.jpe?g($|\?)/i ) > 0 || map.search( /^data\:image\/jpeg/ ) === 0;
-  
-          var binary = ''; 
-          var len = image.byteLength;
-          for (var i = 0; i < len; i++) {
-            binary += String.fromCharCode(image[i]);
-          }
-  
-          // Set the image source using base64 encoding
-          imageElem.src = isJPEG ? 'data:image/jpg;base64,' :
-            'data:image/png;base64,';
-          imageElem.src += window.btoa(binary);
-  
-          texture.format = isJPEG ? THREE.RGBFormat : THREE.RGBAFormat;
-          texture.needsUpdate = true;
-          texture.image = imageElem;
-        });
-      }
-    }
+
   
     if (obj)
     {
       if (material)
       {
-        // Change the texture loader, if the requestHeader is present.
-        // Texture Loaders use an Image Loader internally, instead of a File Loader.
-        // Image Loader uses an img tag, and their src request doesn't accept custom headers.
-        // See https://github.com/mrdoob/three.js/issues/10439
-        if (this.requestHeader) {
-          this.textureLoader.load = function(url, onLoad, onProgress, onError) {
-            var fileLoader = new THREE.FileLoader();
-            fileLoader.setResponseType('blob');
-            fileLoader.setRequestHeader(this.requestHeader);
-            let texture: THREE.Texture = new THREE.Texture();
-            let image: HTMLImageElement =
-              <HTMLImageElement>(document.createElementNS(
-                'http://www.w3.org/1999/xhtml', 'img'));
-  
-            // Once the image is loaded, we need to revoke the ObjectURL.
-            image.onload = function () {
-              image.onload = null;
-              URL.revokeObjectURL( image.src );
-              texture.image = image;
-              texture.needsUpdate = true;
 
-              if (onLoad) {
-                onLoad(texture);
-              }
-            };
-  
-            image.onerror = onError as any;
-  
-            // Once the image is loaded, we need to revoke the ObjectURL.
-            fileLoader.load(
-              url,
-              function(blob: any) {
-                image.src = URL.createObjectURL(blob);
-              },
-              onProgress,
-              onError
-            );
-  
-            return texture;
-          };
-        }
   
         // If the material has a PBR tag, use a MeshStandardMaterial,
         // which can have albedo, normal, emissive, roughness and metalness
@@ -2053,78 +1987,36 @@ export class Scene {
           var maps = [];
  
           if (material.pbr.albedoMap) {
-            let albedoMap = this.textureLoader.load(
-              material.pbr.albedoMap,
-              // onLoad
-              undefined,
-              // onProgress
-              undefined,
-              function(_error) {
-                let scopeTexture = albedoMap;
-                fallbackLoader(material.pbr.albedoMap, scopeTexture);
-              });
+            let albedoMap = this.loadTexture(material.pbr.albedoMap);
             (obj.material as any).map = albedoMap;
             maps.push(albedoMap);
   
             // enable alpha test for textures with alpha transparency
-            if (albedoMap.format === THREE.RGBAFormat)
-            {
+            if (albedoMap.format === THREE.RGBAFormat) {
               obj.material.alphaTest = 0.5;
             }
           }
   
           if (material.pbr.normalMap) {
-            var normalMap = this.textureLoader.load(
-              material.pbr.normalMap,
-              // onLoad
-              undefined,
-              // onProgress
-              undefined,
-              function(_error) {
-                fallbackLoader(material.pbr.normalMap, normalMap);
-              });
+            let normalMap = this.loadTexture(material.pbr.normalMap);
             (obj.material as any).normalMap = normalMap;
             maps.push(normalMap);
           }
   
           if (material.pbr.emissiveMap) {
-            var emissiveMap = this.textureLoader.load(
-              material.pbr.emissiveMap,
-              // onLoad
-              undefined,
-              // onProgress
-              undefined,
-              function(_error) {
-                fallbackLoader(material.pbr.emissiveMap, emissiveMap);
-              });
+            let emissiveMap = this.loadTexture(material.pbr.emissiveMap);
             (obj.material as any).emissiveMap = emissiveMap;
             maps.push(emissiveMap);
           }
   
           if (material.pbr.roughnessMap) {
-            var roughnessMap = this.textureLoader.load(
-              material.pbr.roughnessMap,
-              // onLoad
-              undefined,
-              // onProgress
-              undefined,
-              function(_error) {
-                fallbackLoader(material.pbr.roughnessMap, roughnessMap);
-              });
+            let roughnessMap = this.loadTexture(material.pbr.roughnessMap);
             (obj.material as any).roughnessMap = roughnessMap;
             maps.push(roughnessMap);
           }
   
           if (material.pbr.metalnessMap) {
-            var metalnessMap = this.textureLoader.load(
-              material.pbr.metalnessMap,
-              // onLoad
-              undefined,
-              // onProgress
-              undefined,
-              function(_error) {
-                fallbackLoader(material.pbr.metalnessMap, metalnessMap);
-              });
+            let metalnessMap = this.loadTexture(material.pbr.metalnessMap);
             (obj.material as any).metalnessMap = metalnessMap;
             maps.push(metalnessMap);
           }
@@ -2141,23 +2033,14 @@ export class Scene {
         } else {
           obj.material = new THREE.MeshPhongMaterial();
   
-          var specular = material.specular;
+          const specular = material.specular;
           if (specular) {
             (obj.material as any).specular.copy(specular);
           }
   
           if (material.texture)
           {
-            var texture = this.textureLoader.load(
-              material.texture,
-              // onLoad
-              undefined,
-              // onProgress
-              undefined,
-              function(_error) {
-                fallbackLoader(material.texture, texture);
-              });
-  
+            let texture = this.loadTexture(material.texture);
             texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
             texture.repeat.x = 1.0;
             texture.repeat.y = 1.0;
@@ -2175,15 +2058,7 @@ export class Scene {
   
           if (material.normalMap) {
             (obj.material as any).normalMap =
-              this.textureLoader.load(material.normalMap,
-                // onLoad
-                undefined,
-                // onProgress
-                undefined,
-                function(_error) {
-                  fallbackLoader(material.normalMap,
-                                 (obj.material as any).normalMap);
-                });
+              this.loadTexture(material.normalMap);
           }
         }
   
@@ -3564,7 +3439,6 @@ export class Scene {
    */
   public setRequestHeader(header: string, value: string): void {
     // ES6 syntax for computed object keys.
-    /* jshint ignore:start */
     const headerObject = { [header]: value };
   
     this.textureLoader.requestHeader = headerObject;
@@ -3572,7 +3446,49 @@ export class Scene {
     this.stlLoader.requestHeader = headerObject;
   
     this.requestHeader = headerObject;
-    /* jshint ignore:end */
+
+    // Change the texture loader, if the requestHeader is present.
+    // Texture Loaders use an Image Loader internally, instead of a File Loader.
+    // Image Loader uses an img tag, and their src request doesn't accept
+    // custom headers.
+    // See https://github.com/mrdoob/three.js/issues/10439
+    if (this.requestHeader) {
+      this.textureLoader.load = function(url, onLoad, onProgress, onError) {
+        var fileLoader = new THREE.FileLoader();
+        fileLoader.setResponseType('blob');
+        fileLoader.setRequestHeader(this.requestHeader);
+        let texture: THREE.Texture = new THREE.Texture();
+        let image: HTMLImageElement =
+          <HTMLImageElement>(document.createElementNS(
+            'http://www.w3.org/1999/xhtml', 'img'));
+  
+        // Once the image is loaded, we need to revoke the ObjectURL.
+        image.onload = function () {
+          image.onload = null;
+          URL.revokeObjectURL( image.src );
+          texture.image = image;
+          texture.needsUpdate = true;
+
+          if (onLoad) {
+            onLoad(texture);
+          }
+        };
+  
+        image.onerror = onError as any;
+  
+        // Once the image is loaded, we need to revoke the ObjectURL.
+        fileLoader.load(
+          url,
+          function(blob: any) {
+            image.src = URL.createObjectURL(blob);
+          },
+          onProgress,
+          onError
+        );
+  
+        return texture;
+      };
+    }
   };
 
   /**
@@ -3599,4 +3515,46 @@ export class Scene {
    }
    printGraph(this.scene);
  }
+
+ public loadTexture(url: string, onLoad?: any, onProgress?:any): THREE.Texture {
+   let scope = this;
+
+   function fallbackLoader(map: string, texture: any) {
+     if (scope.findResourceCb) {
+       // Get the image using the find resource callback.
+       scope.findResourceCb(map, function(image: any) {
+         // Create the image element
+         let imageElem: HTMLImageElement = <HTMLImageElement>(
+           document.createElementNS('http://www.w3.org/1999/xhtml', 'img'));
+  
+         var isJPEG = map.search( /\.jpe?g($|\?)/i ) > 0 || map.search( /^data\:image\/jpeg/ ) === 0;
+  
+         var binary = ''; 
+         var len = image.byteLength;
+         for (var i = 0; i < len; i++) {
+           binary += String.fromCharCode(image[i]);
+         }
+  
+         // Set the image source using base64 encoding
+         imageElem.src = isJPEG ? 'data:image/jpg;base64,' :
+           'data:image/png;base64,';
+         imageElem.src += window.btoa(binary);
+  
+         texture.format = isJPEG ? THREE.RGBFormat : THREE.RGBAFormat;
+         texture.needsUpdate = true;
+         texture.image = imageElem;
+       });
+     }
+   }
+
+   let result = this.textureLoader.load(
+     url,
+     onLoad,
+     onProgress,
+     function(_error) {
+       let scopeTexture = result;
+       fallbackLoader(url, scopeTexture);
+     });
+     return result;
+  }
 }
