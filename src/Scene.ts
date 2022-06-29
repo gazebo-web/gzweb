@@ -2051,17 +2051,17 @@ export class Scene {
           obj.material = new THREE.MeshStandardMaterial();
           // Array of maps in order to facilitate the repetition and scaling process.
           var maps = [];
-  
-          if (material.pbr.metal.albedo_map) {
+ 
+          if (material.pbr.albedoMap) {
             let albedoMap = this.textureLoader.load(
-              material.pbr.metal.albedo_map,
+              material.pbr.albedoMap,
               // onLoad
               undefined,
               // onProgress
               undefined,
               function(_error) {
                 let scopeTexture = albedoMap;
-                fallbackLoader(material.pbr.metal.albedo_map, scopeTexture);
+                fallbackLoader(material.pbr.albedoMap, scopeTexture);
               });
             (obj.material as any).map = albedoMap;
             maps.push(albedoMap);
@@ -2073,57 +2073,57 @@ export class Scene {
             }
           }
   
-          if (material.pbr.metal.normal_map) {
+          if (material.pbr.normalMap) {
             var normalMap = this.textureLoader.load(
-              material.pbr.metal.normal_map,
+              material.pbr.normalMap,
               // onLoad
               undefined,
               // onProgress
               undefined,
               function(_error) {
-                fallbackLoader(material.pbr.metal.normal_map, normalMap);
+                fallbackLoader(material.pbr.normalMap, normalMap);
               });
             (obj.material as any).normalMap = normalMap;
             maps.push(normalMap);
           }
   
-          if (material.pbr.metal.emissive_map) {
+          if (material.pbr.emissiveMap) {
             var emissiveMap = this.textureLoader.load(
-              material.pbr.metal.emissive_map,
+              material.pbr.emissiveMap,
               // onLoad
               undefined,
               // onProgress
               undefined,
               function(_error) {
-                fallbackLoader(material.pbr.metal.emissive_map, emissiveMap);
+                fallbackLoader(material.pbr.emissiveMap, emissiveMap);
               });
             (obj.material as any).emissiveMap = emissiveMap;
             maps.push(emissiveMap);
           }
   
-          if (material.pbr.metal.roughness_map) {
+          if (material.pbr.roughnessMap) {
             var roughnessMap = this.textureLoader.load(
-              material.pbr.metal.roughness_map,
+              material.pbr.roughnessMap,
               // onLoad
               undefined,
               // onProgress
               undefined,
               function(_error) {
-                fallbackLoader(material.pbr.metal.roughness_map, roughnessMap);
+                fallbackLoader(material.pbr.roughnessMap, roughnessMap);
               });
             (obj.material as any).roughnessMap = roughnessMap;
             maps.push(roughnessMap);
           }
   
-          if (material.pbr.metal.metalness_map) {
+          if (material.pbr.metalnessMap) {
             var metalnessMap = this.textureLoader.load(
-              material.pbr.metal.metalness_map,
+              material.pbr.metalnessMap,
               // onLoad
               undefined,
               // onProgress
               undefined,
               function(_error) {
-                fallbackLoader(material.pbr.metal.metalness_map, metalnessMap);
+                fallbackLoader(material.pbr.metalnessMap, metalnessMap);
               });
             (obj.material as any).metalnessMap = metalnessMap;
             maps.push(metalnessMap);
