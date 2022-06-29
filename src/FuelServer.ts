@@ -1,3 +1,47 @@
+export const FUEL_HOST: string = 'fuel.gazebosim.org';
+export const FUEL_VERSION: string = '1.0';
+export const IGN_FUEL_HOST: string = 'fuel.ignitionrobotics.org';
+
+/**
+ * Create a valid URI that points to the Fuel Server given a local filesystem
+ * path.
+ *
+ * A local filesystem path, such as
+ * `/home/developer/.ignition/fuel/.../model/1/model.sdf` is typically found
+ * when parsing object sent from a websocket server.
+ *
+ * The provided URI is returned if it does not point to the Fuel Server
+ * directly.
+ *
+ * @param {string} uri - A string to convert to a Fuel Server URI, if able.
+ * @return The transformed URI, or the same URI if it couldn't be transformed.
+ */
+export function createFuelUri(uri: string) {
+  // Check to see if the modelName points to the Fuel server.
+  if (uri.indexOf('https://' + FUEL_HOST) !== 0) {
+    // Check to see if the uri has the form similar to
+    // `/home/.../fuel.ignitionrobotics.org/...`
+    // If so, then we assume that the parts following
+    // `fuel.ignitionrobotics.org` can be directly mapped to a valid URL on
+    // Fuel server
+    if (uri.indexOf(FUEL_HOST) > 0 || 
+        uri.indexOf(IGN_FUEL_HOST) > 0) {
+      var uriArray = uri.split('/').filter(function(element) {
+        return element !== '';
+      });
+      if (uri.indexOf(FUEL_HOST) > 0) {
+        uriArray.splice(0, uriArray.indexOf(FUEL_HOST));
+      } else {
+        uriArray.splice(0, uriArray.indexOf(IGN_FUEL_HOST));
+      }
+      uriArray.splice(1, 0, FUEL_VERSION);
+      uriArray.splice(6, 0, 'files');
+      return 'https://' + uriArray.join('/');
+    }
+  }
+  return uri;
+}
+
 export class FuelServer {
   private host: string;
   private version: string;
@@ -8,9 +52,9 @@ export class FuelServer {
   * @param {string} host - The Server host url.
   * @param {string} version - The version used.
   **/
-  constructor(host: string, version: string) {
-    this.host = host;
-    this.version = version;
+  constructor() {
+    this.host = FUEL_HOST;
+    this.version = FUEL_VERSION;
     this.requestHeader = {};
   }
 

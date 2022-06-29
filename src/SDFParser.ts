@@ -1,7 +1,8 @@
 import * as THREE from 'three'; 
 // Nate disabled import *  as SPE from '../include/SPE';
 import { getDescendants } from './Globals';
-import { FuelServer } from './FuelServer';
+import { FuelServer,
+         createFuelUri } from './FuelServer';
 import { Color } from './Color';
 import { Inertia } from './Inertia';
 import { Material } from './Material';
@@ -28,8 +29,6 @@ export class SDFParser {
   private usingFilesUrls: boolean = false;
 
   private SDF_VERSION: number = 1.5;
-  private FUEL_HOST: string = 'fuel.gazebosim.org';
-  private FUEL_VERSION: string = '1.0';
   private MATERIAL_ROOT: string = 'assets';
   private emitter: EventEmitter2 = new EventEmitter2({verboseMemoryLeak: true});
   // cache materials if more than one model needs them
@@ -88,7 +87,7 @@ export class SDFParser {
       that.materials = Object.assign(that.materials, mat);
     });
   
-    this.fuelServer = new FuelServer(this.FUEL_HOST, this.FUEL_VERSION);
+    this.fuelServer = new FuelServer();
   }
 
   /**
@@ -769,7 +768,7 @@ export class SDFParser {
       }
   
       // Create a valid Fuel URI from the model name
-      let modelUri: string = this.createFuelUri(modelName);
+      let modelUri: string = createFuelUri(modelName);
   
       let ext: string = modelUri.substr(-4).toLowerCase();
       let materialName: string = parent.name + '::' + modelUri;
@@ -944,42 +943,20 @@ export class SDFParser {
       }
     }
     else if (geom.heightmap) {
-      let texture = this.scene.loadTexture(geom.heightmap.filename);
-      console.log('heightmap', texture);
+      this.scene.loadHeightmap(geom.heightmap.heights,
+                               geom.heightmap.size.x,
+                               geom.heightmap.size.y,
+                               geom.heightmap.width,
+                               geom.heightmap.height,
+                               new THREE.Vector3(geom.heightmap.origin.x,
+                                                 geom.heightmap.origin.y,
+                                                 geom.heightmap.origin.z),
+                              geom.heightmap.texture,
+                              geom.heightmap.blend,
+                              parent);
+
     }
 
-    //  {
-    //    var request = new ROSLIB.ServiceRequest({
-    //      name : that.scene.name
-    //    });
-    //
-    //    // redirect the texture paths to the assets dir
-    //    var textures = geom.heightmap.texture;
-    //    for ( var k = 0; k < textures.length; ++k)
-    //    {
-    //      textures[k].diffuse = this.parseUri(textures[k].diffuse);
-    //      textures[k].normal = this.parseUri(textures[k].normal);
-    //    }
-    //
-    //    var sizes = geom.heightmap.size;
-    //
-    //    // send service request and load heightmap on response
-    //    this.heightmapDataService.callService(request,
-    //        function(result)
-    //        {
-    //          var heightmap = result.heightmap;
-    //          // gazebo heightmap is always square shaped,
-    //          // and a dimension of: 2^N + 1
-    //          that.scene.loadHeightmap(heightmap.heights, heightmap.size.x,
-    //              heightmap.size.y, heightmap.width, heightmap.height,
-    //              heightmap.origin, textures,
-    //              geom.heightmap.blend, parent);
-    //            //console.log('Result for service call on ' + result);
-    //        });
-    //
-    //    //this.scene.loadHeightmap(parent)
-    //  }
-  
     if (obj) {
       if (material) {
         // texture mapping for simple shapes and planes only,
@@ -1782,10 +1759,10 @@ export class SDFParser {
       }
   
       if (colorRangeImage && !colorRangeImageUrl) {
-        colorRangeImageUrl = this.createFuelUri(colorRangeImage);
+        colorRangeImageUrl = createFuelUri(colorRangeImage);
       }
       if (particleTexture && !particleTextureUrl) {
-        particleTextureUrl = this.createFuelUri(particleTexture);
+        particleTextureUrl = createFuelUri(particleTexture);
       }
     }
   
@@ -2068,40 +2045,6 @@ export class SDFParser {
     this.requestHeaderValue = value;
   }
 
-  /**
-   * Create a valid URI that points to the Fuel Server given a local filesystem
-   * path.
-   *
-   * A local filesystem path, such as
-   * `/home/developer/.ignition/fuel/.../model/1/model.sdf` is typically found
-   * when parsing object sent from a websocket server.
-   *
-   * The provided URI is returned if it does not point to the Fuel Server
-   * directly.
-   *
-   * @param {string} uri - A string to convert to a Fuel Server URI, if able.
-   * @return The transformed URI, or the same URI if it couldn't be transformed.
-   */
-  public createFuelUri(uri: string) {
-    // Check to see if the modelName points to the Fuel server.
-    if (uri.indexOf('https://' + this.FUEL_HOST) !== 0) {
-      // Check to see if the uri has the form similar to
-      // `/home/.../fuel.ignitionrobotics.org/...`
-      // If so, then we assume that the parts following
-      // `fuel.ignitionrobotics.org` can be directly mapped to a valid URL on
-      // Fuel server
-      if (uri.indexOf(this.FUEL_HOST) > 0) {
-        var uriArray = uri.split('/').filter(function(element) {
-          return element !== '';
-        });
-        uriArray.splice(0, uriArray.indexOf(this.FUEL_HOST));
-        uriArray.splice(1, 0, this.FUEL_VERSION);
-        uriArray.splice(6, 0, 'files');
-        return 'https://' + uriArray.join('/');
-      }
-    }
-    return uri;
-  }
 
   /**
    * Download a file from url.

@@ -8,6 +8,7 @@ import { GzObjLoader } from './GzObjLoader';
 import { ModelUserData } from './ModelUserData';
 import { OrbitControls } from '../include/OrbitControls';
 
+import { createFuelUri } from './FuelServer';
 import { Pose } from './Pose';
 import { SDFParser } from './SDFParser';
 import { Shaders } from './Shaders';
@@ -833,7 +834,6 @@ export class Scene {
   
     let allObjects: THREE.Object3D[] = [];
     getDescendants(this.scene, allObjects);
-    console.log('Intersecting');
     let objects: any [] = this.ray.intersectObjects(allObjects);
   
     let model: THREE.Object3D = new THREE.Object3D();
@@ -1419,8 +1419,8 @@ export class Scene {
   /**
    * Load heightmap
    * @param {} heights Lookup table of heights
-   * @param {} width Width in meters
-   * @param {} height Height in meters
+   * @param {} width Width of the heightmap in meters
+   * @param {} height Height of the heightmap in meters
    * @param {} segmentWidth Size of lookup table
    * @param {} segmentHeight Size of lookup table
    * @param {} origin Heightmap position in the world
@@ -1428,10 +1428,9 @@ export class Scene {
    * @param {} blends
    * @param {} parent
    */
-  public loadHeightmap(heights: number[], width: number, height: number,
+  public loadHeightmap(heights: Float32Array, width: number, height: number,
       segmentWidth: number, segmentHeight: number, origin: THREE.Vector3,
       textures: any[], blends: any[], parent: THREE.Object3D): void {
-    console.log('loadHeightmap');
     if (this.heightmap) {
       console.error('Only one heightmap can be loaded at a time');
       return;
@@ -1448,24 +1447,12 @@ export class Scene {
     var maxHeightmapWidth = 256;
     var maxHeightmapHeight = 256;
   
-    if ((segmentWidth-1) > maxHeightmapWidth)
-    {
+    if ((segmentWidth-1) > maxHeightmapWidth) {
       scale = maxHeightmapWidth / (segmentWidth-1);
     }
   
-    var geometry = new THREE.PlaneGeometry(width, height,
+    let geometry: THREE.PlaneGeometry = new THREE.PlaneGeometry(width, height,
         (segmentWidth-1) * scale, (segmentHeight-1) * scale);
-  
-    // Mirror the vertices about the X axis
-    var vertices = [];
-    for (var h = segmentHeight-1; h >= 0; --h)
-    {
-      for (var w = 0; w < segmentWidth; ++w)
-      {
-        vertices[(segmentHeight-h-1)*segmentWidth  + w]
-            = heights[h*segmentWidth + w];
-      }
-    }
   
     let posAttribute = geometry.getAttribute('position');
 
@@ -1475,7 +1462,7 @@ export class Scene {
     for (let r = 0; r < row; ++r) {
       for (let c = 0; c < col; ++c) {
         let index: number = (r * col * 1/(scale*scale)) +   (c * (1/scale));
-        posAttribute.setZ(r*col + c, vertices[index]);
+        posAttribute.setZ(r*col + c, heights[index]);
       }
     }
     posAttribute.needsUpdate = true;
@@ -1486,54 +1473,40 @@ export class Scene {
   
     // Material - use shader if textures provided, otherwise use a generic phong
     // material
-    var material;
-    if (textures && textures.length > 0)
-    {
-      var textureLoaded = [];
-      var repeats = [];
+    let material;
+    if (textures && textures.length > 0) {
+      let textureLoaded = [];
+      let repeats = [];
       for (var t = 0; t < textures.length; ++t) {
-        textureLoaded[t] = this.textureLoader.load(
-          textures[t].diffuse,
-              // onLoad
-              undefined,
-              // onProgress
-              undefined,
-              function(_error: any) {
-                console.error('Error loading diffuse texture', _error);
-              });
-  
+        const texUri = createFuelUri(textures[t].diffuse);
+        textureLoaded[t] = this.loadTexture(texUri);
         textureLoaded[t].wrapS = THREE.RepeatWrapping;
         textureLoaded[t].wrapT = THREE.RepeatWrapping;
         repeats[t] = width/textures[t].size;
       }
   
-      // for now, use fixed no. of textures and blends
+      // for now, use fixed number of textures and blends
       // so populate the remaining ones to make the fragment shader happy
-      for (var tt = textures.length; tt< 3; ++tt)
-      {
+      for (let tt = textures.length; tt< 3; ++tt) {
         textureLoaded[tt] = textureLoaded[tt-1];
       }
   
-      for (var b = blends.length; b < 2; ++b)
-      {
+      for (let b = blends.length; b < 2; ++b) {
         blends[b] = blends[b-1];
       }
   
-      for (var rr = repeats.length; rr < 3; ++rr)
-      {
+      for (let rr = repeats.length; rr < 3; ++rr) {
         repeats[rr] = repeats[rr-1];
       }
   
       // Use the same approach as gazebo scene, grab the first directional light
       // and use it for shading the terrain
-      var lightDir = new THREE.Vector3(0, 0, 1);
+      var lightDir = new THREE.Vector3(0, 0, -1);
       var lightDiffuse = new THREE.Color(0xffffff);
       let allObjects: THREE.Object3D[] = [];
       getDescendants(this.scene, allObjects);
-      for (var l = 0; l < allObjects.length; ++l)
-      {
-        if (allObjects[l] instanceof THREE.DirectionalLight)
-        {
+      for (var l = 0; l < allObjects.length; ++l) {
+        if (allObjects[l] instanceof THREE.DirectionalLight) {
           lightDir = (<THREE.DirectionalLight>allObjects[l]).target.position;
           lightDiffuse = (<THREE.DirectionalLight>allObjects[l]).color;
           break;
@@ -1541,8 +1514,7 @@ export class Scene {
       }
   
       var options = {
-        uniforms:
-        {
+        uniforms: {
           texture0: { type: 't', value: textureLoaded[0]},
           texture1: { type: 't', value: textureLoaded[1]},
           texture2: { type: 't', value: textureLoaded[2]},
@@ -1561,13 +1533,10 @@ export class Scene {
         fragmentShader: ''
       };
   
-      if (this.shaders !== undefined)
-      {
+      if (this.shaders !== undefined) {
         options.vertexShader = this.shaders.heightmapVS;
         options.fragmentShader = this.shaders.heightmapFS;
-      }
-      else
-      {
+      } else {
         console.warn('Warning: heightmap shaders not provided.');
       }
   
