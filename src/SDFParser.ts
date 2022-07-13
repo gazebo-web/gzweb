@@ -1,4 +1,4 @@
-import * as THREE from 'three'; 
+import * as THREE from 'three';
 // Nate disabled import *  as SPE from '../include/SPE';
 import { getDescendants } from './Globals';
 import { FuelServer,
@@ -53,10 +53,10 @@ export class SDFParser {
 
   private mtls = {};
   private textures = {};
-  
+
   // Flag to control the usage of PBR materials (enabled by default).
   private enablePBR: boolean = true;
-  
+
   // Should contain model files URLs if not using gzweb model files hierarchy.
   private customUrls: string[] = [];
   private parseXML: any;
@@ -72,21 +72,21 @@ export class SDFParser {
   * @param {Scene} scene - the gz3d scene object
   **/
   constructor(scene: Scene) {
-   
+
     // set the xml parser function
     this.parseXML = function(xmlStr: string) {
       return (new window.DOMParser()).parseFromString(xmlStr, 'text/xml');
     };
-  
+
     this.scene = scene;
     this.scene.setSDFParser(this);
     this.scene.initScene();
-    
+
     var that = this;
     this.emitter.on('material', function(mat) {
       that.materials = Object.assign(that.materials, mat);
     });
-  
+
     this.fuelServer = new FuelServer();
   }
 
@@ -102,7 +102,7 @@ export class SDFParser {
       console.warn('Trying to add invalid URL: ' + url);
       return;
     }
-  
+
     // Avoid duplicated URLs.
     if (this.customUrls.indexOf(trimmedUrl) === -1) {
       this.customUrls.push(trimmedUrl);
@@ -128,12 +128,12 @@ export class SDFParser {
         colorInput['a'] || 1
       ];
     }
-  
+
     color.r = parseFloat(values[0]);
     color.g = parseFloat(values[1]);
     color.b = parseFloat(values[2]);
     color.a = parseFloat(values[3]);
-  
+
     return color;
   }
 
@@ -200,7 +200,7 @@ export class SDFParser {
     let outerAngle: number = 0.0;
     let falloff: number = 0.0;
     let type: number = 1;
-  
+
     if (light.attenuation)
     {
       if (light.attenuation.range)
@@ -244,7 +244,7 @@ export class SDFParser {
     var L = attLin;
     var Q = attQuad;
     var intensity = E*(D/(D+L*r))*(Math.pow(D,2)/(Math.pow(D,2)+Q*Math.pow(r,2)));
-  
+
     if (light['@type'] === 'point')
     {
       type = 1;
@@ -261,7 +261,7 @@ export class SDFParser {
     let lightObj: THREE.Object3D = this.scene.createLight(type, diffuse, intensity, pose,
         distance, castShadows, name, direction, specular,
         attConst, attLin, attQuad, innerAngle, outerAngle, falloff);
-  
+
     return lightObj;
   }
 
@@ -282,7 +282,7 @@ export class SDFParser {
     let L = light.attenuation_linear;
     let Q = light.attenuation_quadratic;
     let intensity = E*(D/(D+L*r))*(Math.pow(D,2)/(Math.pow(D,2)+Q*Math.pow(r,2)));
-  
+
     let lightObj: THREE.Object3D = this.scene.createLight(
       // Protobuf light type starts at zero.
       light.type + 1,
@@ -300,7 +300,7 @@ export class SDFParser {
       light.spot_inner_angle,
       light.spot_outer_angle,
       light.spot_falloff);
-  
+
     return lightObj;
   }
 
@@ -315,13 +315,13 @@ export class SDFParser {
    * and orientation (THREE.Quaternion) properties
    */
   public parsePose(poseInput: string | object): Pose {
-    let pose: Pose = new Pose();  
+    let pose: Pose = new Pose();
 
     // Short circuit if poseInput is undefined
     if (poseInput === undefined) {
       return pose;
     }
-  
+
     if (poseInput.hasOwnProperty('position') &&
         poseInput.hasOwnProperty('orientation')) {
       pose.position.x = poseInput['position']['x'];
@@ -333,8 +333,8 @@ export class SDFParser {
       pose.orientation.w = poseInput['orientation']['w'];
       return pose;
     }
- 
-    let poseStr: string = ""; 
+
+    let poseStr: string = "";
     // Note: The pose might have an empty frame attribute. This is a valid XML
     // element though. In this case, the parser outputs
     // {@frame: "frame", #text: "pose value"}
@@ -344,9 +344,9 @@ export class SDFParser {
       }
       poseStr = poseInput['#text'];
     }
-  
+
     var values = poseStr.trim().split(/\s+/);
- 
+
     pose.position.x = parseFloat(values[0]);
     pose.position.y = parseFloat(values[1]);
     pose.position.z = parseFloat(values[2]);
@@ -356,7 +356,7 @@ export class SDFParser {
                                 parseFloat(values[4]),
                                 parseFloat(values[5]), 'ZYX');
     pose.orientation.setFromEuler(euler);
-  
+
     return pose;
   }
 
@@ -394,7 +394,7 @@ export class SDFParser {
     if (boolStr !== undefined) {
       return JSON.parse(boolStr);
     }
-  
+
     return false;
   }
 
@@ -411,27 +411,27 @@ export class SDFParser {
   public createMaterial(srcMaterial: any): Material {
     var texture, mat;
     let material: Material = new Material();
-  
+
     if (!srcMaterial) {
       return material;
     }
-  
+
     if (srcMaterial.ambient) {
       material.ambient = this.parseColor(srcMaterial.ambient);
     }
-  
+
     if (srcMaterial.diffuse) {
       material.diffuse = this.parseColor(srcMaterial.diffuse);
     }
-  
+
     if (srcMaterial.specular) {
       material.specular = this.parseColor(srcMaterial.specular);
     }
-  
+
     material.opacity = srcMaterial.opacity;
     material.normalMap = srcMaterial.normalMap;
     material.scale = srcMaterial.scale;
-  
+
     // normal map
     if (srcMaterial.normal_map)
     {
@@ -470,7 +470,7 @@ export class SDFParser {
         }
       }
     }
-  
+
     // Material properties received via a protobuf message are formatted
     // differently from SDF. This will map protobuf format onto sdf.
     if (srcMaterial.pbr) {
@@ -515,7 +515,7 @@ export class SDFParser {
         material.pbr.ambientOcclusionMap = srcMaterial.pbr.ambient_occlusion_map;
       }
     }
-  
+
     // Set the correct URLs of the PBR-related textures, if available.
     if (material.pbr && this.enablePBR) {
       // Iterator for the subsequent for loops. Used to avoid a linter warning.
@@ -524,11 +524,11 @@ export class SDFParser {
       if (material.pbr.albedoMap) {
         let albedoMap: string = '';
         let albedoMapName: string = material.pbr.albedoMap.split('/').pop()!;
-  
+
         if (material.pbr.albedoMap.startsWith('https://')) {
           this.addUrl(material.pbr.albedoMap);
         }
-  
+
         if (this.usingFilesUrls && this.customUrls.length !== 0) {
           for (let u = 0; u < this.customUrls.length; u++) {
             if (this.customUrls[u].indexOf(albedoMapName) > -1) {
@@ -545,16 +545,16 @@ export class SDFParser {
           }
         }
       }
-  
+
       if (material.pbr.emissiveMap) {
         let emissiveMap: string = '';
         let emissiveMapName: string =
           material.pbr.emissiveMap.split('/').pop()!;
-  
+
         if (material.pbr.emissiveMap.startsWith('https://')) {
           this.addUrl(material.pbr.emissiveMap);
         }
-  
+
         if (this.usingFilesUrls && this.customUrls.length !== 0) {
           for (u = 0; u < this.customUrls.length; u++) {
             if (this.customUrls[u].indexOf(emissiveMapName) > -1) {
@@ -571,15 +571,15 @@ export class SDFParser {
           }
         }
       }
-  
+
       if (material.pbr.normalMap) {
         let pbrNormalMap: string = '';
         let pbrNormalMapName: string = material.pbr.normalMap.split('/').pop()!;
-  
+
         if (material.pbr.normalMap.startsWith('https://')) {
           this.addUrl(material.pbr.normalMap);
         }
-  
+
         if (this.usingFilesUrls && this.customUrls.length !== 0) {
           for (u = 0; u < this.customUrls.length; u++) {
             if (this.customUrls[u].indexOf(pbrNormalMapName) > -1) {
@@ -596,15 +596,15 @@ export class SDFParser {
           }
         }
       }
-  
+
       if (material.pbr.roughnessMap) {
         let roughnessMap: string = '';
         let roughnessMapName: string = material.pbr.roughnessMap.split('/').pop()!;
-  
+
         if (material.pbr.roughnessMap.startsWith('https://')) {
           this.addUrl(material.pbr.roughnessMap);
         }
-  
+
         if (this.usingFilesUrls && this.customUrls.length !== 0) {
           for (u = 0; u < this.customUrls.length; u++) {
             if (this.customUrls[u].indexOf(roughnessMapName) > -1) {
@@ -621,16 +621,16 @@ export class SDFParser {
           }
         }
       }
-  
+
       if (material.pbr.metalnessMap) {
         let metalnessMap: string = '';
         let metalnessMapName: string =
           material.pbr.metalnessMap.split('/').pop()!;
-  
+
         if (material.pbr.metalnessMap.startsWith('https://')) {
           this.addUrl(material.pbr.metalnessMap);
         }
-  
+
         if (this.usingFilesUrls && this.customUrls.length !== 0) {
           for (u = 0; u < this.customUrls.length; u++) {
             if (this.customUrls[u].indexOf(metalnessMapName) > -1) {
@@ -648,7 +648,7 @@ export class SDFParser {
         }
       }
     }
-  
+
     return material;
   }
 
@@ -667,7 +667,7 @@ export class SDFParser {
         parseFloat(values[0]),
         parseFloat(values[1]),
         parseFloat(values[2]));
-    } 
+    }
 
     return new THREE.Vector3(sizeInput.x, sizeInput.y, sizeInput.z);
   }
@@ -695,9 +695,9 @@ export class SDFParser {
     let obj: THREE.Mesh | undefined = undefined;
     let size;
     let normal: THREE.Vector3 = new THREE.Vector3(0, 0, 1);
-  
+
     var material = this.createMaterial(mat);
-  
+
     if (geom.box)
     {
       if (geom.box.size) {
@@ -736,7 +736,7 @@ export class SDFParser {
       let submesh: string = '';
       let centerSubmesh: boolean = false;
       let modelName: string = '';
-  
+
       if (geom.mesh.submesh)
       {
         // Submesh information coming from protobuf messages is slightly
@@ -752,36 +752,36 @@ export class SDFParser {
           centerSubmesh = this.parseBool(geom.mesh.submesh.center);
         }
       }
-  
+
       var uriType = meshUri.substring(0, meshUri.indexOf('://'));
       if (uriType === 'file' || uriType === 'model') {
         modelName = meshUri.substring(meshUri.indexOf('://') + 3);
       } else {
         modelName = meshUri;
       }
-  
+
       if (geom.mesh.scale) {
         var scale = this.parseScale(geom.mesh.scale);
         parent.scale.x = scale.x;
         parent.scale.y = scale.y;
         parent.scale.z = scale.z;
       }
-  
+
       // Create a valid Fuel URI from the model name
       let modelUri: string = createFuelUri(modelName);
-  
+
       let ext: string = modelUri.substr(-4).toLowerCase();
       let materialName: string = parent.name + '::' + modelUri;
       this.entityMaterial[materialName] = material;
       let meshFileName: string = meshUri.substring(meshUri.lastIndexOf('/'));
-  
+
       if (!this.usingFilesUrls) {
         var meshFile = this.meshes[meshFileName];
         if (!meshFile) {
           console.error('Missing mesh file [' + meshFileName + ']');
           return;
         }
-  
+
         if (ext === '.obj') {
           var mtlFileName = meshFileName.split('.')[0]+'.mtl';
           var mtlFile = this.mtls[mtlFileName];
@@ -789,18 +789,18 @@ export class SDFParser {
             console.error('Missing MTL file [' + mtlFileName + ']');
             return;
           }
-  
+
           that.scene.loadMeshFromString(modelUri, submesh, centerSubmesh,
             function(obj: any): void {
               if (!obj) {
                 console.error('Failed to load mesh.');
                 return;
               }
-  
+
               parent.add(obj);
               loadGeom(parent);
-            }, 
-  
+            },
+
             // onError callback
             function(error: any): void {
               console.error(error);
@@ -814,7 +814,7 @@ export class SDFParser {
                 console.error('Failed to load mesh.');
                 return;
               }
-  
+
               if (material) {
                 let allChildren: THREE.Object3D[] = [];
                 getDescendants(dae, allChildren);
@@ -828,7 +828,7 @@ export class SDFParser {
               }
               parent.add(dae);
               loadGeom(parent);
-            }, 
+            },
             // onError callback
             function(error: any): void {
               console.error(error);
@@ -855,7 +855,7 @@ export class SDFParser {
             }
           }
         }
-  
+
         // Avoid loading the mesh multiple times.
         for (var i = 0; i < this.pendingMeshes.length; i++) {
           if (this.pendingMeshes[i].meshUri === modelUri) {
@@ -868,7 +868,7 @@ export class SDFParser {
               material: material,
               centerSubmesh: centerSubmesh
             });
-  
+
             // If the mesh exists, then create another version and add it to
             // the parent object.
             if (this.scene.meshes.has(modelUri)) {
@@ -890,7 +890,7 @@ export class SDFParser {
           material: material,
           centerSubmesh: centerSubmesh
         });
-  
+
         // Load the mesh.
         // Once the mesh is loaded, it will be stored on Gz3D.Scene.
         this.scene.loadMeshFromUri(modelUri, submesh, centerSubmesh,
@@ -900,7 +900,7 @@ export class SDFParser {
             // Check for the pending meshes.
             for (var i = 0; i < that.pendingMeshes.length; i++) {
               if (that.pendingMeshes[i].meshUri === mesh.name) {
-  
+
                 // No submesh: Load the result.
                 if (!that.pendingMeshes[i].submesh) {
                   loadMesh(mesh, that.pendingMeshes[i].material,
@@ -919,7 +919,7 @@ export class SDFParser {
                         // The new submesh will be parsed.
                         that.scene.loadMeshFromUri(mesh.name,
                           that.pendingMeshes[i].submesh,
-                          that.pendingMeshes[i].centerSubmesh, 
+                          that.pendingMeshes[i].centerSubmesh,
                           // on load
                           function(mesh: THREE.Mesh): void {
                             loadMesh(mesh, that.pendingMeshes[i].material,
@@ -967,7 +967,7 @@ export class SDFParser {
       parent.add(obj);
       loadGeom(parent);
     }
-  
+
     // Callback function when the mesh is ready.
     function loadMesh(mesh: THREE.Mesh, material: Material,
                       parent: THREE.Object3D, ext: string) {
@@ -975,7 +975,7 @@ export class SDFParser {
         console.error('Failed to load mesh.');
         return;
       }
-  
+
       // Note: This material is the one created by the createMaterial method,
       // which is the material defined by the SDF file or the material script.
       if (material) {
@@ -995,7 +995,7 @@ export class SDFParser {
               let isColladaWithTexture: boolean = ext === '.dae' &&
                 (<THREE.Mesh>allChildren[c]).material !== undefined &&
                 (<THREE.MeshBasicMaterial>(<THREE.Mesh>allChildren[c]).material).map !== undefined;
-  
+
               if (!isColladaWithTexture || material.pbr) {
                 that.scene.setMaterial(allChildren[c] as THREE.Mesh, material);
                 break;
@@ -1017,11 +1017,11 @@ export class SDFParser {
           that.scene.setMaterial(mesh, {'ambient': [1,1,1,1]});
         }
       }
-  
+
       parent.add(mesh.clone());
       loadGeom(parent);
     }
-  
+
     function loadGeom(visualObj: THREE.Object3D) {
       let allChildren: THREE.Object3D[] = [];
       getDescendants(visualObj, allChildren);
@@ -1031,7 +1031,7 @@ export class SDFParser {
         {
           allChildren[c].castShadow = true;
           allChildren[c].receiveShadow = true;
-  
+
           if (visualObj.castShadow)
           {
             allChildren[c].castShadow = visualObj.castShadow;
@@ -1040,12 +1040,12 @@ export class SDFParser {
           {
             allChildren[c].receiveShadow = visualObj.receiveShadow;
           }
-  
+
           if (visualObj.name.indexOf('COLLISION_VISUAL') >= 0)
           {
             allChildren[c].castShadow = false;
             allChildren[c].receiveShadow = false;
-  
+
             allChildren[c].visible = that.scene.showCollisions;
           }
           break;
@@ -1077,7 +1077,7 @@ export class SDFParser {
     if (visual.geometry)
     {
       visualObj.name = visual['@name'] || visual['name'];
- 
+
       if (visual.pose) {
         var visualPose = this.parsePose(visual.pose);
         this.scene.setPose(visualObj, visualPose.position,
@@ -1086,7 +1086,7 @@ export class SDFParser {
 
       this.createGeom(visual.geometry, visual.material, visualObj, options);
     }
-  
+
     return visualObj;
   }
 
@@ -1105,12 +1105,12 @@ export class SDFParser {
   public createSensor(sensor: any, options: any): THREE.Object3D {
     let sensorObj: THREE.Object3D = new THREE.Object3D();
     sensorObj.name = sensor['name'] || sensor['@name'] || '';
-  
+
     if (sensor.pose) {
       let sensorPose: Pose = this.parsePose(sensor.pose);
       this.scene.setPose(sensorObj, sensorPose.position, sensorPose.orientation);
     }
-  
+
     return sensorObj;
   }
 
@@ -1170,19 +1170,19 @@ export class SDFParser {
     } else {
       sdfXML = sdf;
     }
- 
-    var sdfObj; 
+
+    var sdfObj;
     // Convert SDF XML to Json string and parse JSON string to object
     // TODO: we need better xml 2 json object convertor
     /*Nate disabled var sdfJson = xml2json.toJson(sdfXML);
     var sdfObj = JSON.parse(sdfJson).sdf;
     // it is easier to manipulate json object
-  
+
     if (!sdfObj) {
       console.error('Failed to parse SDF: ', sdfJson);
       return;
     }*/
-  
+
     return sdfObj;
   }
 
@@ -1199,7 +1199,7 @@ export class SDFParser {
     }
     let lowerCaseName: string = sdfName.toLowerCase();
     let filename: string = '';
-  
+
     // In case it is a full URL
     if (lowerCaseName.indexOf('http') === 0) {
       filename = sdfName;
@@ -1212,12 +1212,12 @@ export class SDFParser {
         filename = this.MATERIAL_ROOT + '/' + sdfName + '/model.sdf';
       }
     }
-  
+
     if (!filename) {
       console.error('Error: unable to load ' + sdfName + ' - file not found');
       return;
     }
-  
+
     let that = this;
     this.fileFromUrl(filename, function(sdf: any) {
       if (!sdf) {
@@ -1245,26 +1245,26 @@ export class SDFParser {
     // create the model
     let modelObj: THREE.Object3D = new THREE.Object3D();
     modelObj.name = sdfObj.model['name'] || sdfObj.model['@name'];
- 
+
     let pose: Pose;
     let i, j, k: number;
     let visualObj: THREE.Object3D;
     let linkObj: THREE.Object3D;
     let linkPose: Pose;
-  
+
     if (sdfObj.model.pose)
     {
       pose = this.parsePose(sdfObj.model.pose);
       this.scene.setPose(modelObj, pose.position, pose.orientation);
     }
-  
+
     //convert link object to link array
     if (sdfObj.model.link) {
         if (!(sdfObj.model.link instanceof Array))
         {
           sdfObj.model.link = [sdfObj.model.link];
         }
-  
+
         for (i = 0; i < sdfObj.model.link.length; ++i)
         {
           linkObj = this.createLink(sdfObj.model.link[i], options);
@@ -1274,7 +1274,7 @@ export class SDFParser {
           }
         }
     }
-  
+
     //convert nested model objects to model array
     if (sdfObj.model.model)
     {
@@ -1292,20 +1292,20 @@ export class SDFParser {
         }
       }
     }
-  
+
     // Parse included models.
     if (sdfObj.model.include) {
       // Convert to array.
       if (!(sdfObj.model.include instanceof Array)) {
         sdfObj.model.include = [sdfObj.model.include];
       }
-  
+
       // Ignore linter warnings. We use arrow functions to avoid binding 'this'.
       sdfObj.model.include.forEach((includedModel: any) => {
         this.includeModel(includedModel, modelObj);
       });
     }
-  
+
     return modelObj;
   }
 
@@ -1325,7 +1325,7 @@ export class SDFParser {
   {
     var worldObj = new THREE.Object3D();
     worldObj.name = this.createUniqueName(sdfObj.world);
-  
+
     // remove default sun before adding objects
     // we will let the world file create its own light
     var sun = this.scene.getByName('sun');
@@ -1333,7 +1333,7 @@ export class SDFParser {
     {
       this.scene.remove(sun);
     }
-  
+
     // parse models
     if (sdfObj.world.model)
     {
@@ -1342,7 +1342,7 @@ export class SDFParser {
       {
         sdfObj.world.model = [sdfObj.world.model];
       }
-  
+
       for (var j = 0; j < sdfObj.world.model.length; ++j)
       {
         var tmpModelObj = {model: sdfObj.world.model[j]};
@@ -1350,7 +1350,7 @@ export class SDFParser {
         worldObj.add(modelObj);
       }
     }
-  
+
     // parse lights
     if (sdfObj.world.light)
     {
@@ -1359,7 +1359,7 @@ export class SDFParser {
       {
         sdfObj.world.light = [sdfObj.world.light];
       }
-  
+
       for (var k = 0; k < sdfObj.world.light.length; ++k)
       {
         var lightObj = this.spawnLight(sdfObj.world.light[k]);
@@ -1371,20 +1371,20 @@ export class SDFParser {
         }
       }
     }
-  
+
     // Parse included models.
     if (sdfObj.world.include) {
       // Convert to array.
       if (!(sdfObj.world.include instanceof Array)) {
         sdfObj.world.include = [sdfObj.world.include];
       }
-  
+
       // Ignore linter warnings. We use arrow functions to avoid binding 'this'.
       sdfObj.world.include.forEach((includedModel: any) => {
         this.includeModel(includedModel, worldObj);
       });
     }
-  
+
     return worldObj;
   }
 
@@ -1398,12 +1398,12 @@ export class SDFParser {
   public includeModel(includedModel: any, parent: THREE.Object3D): void {
     // Suppress linter warnings. This shouldn't be necessary after
     // switching to es6 or more.
-  
+
     // The included model is copied. This allows the SDF to be reused
     // without modifications. The parent is stored in the model, so we
     // don't lose their context once the model's Object3D is created.
     const model = {...includedModel, parent: parent};
-  
+
     // We need to request the files of the model to the Server.
     // In order to avoid duplicated requests, we store the model in an
     // array until their files are available.
@@ -1412,7 +1412,7 @@ export class SDFParser {
       // the Server. Add the model to the models array of the map, to use
       // them once the request resolves.
       this.pendingModels.set(model.uri, { models: [model] });
-  
+
       // Request the files from the server, and create the pending
       // models on it's callback.
       if (this.requestHeaderKey && this.requestHeaderValue) {
@@ -1429,7 +1429,7 @@ export class SDFParser {
           }
           this.addUrl(file);
         });
-  
+
         // Read and parse the SDF.
         this.fileFromUrl(sdfUrl, (sdf: any) => {
           if (!sdf) {
@@ -1438,13 +1438,13 @@ export class SDFParser {
             return;
           }
           const sdfObj = this.parseSDF(sdf);
-  
+
           const entry = this.pendingModels.get(model.uri);
           entry.sdf = sdfObj;
-  
+
           // Extract Fuel owner and name. Used to match the correct URL.
           let options: any;
-          if (model.uri.startsWith('https://') || 
+          if (model.uri.startsWith('https://') ||
               model.uri.startsWith('file://')) {
             const uriSplit = model.uri.split('/');
             const modelsIndex = uriSplit.indexOf('models');
@@ -1453,26 +1453,26 @@ export class SDFParser {
               fuelName: uriSplit[modelsIndex + 1],
             }
           }
-  
+
           entry.models.forEach((pendingModel: any) => {
             // Create the Object3D.
             const modelObj = this.spawnFromObj(sdfObj, options);
-  
+
             // Set name.
             if (pendingModel.name) {
               modelObj.name = pendingModel.name;
             }
-  
+
             // Set pose.
             if (pendingModel.pose) {
               const pose = this.parsePose(pendingModel.pose);
               this.scene.setPose(modelObj, pose.position, pose.orientation);
             }
-  
+
             // Add to parent.
             pendingModel.parent.add(modelObj);
           });
-  
+
           // Cleanup: Remove the list of models.
           entry.models = [];
         });
@@ -1481,7 +1481,7 @@ export class SDFParser {
       // The URI was received already. Push the model into the pending models array.
       const entry = this.pendingModels.get(model.uri);
       entry.models.push(model);
-  
+
       // If the SDF was already obtained, apply it to this model.
       if (entry.sdf) {
         // Extract Fuel owner and name. Used to match the correct URL.
@@ -1494,26 +1494,26 @@ export class SDFParser {
             fuelName: uriSplit[modelsIndex + 1],
           }
         }
-  
+
         entry.models.forEach((pendingModel: any) => {
           const sdfObj = entry.sdf;
           const modelObj = this.spawnFromObj(sdfObj, options);
-  
+
           // Set name.
           if (pendingModel.name) {
             modelObj.name = pendingModel.name;
           }
-  
+
           // Set pose.
           if (pendingModel.pose) {
             const pose = this.parsePose(pendingModel.pose);
             this.scene.setPose(modelObj, pose.position, pose.orientation);
           }
-  
+
           // Add to parent.
           pendingModel.parent.add(modelObj);
         });
-  
+
         // Cleanup: Remove the list of models.
         entry.models = [];
       }
@@ -1537,9 +1537,9 @@ export class SDFParser {
     let visualObj: THREE.Object3D;
     let sensorObj: THREE.Object3D;
     let linkObj: THREE.Object3D = new THREE.Object3D();
-  
+
     linkObj.name = link['name'] || link['@name'] || '';
- 
+
     if (link.inertial) {
       let inertialPose: Pose;
       let inertialMass: number
@@ -1561,17 +1561,17 @@ export class SDFParser {
         linkObj.userData.inertial.pose = inertialPose;
       }
     }
-  
+
     if (link.pose) {
       linkPose = this.parsePose(link.pose);
       this.scene.setPose(linkObj, linkPose.position, linkPose.orientation);
     }
-  
+
     if (link.visual) {
       if (!(link.visual instanceof Array)) {
         link.visual = [link.visual];
       }
-  
+
       for (var i = 0; i < link.visual.length; ++i) {
         visualObj = this.createVisual(link.visual[i], options);
         if (visualObj && !visualObj.parent) {
@@ -1579,12 +1579,12 @@ export class SDFParser {
         }
       }
     }
-  
+
     if (link.collision) {
       if (!(link.collision instanceof Array)) {
         link.collision = [link.collision];
       }
-  
+
       for (var j = 0; j < link.collision.length; ++j) {
         visualObj = this.createVisual(link.collision[j], options);
         if (visualObj && !visualObj.parent)
@@ -1596,7 +1596,7 @@ export class SDFParser {
         }
       }
     }
-  
+
     if (link.light) {
       if (!(link.light instanceof Array)) {
         link.light = [link.light];
@@ -1613,7 +1613,7 @@ export class SDFParser {
         }
       }
     }
-  
+
     if (link.particle_emitter) {
       if (!(link.particle_emitter instanceof Array)) {
         link.particle_emitter = [link.particle_emitter];
@@ -1628,12 +1628,12 @@ export class SDFParser {
         }
       }
     }
-  
+
     if (link.sensor) {
       if (!(link.sensor instanceof Array)) {
         link.sensor = [link.sensor];
       }
-  
+
       for (var sidx = 0; sidx < link.sensor.length; ++sidx) {
         sensorObj = this.createSensor(link.sensor[sidx], options);
         if (sensorObj && !sensorObj.parent) {
@@ -1641,7 +1641,7 @@ export class SDFParser {
         }
       }
     }
-  
+
     return linkObj;
   }
 
@@ -1654,7 +1654,7 @@ export class SDFParser {
   public createParticleEmitter(emitter: object): THREE.Object3D {
     // Particle Emitter is handled with ShaderParticleEngine, a third-party library.
     // More information at https://github.com/squarefeet/ShaderParticleEngine
-  
+
     // Auxliar function to extract the value of an emitter property from
     // either SDF or protobuf object (stored in a data property).
     function extractValue(property: any) {
@@ -1669,52 +1669,52 @@ export class SDFParser {
     }
     let particleEmitterObj = new THREE.Object3D();
     /* Nate disabled
-  
+
     // Given name of the emitter.
     let emitterName: string = this.createUniqueName(emitter);
-  
+
     // Whether the emitter is generating particles or not.
     let emitting: boolean = this.parseBool(extractValue('emitting')) || false;
-  
+
     // Duration of the particle emitter. Infinite if null.
     var duration = extractValue('duration');
     duration = duration !== undefined ? parseFloat(duration) : null;
-  
+
     // Emitter type.
     var type = extractValue('type') || extractValue('@type');
     type = type || 'point';
-  
+
     // Lifetime of the individual particles, in seconds.
     var lifetime = extractValue('lifetime');
     lifetime = lifetime !== undefined ? parseFloat(lifetime) : 5;
-  
+
     // Velocity range.
     var minVelocity = extractValue('min_velocity');
     minVelocity = minVelocity !== undefined ? parseFloat(minVelocity) : 1;
-  
+
     var maxVelocity = extractValue('max_velocity');
     maxVelocity = maxVelocity !== undefined ? parseFloat(maxVelocity) : 1;
-  
+
     // Size of the particle emitter.
     // The SDF particle emitter spec lists size as
     // [x: width, y: height, z: depth].
     var size = this.parse3DVector(emitter['size']) || new THREE.Vector3(1, 1, 1);
     size.set(size.z, size.x, size.y);
-  
+
     // Size of the individual particles.
     var particleSize = this.parse3DVector(emitter['particle_size']) || new THREE.Vector3(1, 1, 1);
-  
+
     // Pose of the particle emitter
     var pose = this.parsePose(emitter['pose']);
-  
+
     // Particles per second emitted.
     var rate = extractValue('rate');
     rate = rate !== undefined ? parseFloat(rate) : 10;
-  
+
     // Scale modifier for each particle. Modifies their size per second.
     var scaleRate = extractValue('scale_rate');
     scaleRate = scaleRate !== undefined ? parseFloat(scaleRate) : 1;
-  
+
     // Image that determines the color range. This image should be 1px in height.
     // NOTE: SPE can have up to four different values, and internally it
     // interpolates between these
@@ -1727,9 +1727,9 @@ export class SDFParser {
       colorRangeImage = colorRangeImage.data;
     }
     let colorRangeImageUrl: string = '';
-  
+
     var particleTexture;
-  
+
     // Texture image of the particles.
     if ('material' in emitter && 'pbr' in emitter['material']) {
       // SDF has a nested metal tag, while protobuf does not. Need to handle
@@ -1741,23 +1741,23 @@ export class SDFParser {
       }
     }
     let particleTextureUrl: string = '';
-  
+
     // Get the URL of the images used.
     if (this.usingFilesUrls) {
       for (var u = 0; u < this.customUrls.length; u++) {
         if (this.customUrls[u].indexOf(colorRangeImage) > -1) {
           colorRangeImageUrl = this.customUrls[u];
         }
-  
+
         if (this.customUrls[u].indexOf(particleTexture) > -1) {
           particleTextureUrl = this.customUrls[u];
         }
-  
+
         if (colorRangeImageUrl && particleTextureUrl) {
           break;
         }
       }
-  
+
       if (colorRangeImage && !colorRangeImageUrl) {
         colorRangeImageUrl = createFuelUri(colorRangeImage);
       }
@@ -1765,17 +1765,17 @@ export class SDFParser {
         particleTextureUrl = createFuelUri(particleTexture);
       }
     }
-  
+
     if (!colorRangeImageUrl) {
       console.error('color_range_image is missing, the particle emitter will not work');
       return particleEmitterObj ;
     }
-  
+
     if (!particleTextureUrl) {
       console.error('albedo_map is missing, the particle emitter will not work');
       return particleEmitterObj ;
     }
-  
+
     // Create the Particle Group.
     // This is the container for the Particle Emitter.
     // For more information, check http://squarefeet.github.io/ShaderParticleEngine/docs/api/SPE.Group.html
@@ -1791,60 +1791,60 @@ export class SDFParser {
       blending: THREE.NormalBlending,
     });
     particleGroup['name'] = emitterName;
-  
+
     // Particle Emitter.
     // For more information, check http://squarefeet.github.io/ShaderParticleEngine/docs/api/SPE.Emitter.html
     var particleEmitter = new SPE.Emitter({
       // How many particles this emitter will hold.
       // The rate of particles emitted per second is roughly the particleCount/lifetime.
       particleCount: rate * lifetime,
-  
+
       // Type of emitter. Box by default.
       // TODO(german) Support Point, Sphere and Cylinder (No direct relation with SPE)
       type: SPE.distributions.BOX,
-  
+
       // Duration of the particle emitter. Infinite if null.
       duration: duration > 0? duration : null,
-  
+
       // Position of the emitter. The value is the current position, and spread is related to the size.
       position: {
         value: new THREE.Vector3(0, 0, 0),
         spread: new THREE.Vector3().copy(size),
       },
-  
+
       // Particle velocity. Value is the base, and uses spread to randomize each particle.
       velocity: {
         value: new THREE.Vector3(minVelocity, 0, 0),
         spread: new THREE.Vector3(maxVelocity - minVelocity, 0, 0),
       },
-  
+
       // Particle size at the start and finish of their lifetime.
       // SPE interpolates these values.
       size: {
         value: [particleSize.x, particleSize.x + scaleRate * lifetime],
       },
-  
+
       // Lifetime of the individual particles, in seconds.
       maxAge: {
         value: lifetime
       },
     });
-  
+
     // The emitter is disabled until the the color and opacity information is read.
     particleEmitter.disable();
-  
+
     particleGroup.addEmitter(particleEmitter);
-  
-  
+
+
     // Create a new THREE.Object to hold the particle emitter. This allows us
     // to easily apply the particle emitter's position and orientation.
     console.log(pose.orientation);
     this.scene.setPose(particleEmitterObj, pose.position, pose.orientation);
     particleEmitterObj.add(particleGroup.mesh);
-  
+
     // This is required by the rendering loop.
     this.scene.addParticleGroup(particleGroup);
-  
+
     // Determine Color and Opacity information from the Color Range Image.
     // Note: SPE supports 4 values of opacity and color in an array. The engine automatically interpolates between them.
     // This means we cannot have all the colors from the image, instead, we pick only 4.
@@ -1853,14 +1853,14 @@ export class SDFParser {
       // A canvas is required to do so.
       const width: number = texture.image.width;
       const height: number = texture.image.height;
-  
+
       const canvas = document.createElement('canvas');
       canvas.width = width;
       canvas.height = height;
       const context = canvas.getContext('2d');
       context!.drawImage(texture.image, 0, 0);
       const imageData = context!.getImageData(0, 0, width, height)!;
-  
+
       const colorImgData = [];
       const opacityData = [];
       for (let i = 0; i < width; i += Math.floor(width/3)) {
@@ -1871,20 +1871,20 @@ export class SDFParser {
           imageData.data[i * 4 + 2] / 255
         )
         const opacity = imageData.data[i * 4 + 3] / 255;
-  
+
         colorImgData.push(color);
         opacityData.push(opacity);
       }
-  
+
       // Set the color and opacity of the particle emitter.
       for (let i = 0; i < 4; i++) {
         particleEmitter.color.value[i] = colorImgData[i];
         particleEmitter.color.value = particleEmitter.color.value;
-  
+
         particleEmitter.opacity.value[i] = opacityData[i];
         particleEmitter.opacity.value = particleEmitter.opacity.value;
       }
-  
+
       // Finally, enable the emission.
       if (emitting) {
         particleEmitter.enable();
@@ -1909,7 +1909,7 @@ export class SDFParser {
     let quaternion = new THREE.Quaternion();
     let modelObj: THREE.Object3D;
     let that = this;
-  
+
     if (model.matrixWorld) {
       let matrix: THREE.Matrix4 = model.matrixWorld;
       let scale: THREE.Vector3 = new THREE.Vector3();
@@ -1918,7 +1918,7 @@ export class SDFParser {
 
     let euler: THREE.Euler = new THREE.Euler();
     euler.setFromQuaternion(quaternion);
-  
+
     if (type === 'box') {
       sdf = this.createBoxSDF(translation, euler);
       modelObj = this.spawnFromSDF(sdf);
@@ -1945,7 +1945,7 @@ export class SDFParser {
         that.scene.setPose(modelObj, translation, quaternion);
       });
     }
-  
+
     let addModelFunc = function()
     {
       // check whether object is removed
@@ -1959,7 +1959,7 @@ export class SDFParser {
         setTimeout(addModelFunc, 100);
       }
     };
-  
+
     setTimeout(addModelFunc , 100);
   }
 
@@ -1977,7 +1977,7 @@ export class SDFParser {
   public createSimpleShapeSDF(type: string, translation: THREE.Vector3,
           euler: THREE.Euler, geomSDF: string): string {
     var sdf;
-  
+
     sdf = '<sdf version="' + this.SDF_VERSION + '">' + '<model name="' + type
             + '">' + '<pose>' + translation.x + ' ' + translation.y + ' '
             + translation.z + ' ' + euler.x + ' ' + euler.y + ' ' + euler.z
@@ -1989,7 +1989,7 @@ export class SDFParser {
             + '<uri>file://media/materials/scripts/gazebo.material' + '</uri>'
             + '<name>Gazebo/Grey</name>' + '</script>' + '</material>'
             + '</visual>' + '</link>' + '</model>' + '</sdf>';
-  
+
     return sdf;
   }
 
@@ -2002,7 +2002,7 @@ export class SDFParser {
    */
   public createBoxSDF(translation: THREE.Vector3, euler: THREE.Euler): string {
     var geomSDF = '<box>' + '<size>1.0 1.0 1.0</size>' + '</box>';
-  
+
     return this.createSimpleShapeSDF('box', translation, euler, geomSDF);
   }
 
@@ -2015,7 +2015,7 @@ export class SDFParser {
    */
   public createSphereSDF(translation: THREE.Vector3, euler: THREE.Euler): string {
     var geomSDF = '<sphere>' + '<radius>0.5</radius>' + '</sphere>';
-  
+
     return this.createSimpleShapeSDF('sphere', translation, euler, geomSDF);
   }
 
@@ -2029,7 +2029,7 @@ export class SDFParser {
   public createCylinderSDF(translation: THREE.Vector3, euler: THREE.Euler): string {
     var geomSDF = '<cylinder>' + '<radius>0.5</radius>' + '<length>1.0</length>'
             + '</cylinder>';
-  
+
     return this.createSimpleShapeSDF('cylinder', translation, euler, geomSDF);
   }
 
@@ -2057,11 +2057,11 @@ export class SDFParser {
     var xhttp = new XMLHttpRequest();
     xhttp.overrideMimeType('text/xml');
     xhttp.open('GET', url, true);
-  
+
     if (this.requestHeaderKey && this.requestHeaderValue) {
       xhttp.setRequestHeader(this.requestHeaderKey, this.requestHeaderValue);
     }
-  
+
     xhttp.onload = function() {
       if (xhttp.readyState === 4) {
         if (xhttp.status !== 200) {
@@ -2071,11 +2071,11 @@ export class SDFParser {
         callback(xhttp.responseXML);
       }
     };
-  
+
     xhttp.onerror = function (e) {
       console.error(xhttp.statusText);
     };
-  
+
     try {
       xhttp.send();
     } catch(err: any) {
