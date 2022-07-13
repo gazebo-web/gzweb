@@ -1,16 +1,22 @@
 import {Object3D} from 'three';
 
-export function getDescendants(obj: Object3D, array: Object3D[]): Object3D[] {
-  if (array === undefined) {
-    array = [];
-  }
-
-  Array.prototype.push.apply(array, obj.children);
-
-  for (var i = 0, l = obj.children.length; i < l; i++) {
-    getDescendants(obj.children[ i ], array );
-  }
-
+/**
+ * Given a ThreeJS Object, return all its children as an array.
+ * Notes:
+ * - We are using getDescendants as a way to maintain legacy code. We should use traverse() whenever possible.
+ * - We should discourage its use and move towards using traverse().
+ * @param obj The ThreeJS Object to get the descendants of.
+ * @param array Optional. An array that will store all the children.
+ * @returns An array of the children of the given ThreeJS Object (can be dismissed if the array argument is used).
+ */
+export function getDescendants(obj: Object3D, array: Object3D[] = []): Object3D[] {
+  obj.traverse((child) => {
+    // Note: This function is called on the obj as well.
+    // Since we just need its children, we filter the original object.
+    if (child !== obj) {
+      array.push(child);
+    }
+  });
   return array;
 };
 
