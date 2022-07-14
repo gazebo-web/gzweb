@@ -16,17 +16,16 @@ export const IGN_FUEL_HOST: string = 'fuel.ignitionrobotics.org';
  * @param {string} uri - A string to convert to a Fuel Server URI, if able.
  * @return The transformed URI, or the same URI if it couldn't be transformed.
  */
-export function createFuelUri(uri: string) {
+export function createFuelUri(uri: string): string {
   // Check to see if the modelName points to the Fuel server.
-  if (uri.indexOf('https://' + FUEL_HOST) !== 0) {
+  if (uri.indexOf('https://' + FUEL_HOST) !== 0 || uri.indexOf('https://' + IGN_FUEL_HOST) !== 0) {
     // Check to see if the uri has the form similar to
     // `/home/.../fuel.ignitionrobotics.org/...`
     // If so, then we assume that the parts following
     // `fuel.ignitionrobotics.org` can be directly mapped to a valid URL on
     // Fuel server
-    if (uri.indexOf(FUEL_HOST) > 0 || 
-        uri.indexOf(IGN_FUEL_HOST) > 0) {
-      var uriArray = uri.split('/').filter(function(element) {
+    if (uri.indexOf(FUEL_HOST) > 0 || uri.indexOf(IGN_FUEL_HOST) > 0) {
+      const uriArray = uri.split('/').filter(function(element) {
         return element !== '';
       });
       if (uri.indexOf(FUEL_HOST) > 0) {
@@ -68,7 +67,7 @@ export class FuelServer {
     // We still handle the response in a callback.
     // TODO(germanmas): We should update and use async/await instead throughout the library.
     const filesUrl = `${uri.trim()}/tip/files`;
-  
+
     // Make the request to get the files.
     fetch(filesUrl, { headers: this.requestHeader })
       .then(res => res.json())
@@ -77,24 +76,24 @@ export class FuelServer {
         callback(files);
       })
       .catch(error => console.error(error));
-  
+
     // Helper function to parse the file tree of the response into an array of
     // file paths. The file tree from the Server consists of file elements
     // that contain a name, a path and children (if they are a folder).
     function prepareURLs(fileTree: any, baseUrl: string): string[] {
       let parsedFiles: string[] = [];
-  
+
       for (var i = 0; i < fileTree.length; i++) {
         // Avoid the thumbnails folder.
         if (fileTree[i].name === 'thumbnails') {
           continue;
         }
-  
+
         // Loop through files to extract files from folders.
         extractFile(fileTree[i]);
       }
       return parsedFiles;
-  
+
       // Helper function to extract the files from the file tree.
       // Folder elements have children, while files don't.
       function extractFile(el: any): void {
@@ -103,7 +102,7 @@ export class FuelServer {
           if (el.name.endsWith('.config')) {
             return;
           }
-  
+
           var url = baseUrl + el.path;
           parsedFiles.push(url);
         } else {
