@@ -25,7 +25,7 @@ export class Transport {
   /**
    * The Websocket object.
    */
-  private ws: WebSocket; 
+  private ws: WebSocket;
 
   /**
    * The root namespace should be obtained from the Websocket upon connection.
