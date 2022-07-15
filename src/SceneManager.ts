@@ -16,7 +16,7 @@ import { Transport } from './Transport';
  * element with the id ELEMENT_ID
  *
  * ```
- * let sceneMgr = new SceneManager(ELEMENT_ID, WS_URL, WS_KEY); 
+ * let sceneMgr = new SceneManager(ELEMENT_ID, WS_URL, WS_KEY);
  * ```
  */
 export class SceneManager {
@@ -180,7 +180,7 @@ export class SceneManager {
    */
   public disconnect(): void {
     // Remove the canvas. Helpful to disconnect and connect several times.
-    if (this.sceneElement && this.sceneElement.childElementCount > 0) {
+    if (this.sceneElement?.childElementCount > 0 && this.scene.scene.renderer?.domElement) {
       this.sceneElement.removeChild(this.scene.scene.renderer.domElement);
     }
 
@@ -210,7 +210,6 @@ export class SceneManager {
     this.transport.connect(url, key);
 
     this.statusSubscription = this.transport.status$.subscribe((response) => {
-
       if (response === 'error') {
         // TODO: Return an error so the caller can open a snackbar
         console.log('Connection failed. Please contact an administrator.');
@@ -298,7 +297,7 @@ export class SceneManager {
           if (entity) {
             this.scene.setPose(entity, pose.position, pose.orientation);
           } else {
-            console.warn('Unable to find entity with name ', entityName, entity); 
+            console.warn('Unable to find entity with name ', entityName, entity);
           }
         });
       }
@@ -359,7 +358,6 @@ export class SceneManager {
    * Setup the visualization scene.
    */
   private setupVisualization(): void {
-
     var that = this;
 
     // Create a find asset helper
