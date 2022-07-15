@@ -3474,16 +3474,16 @@ export class Scene {
  /**
   * Print out the scene graph with position of each node.
   */
- public printScene() {
-   function printGraph(obj: THREE.Object3D): void {
-     console.group( ' <' + obj.type + '> ' + obj.name + ' pos: ' +
-                   obj.position.x + ', ' + obj.position.y + ', ' +
-                   obj.position.z );
-     obj.children.forEach( printGraph );
-     console.groupEnd();
-   }
-   printGraph(this.scene);
- }
+  public printScene(): void {
+    const printGraph = (obj: THREE.Object3D): void => {
+      console.group(
+        `<${obj.type}> ${obj.name} pos: ${obj.position.x}, ${obj.position.y}, ${obj.position.z}`
+      );
+      obj.children.forEach(printGraph);
+      console.groupEnd();
+    }
+    printGraph(this.scene);
+  }
 
  public loadTexture(url: string, onLoad?: any, onProgress?:any): THREE.Texture {
    let scope = this;
