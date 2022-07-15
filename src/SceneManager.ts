@@ -1,9 +1,10 @@
+import * as THREE from 'three';
+import { Scene } from './Scene';
+import { SDFParser } from './SDFParser';
+import { Shaders } from './Shaders';
 import { Subscription } from 'rxjs';
 import { Topic } from './Topic';
 import { Transport } from './Transport';
-
-declare let GZ3D: any;
-declare let THREE: any;
 
 /**
  * SceneManager handles the interface between a Gazebo server and the
@@ -70,7 +71,7 @@ export class SceneManager {
   private cancelAnimation: number;
 
   /**
-   * The container of the GZ3D scene.
+   * The container of the Scene.
    */
   private sceneElement: HTMLElement;
 
@@ -258,7 +259,6 @@ export class SceneManager {
         const modelObj = this.sdfParser.spawnFromObj(
           { model }, { enableLights: false });
 
-          console.log('Adding model', model);
         model['gz3dName'] = modelObj.name;
         this.models.push(model);
         this.scene.add(modelObj);
@@ -290,19 +290,15 @@ export class SceneManager {
       `/world/${this.transport.getWorld()}/dynamic_pose/info`,
       (msg) => {
         msg['pose'].forEach((pose: any) => {
-          let entityName = `${pose['name']}${pose['id']}`;
+          let entityName = pose['name'];
           // Objects created by Gz3D have an unique name, which is the
           // name plus the id.
           const entity = this.scene.getByName(entityName);
 
           if (entity) {
-            if (pose['name'] === 'box' &&
-                pose['position']['z'] > 1) {
-              console.log('Box pose', pose);
-            }
             this.scene.setPose(entity, pose.position, pose.orientation);
           } else {
-            console.warn('Unable to find entity with name ', entityName); 
+            console.warn('Unable to find entity with name ', entityName, entity); 
           }
         });
       }
@@ -322,38 +318,41 @@ export class SceneManager {
 
           // Check to see if the model already exists in the scene. This
           // could happen when a simulation level is loaded multiple times.
-          let foundIndex = -1;
-          for (let i = 0; i < this.models.length; ++i) {
-            // Simulation enforces unique names between models. The ID
-            // of a model may change. This occurs when levels are loaded,
-            // unloaded, and then reloaded.
-            if (this.models[i]['name'] === model['name']) {
-              foundIndex = i;
-              break;
-            }
-          }
+          let foundIndex = this.getModelIndex(model['name']);
 
           // If the model was not found, then add the new model. Otherwise
-          // update the models ID and gz3dName.
+          // update the models ID.
           if (foundIndex < 0) {
-            const entity = this.scene.getByName();
             const modelObj = this.sdfParser.spawnFromObj(
               { model }, { enableLights: false });
-            model['gz3dName'] = modelObj.name;
-            console.log('Adding model', model);
             this.models.push(model);
             this.scene.add(modelObj);
           } else {
             // Make sure to update the exisiting models so that future pose
             // messages can update the model.
-            this.models[foundIndex]['gz3dName'] =
-              `${model['name']}${model['id']}`;
             this.models[foundIndex]['id'] = model['id'];
           }
         });
       }
     );
     this.transport.subscribe(sceneTopic);
+  }
+
+  /**
+   * Get the index into the model array of a model based on a name
+   */
+  private getModelIndex(name: string): number {
+    let foundIndex = -1;
+    for (let i = 0; i < this.models.length; ++i) {
+      // Simulation enforces unique names between models. The ID
+      // of a model may change. This occurs when levels are loaded,
+      // unloaded, and then reloaded.
+      if (this.models[i]['name'] === name) {
+          foundIndex = i;
+          break;
+      }
+    }
+    return foundIndex;
   }
 
   /**
@@ -368,9 +367,9 @@ export class SceneManager {
       that.transport.getAsset(_uri, _cb);
     }
 
-    this.scene = new GZ3D.Scene(new GZ3D.Shaders(), undefined, undefined,
-                                undefined, findAsset);
-    this.sdfParser = new GZ3D.SdfParser(this.scene);
+    this.scene = new Scene(new Shaders(), undefined, undefined,
+                           undefined, findAsset);
+    this.sdfParser = new SDFParser(this.scene);
     this.sdfParser.usingFilesUrls = true;
 
     if (window.document.getElementById(this.elementId)) {
