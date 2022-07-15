@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { binaryToBase64 } from './Globals';
+import { GzAudioTopic } from './GzAudioTopic';
 import { Scene } from './Scene';
 import { SDFParser } from './SDFParser';
 import { Shaders } from './Shaders';
@@ -306,47 +306,8 @@ export class SceneManager {
     );
     this.transport.subscribe(poseTopic);
 
-    // Map of audio URIs to Audio objects
-    let audioMap = {};
     // Subscribe to the audio control topic.
-    const audioTopic: Topic = {
-      name: '/audio/control',
-      cb: (msg) => {
-        let playback = false;
-        let uri = '';
-
-        // Get the playback and uri information.
-        for (var key in msg.params) {
-          if (key === 'playback') {
-            playback = msg.params[key].bool_value;
-          } else if (key === 'uri') {
-            uri = msg.params[key].string_value;
-          }
-        }
-
-        // Control audio playback if the audio file is in the audio map.
-        if (uri in audioMap) {
-          if (playback) {
-            audioMap[uri].play();
-          } else {
-            audioMap[uri].pause();
-          }
-        // Otherwise, fetch the audio file
-        } else {
-          console.log('Getting audio file', uri);
-          this.transport.getAsset(uri, function(asset) {
-            var audioSrc = 'data:audio/mp3;base64,' +
-              binaryToBase64(asset);
-            var audio = new Audio(audioSrc);
-            audio.src = audioSrc;
-            audioMap[uri] = audio;
-            if (playback) {
-              audio.play();
-            }
-          });
-        }
-      }
-    };
+    const audioTopic = new GzAudioTopic('/audio/control', this.transport);
     this.transport.subscribe(audioTopic);
 
     // Subscribe to the 'scene/info' topic which sends scene changes.
