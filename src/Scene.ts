@@ -1443,25 +1443,25 @@ export class Scene {
 
     // unfortunately large heightmaps kill the fps and freeze everything so
     // we have to scale it down
-    var scale = 1;
-    var maxHeightmapWidth = 256;
-    var maxHeightmapHeight = 256;
+    let scale = 1;
+    const maxHeightmapWidth = 256;
+    const maxHeightmapHeight = 256;
 
-    if ((segmentWidth-1) > maxHeightmapWidth) {
-      scale = maxHeightmapWidth / (segmentWidth-1);
+    if ((segmentWidth - 1) > maxHeightmapWidth) {
+      scale = maxHeightmapWidth / (segmentWidth - 1);
     }
 
     let geometry: THREE.PlaneGeometry = new THREE.PlaneGeometry(width, height,
-        (segmentWidth-1) * scale, (segmentHeight-1) * scale);
+      (segmentWidth - 1) * scale, (segmentHeight - 1) * scale);
 
     let posAttribute = geometry.getAttribute('position');
 
     // Sub-sample
-    let col: number = (segmentWidth-1) * scale;
-    let row: number = (segmentHeight-1) * scale;
+    let col: number = (segmentWidth - 1) * scale;
+    let row: number = (segmentHeight - 1) * scale;
     for (let r = 0; r < row; ++r) {
       for (let c = 0; c < col; ++c) {
-        let index: number = (r * col * 1/(scale*scale)) +   (c * (1/scale));
+        let index: number = (r * col * 1/(scale*scale)) + (c * (1/scale));
         posAttribute.setZ(r*col + c, heights[index]);
       }
     }
@@ -1477,7 +1477,7 @@ export class Scene {
     if (textures && textures.length > 0) {
       let textureLoaded = [];
       let repeats = [];
-      for (var t = 0; t < textures.length; ++t) {
+      for (let t = 0; t < textures.length; ++t) {
         const texUri = createFuelUri(textures[t].diffuse);
         textureLoaded[t] = this.loadTexture(texUri);
         textureLoaded[t].wrapS = THREE.RepeatWrapping;
@@ -1501,11 +1501,11 @@ export class Scene {
 
       // Use the same approach as gazebo scene, grab the first directional light
       // and use it for shading the terrain
-      var lightDir = new THREE.Vector3(0, 0, -1);
-      var lightDiffuse = new THREE.Color(0xffffff);
+      let lightDir = new THREE.Vector3(0, 0, -1);
+      let lightDiffuse = new THREE.Color(0xffffff);
       let allObjects: THREE.Object3D[] = [];
       getDescendants(this.scene, allObjects);
-      for (var l = 0; l < allObjects.length; ++l) {
+      for (let l = 0; l < allObjects.length; ++l) {
         if (allObjects[l] instanceof THREE.DirectionalLight) {
           lightDir = (<THREE.DirectionalLight>allObjects[l]).target.position;
           lightDiffuse = (<THREE.DirectionalLight>allObjects[l]).color;
@@ -1513,7 +1513,7 @@ export class Scene {
         }
       }
 
-      var options = {
+      const options = {
         uniforms: {
           texture0: { type: 't', value: textureLoaded[0]},
           texture1: { type: 't', value: textureLoaded[1]},
@@ -1521,10 +1521,10 @@ export class Scene {
           repeat0: { type: 'f', value: repeats[0]},
           repeat1: { type: 'f', value: repeats[1]},
           repeat2: { type: 'f', value: repeats[2]},
-          minHeight1: { type: 'f', value: blends[0].min_height},
-          fadeDist1: { type: 'f', value: blends[0].fade_dist},
-          minHeight2: { type: 'f', value: blends[1].min_height},
-          fadeDist2: { type: 'f', value: blends[1].fade_dist},
+          minHeight1: { type: 'f', value: blends[0]?.min_height || 0},
+          fadeDist1: { type: 'f', value: blends[0]?.fade_dist || 0},
+          minHeight2: { type: 'f', value: blends[1]?.min_height || 0},
+          fadeDist2: { type: 'f', value: blends[1]?.fade_dist || 0},
           ambient: { type: 'c', value: this.ambient.color},
           lightDiffuse: { type: 'c', value: lightDiffuse},
           lightDir: { type: 'v3', value: lightDir}
@@ -1545,7 +1545,7 @@ export class Scene {
       material = new THREE.MeshPhongMaterial( { color: 0x555555 } );
     }
 
-    var mesh = new THREE.Mesh(geometry, material);
+    const mesh = new THREE.Mesh(geometry, material);
 
     mesh.position.x = origin.x;
     mesh.position.y = origin.y;
