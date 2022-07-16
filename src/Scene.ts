@@ -97,6 +97,7 @@ export class Scene {
   private simpleShapesMaterial: THREE.MeshPhongMaterial;
   private spawnModel: SpawnModel;
   private COMVisual: THREE.Object3D = new THREE.Object3D;
+  private textureCache = new Map<string, THREE.Texture>();
 
   constructor(shaders: Shaders, defaultCameraPosition?: THREE.Vector3,
               defaultCameraLookAt?: THREE.Vector3,
@@ -1764,7 +1765,8 @@ export class Scene {
    * @param {} centerSubmesh
    * @returns {THREE.Mesh} mesh
    */
-  public useSubMesh(mesh: THREE.Object3D, submesh: string, centerSubmesh: boolean): THREE.Mesh | THREE.Group | null {
+  public useSubMesh(mesh: THREE.Object3D, submesh: string,
+                    centerSubmesh: boolean): THREE.Mesh | THREE.Group | null {
 
     if (!submesh) {
       return null;
@@ -1781,86 +1783,87 @@ export class Scene {
     // Auxiliary function used to look for the required submesh.
     // Checks if the given submesh is the one we look for. If it's a Group, look for it within its children.
     // It returns the submesh, if found.
-    function lookForSubmesh(obj: THREE.Mesh | THREE.Group, parent: THREE.Object3D): THREE.Mesh | THREE.Group {
-      if (obj instanceof THREE.Mesh &&
-          obj.name === submesh && obj.hasOwnProperty('geometry')) {
-        // Found the submesh.
+    function lookForSubmesh(obj: THREE.Mesh | THREE.Group,
+                            parent: THREE.Object3D): [boolean, THREE.Mesh | THREE.Group] {
 
-        // Center the submesh.
-        if (centerSubmesh) {
-          // obj file
-          if (obj.geometry instanceof THREE.BufferGeometry) {
-            let geomPosition = obj.geometry.getAttribute('position');
-            let minPos: THREE.Vector3 = new THREE.Vector3();
-            let maxPos: THREE.Vector3 = new THREE.Vector3();
-            let centerPos: THREE.Vector3 = new THREE.Vector3();
+      if (obj instanceof THREE.Mesh) {
+        // Check if the mesh has the correct name and has geometry.
+        if (obj.name === submesh && obj.hasOwnProperty('geometry')) {
 
-            minPos.fromBufferAttribute(geomPosition, 0);
-            maxPos.fromBufferAttribute(geomPosition, 0);
+          // Center the submesh.
+          if (centerSubmesh) {
+            // obj file
+            if (obj.geometry instanceof THREE.BufferGeometry) {
+              let geomPosition = obj.geometry.getAttribute('position');
+              let minPos: THREE.Vector3 = new THREE.Vector3();
+              let maxPos: THREE.Vector3 = new THREE.Vector3();
+              let centerPos: THREE.Vector3 = new THREE.Vector3();
 
-            // Get the min and max values.
-            for (let i = 0; i < geomPosition.count; i++) {
-              minPos.x = Math.min(minPos.x, geomPosition.getX(i));
-              minPos.y = Math.min(minPos.y, geomPosition.getY(i));
-              minPos.z = Math.min(minPos.z, geomPosition.getZ(i));
+              minPos.fromBufferAttribute(geomPosition, 0);
+              maxPos.fromBufferAttribute(geomPosition, 0);
 
-              maxPos.x = Math.min(maxPos.x, geomPosition.getX(i));
-              maxPos.y = Math.min(maxPos.y, geomPosition.getY(i));
-              maxPos.z = Math.min(maxPos.z, geomPosition.getZ(i));
-            }
+              // Get the min and max values.
+              for (let i = 0; i < geomPosition.count; i++) {
+                minPos.x = Math.min(minPos.x, geomPosition.getX(i));
+                minPos.y = Math.min(minPos.y, geomPosition.getY(i));
+                minPos.z = Math.min(minPos.z, geomPosition.getZ(i));
 
-            // Compute center position
-            centerPos = minPos.add((maxPos.sub(minPos)).multiplyScalar(0.5));
+                maxPos.x = Math.min(maxPos.x, geomPosition.getX(i));
+                maxPos.y = Math.min(maxPos.y, geomPosition.getY(i));
+                maxPos.z = Math.min(maxPos.z, geomPosition.getZ(i));
+              }
 
-            // Update geometry position
-            for (let i = 0; i < geomPosition.count; i++) {
-              let origPos: THREE.Vector3 = new THREE.Vector3();
-              origPos.fromBufferAttribute(geomPosition, i);
-              let newPos = origPos.sub(centerPos);
-              geomPosition.setXYZ(i, newPos.x, newPos.y, newPos.z);
-            }
-            geomPosition.needsUpdate = true;
+              // Compute center position
+              centerPos = minPos.add((maxPos.sub(minPos)).multiplyScalar(0.5));
 
-            // Center the position.
-            obj.position.set(0, 0, 0);
-            var childParent = obj.parent;
-            while (childParent) {
-              childParent.position.set(0, 0, 0);
-              childParent = childParent.parent;
+              // Update geometry position
+              for (let i = 0; i < geomPosition.count; i++) {
+                let origPos: THREE.Vector3 = new THREE.Vector3();
+                origPos.fromBufferAttribute(geomPosition, i);
+                let newPos = origPos.sub(centerPos);
+                geomPosition.setXYZ(i, newPos.x, newPos.y, newPos.z);
+              }
+              geomPosition.needsUpdate = true;
+
+              // Center the position.
+              obj.position.set(0, 0, 0);
+              var childParent = obj.parent;
+              while (childParent) {
+                childParent.position.set(0, 0, 0);
+                childParent = childParent.parent;
+              }
             }
           }
-        }
 
-        // Filter the children of the parent. Only the required submesh
-        // needs to be there.
-        parent.children = [obj];
-        return obj;
-      } else if (obj instanceof THREE.Group) {
+          // Filter the children of the parent. Only the required submesh
+          // needs to be there.
+          parent.children = [obj];
+          return [true, obj];
+        }
+      } else {
         for (let i: number = 0; i < obj.children.length; i++) {
           if (obj.children[i] instanceof THREE.Mesh ||
               obj.children[i] instanceof THREE.Group) {
-            let result = lookForSubmesh(obj.children[i] as any, obj);
-            if (result) {
+            const [found, result] = lookForSubmesh(obj.children[i] as any, obj);
+            if (found) {
               // This keeps the Group (obj), and modifies it's children to
               // contain only the submesh.
               obj.children = [result];
-              return obj;
+              return [true, obj];
             }
           }
         }
-      } else {
-        console.error('Unable to load obj ', obj);
       }
 
-      return obj;
+      return [false, obj];
     }
 
     // Look for the submesh in the children of the mesh.
     for (var i = 0; i < mesh.children.length; i++) {
       if (mesh.children[i] instanceof THREE.Mesh ||
           mesh.children[i] instanceof THREE.Group) {
-        let result = lookForSubmesh(mesh.children[i] as any, mesh);
-        if (result) {
+        const [found, result] = lookForSubmesh(mesh.children[i] as any, mesh);
+        if (found) {
           return result;
         }
       }
@@ -3485,45 +3488,52 @@ export class Scene {
     printGraph(this.scene);
   }
 
- public loadTexture(url: string, onLoad?: any, onProgress?:any): THREE.Texture {
-   let scope = this;
+  public loadTexture(url: string, onLoad?: any, onProgress?:any): THREE.Texture {
+    // Return the cached texture if it exists.
+    if (this.textureCache.has(url)) {
+      return this.textureCache.get(url)!;
+    }
 
-   function fallbackLoader(map: string, texture: any) {
-     if (scope.findResourceCb) {
-       // Get the image using the find resource callback.
-       scope.findResourceCb(map, function(image: any) {
-         // Create the image element
-         let imageElem: HTMLImageElement = <HTMLImageElement>(
-           document.createElementNS('http://www.w3.org/1999/xhtml', 'img'));
+    let fallbackLoader = (map: string, texture: THREE.Texture) => {
+      if (this.findResourceCb) {
+        // Get the image using the find resource callback.
+        this.findResourceCb(map, function(image: any) {
+          // Create the image element
+          let imageElem: HTMLImageElement = <HTMLImageElement>(
+            document.createElementNS('http://www.w3.org/1999/xhtml', 'img'));
 
-         var isJPEG = map.search( /\.jpe?g($|\?)/i ) > 0 || map.search( /^data\:image\/jpeg/ ) === 0;
+          const isJPEG = map.search( /\.jpe?g($|\?)/i ) > 0 || map.search( /^data\:image\/jpeg/ ) === 0;
 
-         var binary = '';
-         var len = image.byteLength;
-         for (var i = 0; i < len; i++) {
-           binary += String.fromCharCode(image[i]);
-         }
+          let binary = '';
+          const len = image.byteLength;
+          for (var i = 0; i < len; i++) {
+            binary += String.fromCharCode(image[i]);
+          }
 
-         // Set the image source using base64 encoding
-         imageElem.src = isJPEG ? 'data:image/jpg;base64,' :
-           'data:image/png;base64,';
-         imageElem.src += window.btoa(binary);
+          // Set the image source using base64 encoding
+          imageElem.src = isJPEG ? 'data:image/jpg;base64,' :
+            'data:image/png;base64,';
+          imageElem.src += window.btoa(binary);
 
-         texture.format = isJPEG ? THREE.RGBFormat : THREE.RGBAFormat;
-         texture.needsUpdate = true;
-         texture.image = imageElem;
-       });
-     }
-   }
+          texture.format = isJPEG ? THREE.RGBFormat : THREE.RGBAFormat;
+          texture.needsUpdate = true;
+          texture.image = imageElem;
+        });
+      }
+    }
 
-   let result = this.textureLoader.load(
-     url,
-     onLoad,
-     onProgress,
-     function(_error) {
-       let scopeTexture = result;
-       fallbackLoader(url, scopeTexture);
-     });
-     return result;
+    let result = this.textureLoader.load(
+      url,
+      onLoad,
+      onProgress,
+      function(_error) {
+        let scopeTexture = result;
+        fallbackLoader(url, scopeTexture);
+    });
+
+    // Cache the texture so that we don't try to load it multiple times.
+    this.textureCache.set(url, result);
+
+    return result;
   }
 }
