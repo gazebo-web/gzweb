@@ -1474,7 +1474,7 @@ export class Scene {
 
     // Material - use shader if textures provided, otherwise use a generic phong
     // material
-    let material;
+    let materials = [];
     if (textures && textures.length > 0) {
       let textureLoaded = [];
       let repeats = [];
@@ -1541,12 +1541,25 @@ export class Scene {
         console.warn('Warning: heightmap shaders not provided.');
       }
 
-      material = new THREE.ShaderMaterial(options);
+      materials.push(new THREE.ShaderMaterial(options));
+
+      // Create the shadow material
+      const shadowMaterial = new  THREE.ShadowMaterial();
+      shadowMaterial.opacity = 0.5;
+      materials.push(shadowMaterial);
+
+      // Use geometry groups to layer materials
+      geometry.clearGroups();
+      geometry.addGroup( 0, Infinity, 0 );
+      geometry.addGroup( 0, Infinity, 1 );
     } else {
-      material = new THREE.MeshPhongMaterial( { color: 0x555555 } );
+      materials.push(new THREE.MeshPhongMaterial( { color: 0x555555 } ));
     }
 
-    const mesh = new THREE.Mesh(geometry, material);
+    const mesh = new THREE.Mesh(geometry, materials);
+
+    mesh.receiveShadow = true;
+    mesh.castShadow = false;
 
     mesh.position.x = origin.x;
     mesh.position.y = origin.y;
