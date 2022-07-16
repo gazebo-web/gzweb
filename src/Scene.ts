@@ -3489,25 +3489,23 @@ export class Scene {
   }
 
   public loadTexture(url: string, onLoad?: any, onProgress?:any): THREE.Texture {
-    let scope = this;
-
     // Return the cached texture if it exists.
     if (this.textureCache.has(url)) {
       return this.textureCache.get(url)!;
     }
 
-    function fallbackLoader(map: string, texture: THREE.Texture) {
-      if (scope.findResourceCb) {
+    let fallbackLoader = (map: string, texture: THREE.Texture) => {
+      if (this.findResourceCb) {
         // Get the image using the find resource callback.
-        scope.findResourceCb(map, function(image: any) {
+        this.findResourceCb(map, function(image: any) {
           // Create the image element
           let imageElem: HTMLImageElement = <HTMLImageElement>(
             document.createElementNS('http://www.w3.org/1999/xhtml', 'img'));
 
-          var isJPEG = map.search( /\.jpe?g($|\?)/i ) > 0 || map.search( /^data\:image\/jpeg/ ) === 0;
+          const isJPEG = map.search( /\.jpe?g($|\?)/i ) > 0 || map.search( /^data\:image\/jpeg/ ) === 0;
 
-          var binary = '';
-          var len = image.byteLength;
+          let binary = '';
+          const len = image.byteLength;
           for (var i = 0; i < len; i++) {
             binary += String.fromCharCode(image[i]);
           }
