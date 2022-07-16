@@ -291,8 +291,6 @@ class OrbitControls extends EventDispatcher {
 				// rotate offset back to "camera-up-vector-is-up" space
 				offset.applyQuaternion( quatInverse );
 
-				position.copy( scope.target ).add( offset );
-
         if (Math.abs(sphericalDelta.phi - 0) > 0.001 ||
             Math.abs(sphericalDelta.theta - 0) > 0.001) {
 
