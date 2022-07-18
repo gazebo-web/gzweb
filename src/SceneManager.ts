@@ -1,10 +1,34 @@
 import * as THREE from 'three';
+import { AudioTopic } from './AudioTopic';
 import { Scene } from './Scene';
 import { SDFParser } from './SDFParser';
 import { Shaders } from './Shaders';
 import { Subscription } from 'rxjs';
 import { Topic } from './Topic';
 import { Transport } from './Transport';
+
+export class SceneManagerConfig {
+  /*
+   * ElementId is the id of the HTML element that will hold the rendering
+   * context. If not specified, the id gz-scene will be used.
+   */
+  public elementId: string = 'gz-scene';
+
+  /*
+   * A websocket url that points to a Gazebo server.
+   */
+  public websocketUrl: string;
+
+  /*
+   * An authentication key for the websocket server.
+   */
+  public websocketKey: string;
+
+  /*
+   * The name of a an audio control topic, used to play audio files.
+   */
+  public audioTopic: string;
+}
 
 /**
  * SceneManager handles the interface between a Gazebo server and the
@@ -86,22 +110,28 @@ export class SceneManager {
   private elementId: string = 'gz-scene';
 
   /**
+   * Name of an audio topic, which can be used to playback audio files.
+   */
+  private audioTopic: string;
+
+  /**
    * Constructor. If a url is specified, then then SceneManager will connect
    * to the specified websocket server. Otherwise, the `connect` function
    * should be called after construction.
+   * @param params The scene manager configuration options
    *
-   * @param elemId The id of the HTML element that will hold the rendering
-   * context. If not specified, the id gz-scene will be used.
-   * @param url An optional websocket url that points to a Gazebo server.
-   * @param key An optional authentication key.
    */
-  constructor(elemId?: string, url?: string, key?: string) {
-    if (typeof elemId !== 'undefined') {
-      this.elementId = elemId;
+  constructor( config: SceneManagerConfig ) {
+    if (typeof config.elementId !== 'undefined') {
+      this.elementId = config.elementId;
     }
 
-    if (typeof url !== 'undefined') {
-      this.connect(url, key);
+    if (typeof config.audioTopic !== 'undefined') {
+      this.audioTopic = config.audioTopic;
+    }
+
+    if (typeof config.websocketUrl !== 'undefined') {
+      this.connect(config.websocketUrl, config.websocketKey);
     }
   }
 
@@ -228,17 +258,6 @@ export class SceneManager {
       // available.
       if (response === 'ready') {
         this.subscribeToTopics();
-
-        // create a sun light
-        /*this.sunLight = this.scene.createLight(3,
-          new THREE.Color(0.8, 0.8, 0.8), 0.9,
-          {position: {x: 0, y: 0, z: 10},
-           orientation: {x: 0, y: 0, z: 0, w: 1}},
-          null, true, 'sun', {x: 0.5, y: 0.1, z: -0.9});
-
-        this.scene.add(this.sunLight);
-        this.scene.ambient.color = new THREE.Color(0x666666);
-       */
       }
     });
 
@@ -303,6 +322,12 @@ export class SceneManager {
       }
     );
     this.transport.subscribe(poseTopic);
+
+    // Subscribe to the audio control topic.
+    if (typeof this.audioTopic  !== 'undefined') {
+      const audioTopic = new AudioTopic(this.audioTopic,
+                                        this.transport);
+    }
 
     // Subscribe to the 'scene/info' topic which sends scene changes.
     const sceneTopic = new Topic(
