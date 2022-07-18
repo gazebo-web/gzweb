@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-// Nate disabled import * as SPE from '../include/SPE';
+import * as SPE from './SPE';
 import { getDescendants } from './Globals';
 import { ColladaLoader } from '../include/ColladaLoader';
 import { Color } from './Color';
@@ -81,7 +81,7 @@ export class Scene {
   private pointerOnMenu: boolean;
   private grid: THREE.GridHelper;
   private renderer: THREE.WebGLRenderer;
-  // Nate disabled: private particleGroup: SPE.Group;
+  private particleGroup: SPEGroup;
   private cameraMoveToClock: THREE.Clock;
   private colladaLoader: ColladaLoader;
   private stlLoader: STLLoader;
@@ -981,10 +981,10 @@ export class Scene {
       this.radialMenu.update();
     }*/
 
-    /* Nate disabled if (this.particleGroup) {
+    if (this.particleGroup) {
       var clock = new THREE.Clock();
       this.particleGroup.tick( clock.getDelta() );
-    }*/
+    }
 
     this.renderer.clear();
     this.renderer.render(this.scene, this.camera);
@@ -3480,12 +3480,11 @@ export class Scene {
    * Add a Particle Group to render. It is required to calculate the values of
    * particles during each cycle.
    *
-   * @param {SPE.Group} particleGroup - A SPE Particle Group to render.
+   * @param {SPEGroup} particleGroup - An SPE Particle Group to render.
    */
-  /* Nate disabled public addParticleGroup(particleGroup: SPE.Group): void
-  {
+  public addParticleGroup(particleGroup: SPEGroup): void {
     this.particleGroup = particleGroup;
-  }*/
+  }
 
  /**
   * Print out the scene graph with position of each node.

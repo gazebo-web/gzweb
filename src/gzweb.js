@@ -10,6 +10,13 @@ export { Pose } from './Pose';
 export { SceneManager } from './SceneManager';
 export { Scene } from './Scene';
 export { SDFParser } from './SDFParser';
+/*export { SPE,
+         SPETypedArrayHelper,
+         SPEShaderAttribute,
+         SPEUtils,
+         SPEGroup,
+         SPEEmitter } from './SPE';
+         */
 export { Topic } from './Topic';
 export { Transport } from './Transport';
 export * from './Globals';

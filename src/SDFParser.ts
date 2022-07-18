@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-// Nate disabled import *  as SPE from '../include/SPE';
+// import *  as SPE from './SPE';
 import { getDescendants } from './Globals';
 import { FuelServer,
          createFuelUri } from './FuelServer';
@@ -1668,8 +1668,8 @@ export class SDFParser {
       return undefined;
     }
     let particleEmitterObj = new THREE.Object3D();
-    /* Nate disabled
 
+    /*
     // Given name of the emitter.
     let emitterName: string = this.createUniqueName(emitter);
 
@@ -1779,7 +1779,7 @@ export class SDFParser {
     // Create the Particle Group.
     // This is the container for the Particle Emitter.
     // For more information, check http://squarefeet.github.io/ShaderParticleEngine/docs/api/SPE.Group.html
-    let particleGroup = new SPE.Group({
+    let particleGroup = new SPEGroup({
       // TODO(german) SPE requires just a texture, leaving the SDF Material
       // related information out.
       // We might want to change the engine or write our if this proves to be
@@ -1794,7 +1794,7 @@ export class SDFParser {
 
     // Particle Emitter.
     // For more information, check http://squarefeet.github.io/ShaderParticleEngine/docs/api/SPE.Emitter.html
-    var particleEmitter = new SPE.Emitter({
+    var particleEmitter = new SPEEmitter({
       // How many particles this emitter will hold.
       // The rate of particles emitted per second is roughly the particleCount/lifetime.
       particleCount: rate * lifetime,
