@@ -1,4 +1,5 @@
 export { Asset } from './Asset';
+export { AudioPlayback } from './AudioPlayback';
 export { Color } from './Color';
 export { FuelServer } from './FuelServer';
 export { Gamepad } from './Gamepad';
@@ -7,7 +8,7 @@ export { Material } from './Material';
 export { ModelUserData } from './ModelUserData';
 export { PBRMaterial } from './PBRMaterial';
 export { Pose } from './Pose';
-export { SceneManager } from './SceneManager';
+export { SceneManager, SceneManagerConfig } from './SceneManager';
 export { Scene } from './Scene';
 export { SDFParser } from './SDFParser';
 export { Topic } from './Topic';
