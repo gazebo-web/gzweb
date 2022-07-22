@@ -101,12 +101,16 @@ export class Transport {
     this.topicMap.set(topic.name, topic);
 
     const publisher = this.availableTopics.filter(pub => pub['topic'] === topic.name)[0];
-    if (publisher['msg_type'] === 'ignition.msgs.Image' ||
-        publisher['msg_type'] === 'gazebo.msgs.Image') {
-      this.ws.send(this.buildMsg(['image', topic.name, '', '']));
-    }
-    else {
-      this.ws.send(this.buildMsg(['sub', topic.name, '', '']));
+    if (publisher) {
+      if (publisher['msg_type'] === 'ignition.msgs.Image' ||
+          publisher['msg_type'] === 'gazebo.msgs.Image') {
+        this.ws.send(this.buildMsg(['image', topic.name, '', '']));
+      }
+      else {
+        this.ws.send(this.buildMsg(['sub', topic.name, '', '']));
+      }
+    } else {
+      console.warn('No publisher found for topic: ', topic.name);
     }
   }
 
