@@ -1,5 +1,5 @@
 export { Asset } from './Asset';
-export { AudioPlayback } from './AudioPlayback';
+export { AudioTopic } from './AudioTopic';
 export { Color } from './Color';
 export { FuelServer } from './FuelServer';
 export { Gamepad } from './Gamepad';
