@@ -185,6 +185,12 @@ export class SceneManager {
     }
   }
 
+  public thirdPersonFollow(entityName: String): void {
+    if (this.scene) {
+      this.scene.emitter.emit('third_person_follow_entity', entityName);
+    }
+  }
+
   public moveTo(entityName: String): void {
     if (this.scene) {
       this.scene.emitter.emit('move_to_entity', entityName);
