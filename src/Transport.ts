@@ -1,5 +1,6 @@
 import { BehaviorSubject, Subject } from 'rxjs';
 import { Root, Type, parse } from 'protobufjs';
+import { Publisher } from './Publisher';
 import { Topic } from './Topic';
 import { Asset, AssetCb } from './Asset';
 
@@ -90,6 +91,32 @@ export class Transport {
     if (this.ws) {
       this.ws.close();
     }
+  }
+
+  /**
+   * Advertise a topic.
+   *
+   * @param topic The topic to advertise.
+   */
+  public advertise(topic: string, msgTypeName: string): Publisher {
+    this.ws.send(this.buildMsg(['adv', topic, msgTypeName, '']));
+    return new Publisher(topic, msgTypeName, //this);
+                         (topic: string, msgTypeName: string, msg: string) => {
+                           this.publish(topic, msgTypeName, msg);});
+  }
+
+  /**
+   * Publish to a topic.
+   *
+   * @param topic The topic to advertise.
+   */
+  public publish(topic: string, msgTypeName: string, msg: string): void {
+    const StringMsg = this.root!.lookupType(msgTypeName);
+    let strMsg = StringMsg.create({data: msg});
+    let buffer = StringMsg.encode(strMsg).finish();
+    let strBuf = new TextDecoder().decode(buffer);
+
+    this.ws.send(this.buildMsg(['pub_in', topic, msgTypeName, strBuf]));
   }
 
   /**

@@ -44,6 +44,12 @@ export class SceneManagerConfig {
  * ```
  */
 export class SceneManager {
+
+  /**
+   * A Transport interface used to connect to a Gazebo server.
+   */
+  public transport = new Transport();
+
   /**
    * Particle emitter updates.
    */
@@ -83,11 +89,6 @@ export class SceneManager {
    * A sun directional light for global illumination
    */
   private sunLight: object;
-
-  /**
-   * A Transport interface used to connect to a Gazebo server.
-   */
-  private transport = new Transport();
 
   /**
    * ID of the Request Animation Frame method. Required to cancel the animation.
