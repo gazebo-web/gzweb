@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { AudioTopic } from './AudioTopic';
+import { Publisher } from './Publisher';
 import { Scene } from './Scene';
 import { SDFParser } from './SDFParser';
 import { Shaders } from './Shaders';
@@ -48,7 +49,7 @@ export class SceneManager {
   /**
    * A Transport interface used to connect to a Gazebo server.
    */
-  public transport = new Transport();
+  private transport = new Transport();
 
   /**
    * Particle emitter updates.
@@ -297,6 +298,15 @@ export class SceneManager {
           sceneInfo['ambient']['b']);
       }
     });
+  }
+
+  /**
+   * Advertise a topic.
+   *
+   * @param topic The topic to advertise.
+   */
+  public advertise(topic: string, msgTypeName: string): Publisher {
+    return this.transport.advertise(topic, msgTypeName);
   }
 
   /**
