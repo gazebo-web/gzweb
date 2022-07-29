@@ -997,26 +997,26 @@ export class Scene {
       // -X - Across the camera, to the left
       // +Y - Up relative to the camera
       // -Y - Down relative to the camera
-      // +Z - towards the camera
-      // -Z - away from the camera
+      // +Z - Towards the camera
+      // -Z - Away from the camera
 
-      var fixedCameraOffset = new THREE.Vector3(-6, -2, 1.5);
+      let fixedCameraOffset = new THREE.Vector3(-6, -2, 1.5);
       fixedCameraOffset.applyQuaternion(this.cameraTrackObject.quaternion);
       fixedCameraOffset.add(this.cameraTrackObject.position);
 
-      var fixedLookAt = new THREE.Vector3(12, -4, 0);
+      let fixedLookAt = new THREE.Vector3(12, -4, 0);
       fixedLookAt.applyQuaternion(this.cameraTrackObject.quaternion);
       fixedLookAt.add(this.cameraTrackObject.position);
 
-      var now = performance.now();
+      const now = performance.now();
       if (this.lastThirdPersonTimestamp === null) {
         this.lastThirdPersonTimestamp = now;
       }
 
       // The calculation here comes from:
       // https://github.com/simondevyoutube/ThreeJS_Tutorial_ThirdPersonCamera/blob/main/main.js
-      var timeElapsedSec = (now - this.lastThirdPersonTimestamp) * 0.001;
-      var timestep = 1.0 - Math.pow(0.001, timeElapsedSec);
+      const timeElapsedSec = (now - this.lastThirdPersonTimestamp) * 0.001;
+      const timestep = 1.0 - Math.pow(0.001, timeElapsedSec);
 
       this.currentThirdPersonLookAt.lerp(fixedLookAt, timestep);
 
