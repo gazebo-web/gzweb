@@ -308,6 +308,15 @@ export class SceneManager {
   }
 
   /**
+   * Allows clients to unsubscribe from topics.
+   *
+   * @param name The name of the topic to unsubscribe from.
+   */
+   public unsubscribeToTopic(name: string): void {
+    this.transport.unsubscribe(name);
+  }
+
+  /**
    * Subscribe to Gazebo topics required to render a scene.
    *
    * This include:
