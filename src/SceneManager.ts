@@ -312,7 +312,7 @@ export class SceneManager {
    *
    * @param name The name of the topic to unsubscribe from.
    */
-   public unsubscribeToTopic(name: string): void {
+  public unsubscribeToTopic(name: string): void {
     this.transport.unsubscribe(name);
   }
 
