@@ -319,7 +319,7 @@ export class SceneManager {
   /**
    * Subscribe to Gazebo topics required to render a scene.
    *
-   * This include:
+   * This includes:
    * - /world/WORLD_NAME/dynamic_pose/info
    * - /world/WORLD_NAME/scene/info
    */
