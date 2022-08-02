@@ -299,8 +299,20 @@ export class SceneManager {
   }
 
   /**
-   * Subscribe to Gazebo topics required to render a scene. This include
-   * /world/WORLD_NAME/dynamic_pose/info and /world/WORLD_NAME/scene/info
+   * Allows clients to subscribe to a custom topic.
+   *
+   * @param topic The topic to subscribe to.
+   */
+  public subscribeToTopic(topic: Topic): void {
+    this.transport.subscribe(topic);
+  }
+
+  /**
+   * Subscribe to Gazebo topics required to render a scene.
+   *
+   * This include:
+   * - /world/WORLD_NAME/dynamic_pose/info
+   * - /world/WORLD_NAME/scene/info
    */
   private subscribeToTopics(): void {
     // Subscribe to the pose topic and modify the models' poses.
