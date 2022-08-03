@@ -100,7 +100,9 @@ export class Scene {
   private COMVisual: THREE.Object3D = new THREE.Object3D;
   private textureCache = new Map<string, THREE.Texture>();
   private currentThirdPersonLookAt = new THREE.Vector3();
-  private lastThirdPersonTimestamp: any;
+  private defaultThirdPersonCameraOffset: THREE.Vector3 = new THREE.Vector3(-6, -2, 1.5);
+  private currentThirdPersonCameraOffset: THREE.Vector3 = new THREE.Vector3();
+  private mousePointerDown: boolean = false;
 
   constructor(shaders: Shaders, defaultCameraPosition?: THREE.Vector3,
               defaultCameraLookAt?: THREE.Vector3,
@@ -210,6 +212,9 @@ export class Scene {
       if (object !== undefined && object !== null) {
         // Set the object to track.
         that.cameraTrackObject =  object;
+
+        // Set the camera offset to the default one.
+        that.currentThirdPersonCameraOffset.copy(that.defaultThirdPersonCameraOffset);
 
         // Set the camera mode.
         that.cameraMode = that.thirdPersonFollowEntityEvent;
@@ -623,8 +628,6 @@ export class Scene {
     mesh.name = 'COM_VISUAL';
     mesh.rotation.z = -Math.PI/2;
     this.COMvisual.add(mesh);
-
-    this.lastThirdPersonTimestamp = null;
   }
 
   public addSky(): void {
@@ -655,6 +658,8 @@ export class Scene {
    */
   public onPointerDown(event: MouseEvent): void {
     event.preventDefault();
+
+    this.mousePointerDown = true;
 
     if (this.spawnModel.active)
     {
@@ -751,6 +756,21 @@ export class Scene {
    */
   public onPointerUp(event: MouseEvent) {
     event.preventDefault();
+
+    this.mousePointerDown = false;
+
+    if (this.cameraMode === this.thirdPersonFollowEntityEvent) {
+      // Calculate and store the new relative fixed camera position.
+      // The offset we get in this.camera.position is in world coordinates,
+      // but we want it relative to the object we are tracking.  Therefore,
+      // do the inverse of what we do in render, namely:
+      // 1. subtract the position of the tracked object
+      // 2. Apply the inverse (conjugate) quaternion of the tracked object
+      let cameraOffset = this.camera.position;
+      cameraOffset.sub(this.cameraTrackObject.position);
+      cameraOffset.applyQuaternion(this.cameraTrackObject.quaternion.conjugate());
+      this.currentThirdPersonCameraOffset.copy(cameraOffset);
+    }
 
     // Clicks (<150ms) outside any models trigger view mode
     // var millisecs = new Date().getTime();
@@ -978,7 +998,7 @@ export class Scene {
     }*/
     this.controls.update();
 
-    // If 'follow' mode, then track the specifiec object.
+    // If 'follow' mode, then track the specific object.
     if (this.cameraMode === this.followEntityEvent) {
       // Using a hard-coded offset for now.
       var relativeCameraOffset = new THREE.Vector3(-5, 0, 2);
@@ -989,7 +1009,7 @@ export class Scene {
       this.camera.position.lerp(cameraOffset, 0.1);
       this.camera.lookAt(this.cameraTrackObject.position);
 
-    } else if (this.cameraMode === this.thirdPersonFollowEntityEvent) {
+    } else if (this.cameraMode === this.thirdPersonFollowEntityEvent && !this.mousePointerDown) {
       // Based on https://discoverthreejs.com/book/first-steps/transformations/ ,
       // in THREE.js we have the following coordinate system:
       //
@@ -1000,7 +1020,7 @@ export class Scene {
       // +Z - Towards the camera
       // -Z - Away from the camera
 
-      let fixedCameraOffset = new THREE.Vector3(-6, -2, 1.5);
+      let fixedCameraOffset = this.currentThirdPersonCameraOffset.clone();
       fixedCameraOffset.applyQuaternion(this.cameraTrackObject.quaternion);
       fixedCameraOffset.add(this.cameraTrackObject.position);
 
@@ -1008,14 +1028,9 @@ export class Scene {
       fixedLookAt.applyQuaternion(this.cameraTrackObject.quaternion);
       fixedLookAt.add(this.cameraTrackObject.position);
 
-      const now = performance.now();
-      if (this.lastThirdPersonTimestamp === null) {
-        this.lastThirdPersonTimestamp = now;
-      }
-
       // The calculation here comes from:
       // https://github.com/simondevyoutube/ThreeJS_Tutorial_ThirdPersonCamera/blob/main/main.js
-      const timeElapsedSec = (now - this.lastThirdPersonTimestamp) * 0.001;
+      const timeElapsedSec = timeElapsedMs * 0.001;
       const timestep = 1.0 - Math.pow(0.001, timeElapsedSec);
 
       this.currentThirdPersonLookAt.lerp(fixedLookAt, timestep);
