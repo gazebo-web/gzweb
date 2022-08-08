@@ -3,7 +3,7 @@ import { AudioTopic } from './AudioTopic';
 import { Scene } from './Scene';
 import { SDFParser } from './SDFParser';
 import { Shaders } from './Shaders';
-import { Subscription } from 'rxjs';
+import { Observable, Subscription } from 'rxjs';
 import { Topic } from './Topic';
 import { Transport } from './Transport';
 
@@ -155,6 +155,16 @@ export class SceneManager {
    */
   public getConnectionStatus(): string {
     return this.connectionStatus;
+  }
+
+  /**
+   * Get the connection status as an observable.
+   * Allows clients to subscribe to this stream, to act upon changes in connection status.
+   *
+   * @returns An Observable of the connection status (string).
+   */
+  public getConnectionStatusAsObservable(): Observable<string> {
+    return this.transport.status$.asObservable();
   }
 
   /**
