@@ -323,6 +323,45 @@ export class SceneManager {
   }
 
   /**
+   * Play the Simulation.
+   */
+  public play(): void {
+    const topic = `/world/${this.transport.getWorld()}/control`;
+    this.transport.sendMessage([
+      'sim',
+      topic,
+      'play',
+      ''
+    ]);
+  }
+
+  /**
+   * Pause the Simulation.
+   */
+  public pause(): void {
+    const topic = `/world/${this.transport.getWorld()}/control`;
+    this.transport.sendMessage([
+      'sim',
+      topic,
+      'pause',
+      ''
+    ]);
+  }
+
+  /**
+   * Stop the Simulation.
+   */
+  public stop(): void {
+    const topic = `/server_control`;
+    this.transport.sendMessage([
+      'sim',
+      topic,
+      'stop',
+      ''
+    ]);
+  }
+
+  /**
    * Subscribe to Gazebo topics required to render a scene.
    *
    * This includes:
