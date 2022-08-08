@@ -179,6 +179,24 @@ export class Transport {
   }
 
   /**
+   * Send a message through the websocket, if the connection status allows it.
+   *
+   * @param msg The message to send. It consists of four parts:
+   *   1. Operation
+   *   2. Topic name
+   *   3. Message type
+   *   4. Payload
+   */
+  public sendMessage(msg: string[]): void {
+    // Only send the message when the connection allows it.
+    const connectionStatus = this.status$.getValue();
+    if (connectionStatus === 'disconnected' || connectionStatus === 'error') {
+      return;
+    }
+    this.ws.send(this.buildMsg(msg));
+  }
+
+  /**
    * Handler for the open event of a Websocket.
    *
    * @param key Optional. A key to authorize access to the websocket messages.
@@ -269,7 +287,7 @@ export class Transport {
       // get the actual msg payload without the header
       const msgData = buffer.slice(
         frameParts[0].length + frameParts[1].length + frameParts[2].length + 3
-        );
+      );
 
       // do not decode image msg as it is raw compressed png data and not a
       // protobuf msg
