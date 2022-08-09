@@ -186,25 +186,25 @@ export class SceneManager {
     }
   }
 
-  public follow(entityName: String): void {
+  public follow(entityName: string): void {
     if (this.scene) {
       this.scene.emitter.emit('follow_entity', entityName);
     }
   }
 
-  public thirdPersonFollow(entityName: String): void {
+  public thirdPersonFollow(entityName: string): void {
     if (this.scene) {
       this.scene.emitter.emit('third_person_follow_entity', entityName);
     }
   }
 
-  public moveTo(entityName: String): void {
+  public moveTo(entityName: string): void {
     if (this.scene) {
       this.scene.emitter.emit('move_to_entity', entityName);
     }
   }
 
-  public select(entityName: String): void {
+  public select(entityName: string): void {
     if (this.scene) {
       this.scene.emitter.emit('select_entity', entityName);
     }
