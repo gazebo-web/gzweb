@@ -957,7 +957,7 @@ export class Scene {
   /**
    * Render scene
    */
-  public render(): void {
+  public render(timeElapsedMs: number): void {
     // Kill camera control when:
     // -manipulating
     // -using radial menu
@@ -1082,7 +1082,7 @@ export class Scene {
     }
 
     this.renderer.setSize(width, height);
-    this.render();
+    this.render(0);
   }
 
   /**
@@ -2283,7 +2283,7 @@ export class Scene {
   {
     // An explicit call to render is required. Otherwise the obtained image will be black.
     // See https://threejsfundamentals.org/threejs/lessons/threejs-tips.html, "Taking A Screenshot of the Canvas"
-    this.render();
+    this.render(0);
 
     this.getDomElement().toBlob(function(blob: any) {
       let url = URL.createObjectURL(blob);
@@ -2339,7 +2339,7 @@ export class Scene {
     this.camera.position.add(new THREE.Vector3(1.6, -1.6, 1.2));
     this.camera.lookAt(center);
     light.position.copy(this.camera.position);
-    this.render();
+    this.render(0);
     const perspective = getCanvasBlob(canvas);
     perspective.then(function(blob) {
       zip.file('thumbnails/1.png', <Blob>(blob));
@@ -2351,7 +2351,7 @@ export class Scene {
     this.camera.position.add(new THREE.Vector3(0, 0, 2.2));
     this.camera.rotation.copy(new THREE.Euler(0, 0, -90 * Math.PI / 180));
     light.position.copy(this.camera.position);
-    this.render();
+    this.render(0);
     const top = getCanvasBlob(canvas);
     top.then(function(blob) {
       zip.file('thumbnails/2.png', <Blob>(blob));
@@ -2363,7 +2363,7 @@ export class Scene {
     this.camera.position.add(new THREE.Vector3(2.2, 0, 0));
     this.camera.rotation.copy(new THREE.Euler(0, 90 * Math.PI / 180, 90 * Math.PI / 180));
     light.position.copy(this.camera.position);
-    this.render();
+    this.render(0);
     const front = getCanvasBlob(canvas);
     front.then(function(blob) {
       zip.file('thumbnails/3.png', <Blob>(blob));
@@ -2375,7 +2375,7 @@ export class Scene {
     this.camera.position.add(new THREE.Vector3(0, 2.2, 0));
     this.camera.rotation.copy(new THREE.Euler(-90 * Math.PI / 180, 0, 180 * Math.PI / 180));
     light.position.copy(this.camera.position);
-    this.render();
+    this.render(0);
     const side = getCanvasBlob(canvas);
     side.then(function(blob) {
       zip.file('thumbnails/4.png', <Blob>(blob));
@@ -2388,7 +2388,7 @@ export class Scene {
     this.camera.rotation.copy(new THREE.Euler(90 * Math.PI / 180, -90 * Math.PI / 180, 0));
     light.position.copy(this.camera.position);
     light.position.add(new THREE.Vector3(-2000, 0, 0));
-    this.render();
+    this.render(0);
     const back = getCanvasBlob(canvas);
     back.then(function(blob) {
       zip.file('thumbnails/5.png', <Blob>(blob));

@@ -95,6 +95,11 @@ export class SceneManager {
   private cancelAnimation: number;
 
   /**
+   *
+   */
+  private previousRenderTimestampMs: number = 0;
+
+  /**
    * The container of the Scene.
    */
   private sceneElement: HTMLElement;
@@ -144,6 +149,8 @@ export class SceneManager {
     if (this.cancelAnimation) {
       cancelAnimationFrame(this.cancelAnimation);
     }
+
+    this.previousRenderTimestampMs = 0;
 
     if (this.scene) {
       this.scene.cleanup();
@@ -485,18 +492,23 @@ export class SceneManager {
     this.scene.setSize(this.sceneElement.clientWidth, this.sceneElement.clientHeight);
   }
 
+  private RAF(): void {
+    this.cancelAnimation = requestAnimationFrame((timestampMs) => {
+      if (this.previousRenderTimestampMs === 0) {
+        this.previousRenderTimestampMs = timestampMs;
+      }
+
+      this.RAF();
+
+      this.scene.render(timestampMs - this.previousRenderTimestampMs);
+      this.previousRenderTimestampMs = timestampMs;
+    });
+  }
+
   /**
    * Start the visualization rendering loop.
    */
   private startVisualization(): void {
-    // Render loop.
-    const animate = () => {
-      this.scene.render();
-      this.cancelAnimation = requestAnimationFrame(() => {
-        animate();
-      });
-    };
-
-    animate();
+    this.RAF();
   }
 }
