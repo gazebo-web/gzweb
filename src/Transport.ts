@@ -1,4 +1,4 @@
-import { BehaviorSubject, Subject } from 'rxjs';
+import { BehaviorSubject, Observable } from 'rxjs';
 import { Root, Type, parse } from 'protobufjs';
 import { Topic } from './Topic';
 import { Asset, AssetCb } from './Asset';
@@ -8,13 +8,6 @@ import { Asset, AssetCb } from './Asset';
  * Gazebo websocket server.
  */
 export class Transport {
-
-  /**
-   * Status connection behavior subject.
-   * Components can subscribe to it to get connection status updates.
-   * Uses a Behavior Subject because it has an initial state and stores a value.
-   */
-  public status$ = new BehaviorSubject<string>('disconnected');
 
   /**
    * Scene Information behavior subject.
@@ -60,6 +53,13 @@ export class Transport {
    * The world that is being used in the Simulation.
    */
   private world: string = '';
+
+  /**
+   * Status connection behavior subject.
+   * Internally keeps track of the connection state.
+   * Uses a Behavior Subject because it has an initial state and stores a value.
+   */
+  private status$ = new BehaviorSubject<string>('disconnected');
 
   /**
    * Connects to a websocket.
@@ -224,6 +224,13 @@ export class Transport {
     }
 
     this.ws.send(this.buildMsg(msg));
+  }
+
+  /**
+   * Exposes the connection status as an Observable.
+   */
+  public getConnectionStatus(): Observable<string> {
+    return this.status$.asObservable();
   }
 
   /**
