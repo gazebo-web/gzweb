@@ -3,7 +3,7 @@ import { AudioTopic } from './AudioTopic';
 import { Scene } from './Scene';
 import { SDFParser } from './SDFParser';
 import { Shaders } from './Shaders';
-import { Observable, Subscription } from 'rxjs';
+import { map, Observable, Subscription } from 'rxjs';
 import { Topic } from './Topic';
 import { Transport } from './Transport';
 
@@ -159,12 +159,15 @@ export class SceneManager {
 
   /**
    * Get the connection status as an observable.
-   * Allows clients to subscribe to this stream, to act upon changes in connection status.
+   * Allows clients to subscribe to this stream, to let them know when the connection to Gazebo
+   * is ready for communication.
    *
-   * @returns An Observable of the connection status (string).
+   * @returns An Observable of a boolean: Whether the connection status is ready or not.
    */
-  public getConnectionStatusAsObservable(): Observable<string> {
-    return this.transport.status$.asObservable();
+  public getConnectionStatusAsObservable(): Observable<boolean> {
+    return this.transport.getConnectionStatus().pipe(
+      map((status) => status === 'ready'),
+    );
   }
 
   /**
