@@ -258,7 +258,7 @@ export class SceneManager {
   public connect(url: string, key?: string): void {
     this.transport.connect(url, key);
 
-    this.statusSubscription = this.transport.status$.subscribe((response) => {
+    this.statusSubscription = this.transport.getConnectionStatus().subscribe((response) => {
       if (response === 'error') {
         // TODO: Return an error so the caller can open a snackbar
         console.log('Connection failed. Please contact an administrator.');
