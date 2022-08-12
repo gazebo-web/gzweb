@@ -766,10 +766,9 @@ export class Scene {
       // do the inverse of what we do in render, namely:
       // 1. subtract the position of the tracked object
       // 2. Apply the inverse (conjugate) quaternion of the tracked object
-      let cameraOffset = this.camera.position;
-      cameraOffset.sub(this.cameraTrackObject.position);
-      cameraOffset.applyQuaternion(this.cameraTrackObject.quaternion.conjugate());
-      this.currentThirdPersonCameraOffset.copy(cameraOffset);
+      this.currentThirdPersonCameraOffset = this.camera.position.clone();
+      this.currentThirdPersonCameraOffset.sub(this.cameraTrackObject.position);
+      this.currentThirdPersonCameraOffset.applyQuaternion(this.cameraTrackObject.quaternion.conjugate());
     }
 
     // Clicks (<150ms) outside any models trigger view mode
@@ -1031,7 +1030,7 @@ export class Scene {
       // The calculation here comes from:
       // https://github.com/simondevyoutube/ThreeJS_Tutorial_ThirdPersonCamera/blob/main/main.js
       const timeElapsedSec = timeElapsedMs * 0.001;
-      const timestep = 1.0 - Math.pow(0.001, timeElapsedSec);
+      const timestep = 2.0 * timeElapsedSec;
 
       this.currentThirdPersonLookAt.lerp(fixedLookAt, timestep);
 
