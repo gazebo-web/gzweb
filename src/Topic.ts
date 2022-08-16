@@ -18,7 +18,7 @@ export class Topic {
   /**
    * Optional. Function to be called when unsubscribing from the topic.
    */
-   unsubscribe?(): any;
+  unsubscribe?(): any;
 
   constructor(name: string, cb: TopicCb) {
     this.name = name;

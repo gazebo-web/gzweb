@@ -1,4 +1,4 @@
-import { BehaviorSubject, Subject } from 'rxjs';
+import { BehaviorSubject, Observable } from 'rxjs';
 import { Root, Type, parse } from 'protobufjs';
 import { Publisher } from './Publisher';
 import { Topic } from './Topic';
@@ -9,13 +9,6 @@ import { Asset, AssetCb } from './Asset';
  * Gazebo websocket server.
  */
 export class Transport {
-
-  /**
-   * Status connection behavior subject.
-   * Components can subscribe to it to get connection status updates.
-   * Uses a Behavior Subject because it has an initial state and stores a value.
-   */
-  public status$ = new BehaviorSubject<string>('disconnected');
 
   /**
    * Scene Information behavior subject.
@@ -61,6 +54,13 @@ export class Transport {
    * The world that is being used in the Simulation.
    */
   private world: string = '';
+
+  /**
+   * Status connection behavior subject.
+   * Internally keeps track of the connection state.
+   * Uses a Behavior Subject because it has an initial state and stores a value.
+   */
+  private status$ = new BehaviorSubject<string>('disconnected');
 
   /**
    * Connects to a websocket.
@@ -137,10 +137,10 @@ export class Transport {
     const publisher = this.availableTopics.filter(pub => pub['topic'] === topic.name)[0];
     if (publisher['msg_type'] === 'ignition.msgs.Image' ||
         publisher['msg_type'] === 'gazebo.msgs.Image') {
-      this.ws.send(this.buildMsg(['image', topic.name, '', '']));
+      this.sendMessage(['image', topic.name, '', '']);
     }
     else {
-      this.ws.send(this.buildMsg(['sub', topic.name, '', '']));
+      this.sendMessage(['sub', topic.name, '', '']);
     }
   }
 
@@ -157,7 +157,7 @@ export class Transport {
       }
 
       this.topicMap.delete(name);
-      this.ws.send(this.buildMsg(['unsub', name, '', '']));
+      this.sendMessage(['unsub', name, '', '']);
     }
   }
 
@@ -168,7 +168,7 @@ export class Transport {
    * @param rate Publish rate.
    */
   public throttle(topic: Topic, rate: number): void {
-    this.ws.send(this.buildMsg(['throttle', topic.name, 'na', rate.toString()]));
+    this.sendMessage(['throttle', topic.name, 'na', rate.toString()]);
   }
 
   /**
@@ -209,7 +209,62 @@ export class Transport {
     };
 
     this.assetMap.set(_uri, asset);
-    this.ws.send(this.buildMsg(['asset', '', '', _uri]));
+    this.sendMessage(['asset', '', '', _uri]);
+  }
+
+  /**
+   * Send a message through the websocket. It verifies if the message is correct and if the
+   * connection status allows it to be sent.
+   *
+   * @param msg The message to send. It consists of four parts:
+   *   1. Operation
+   *   2. Topic name
+   *   3. Message type
+   *   4. Payload
+   */
+  public sendMessage(msg: string[]): void {
+    // Verify the message has four parts.
+    if (msg.length !== 4) {
+      console.error('Message must have four parts', msg);
+      return;
+    }
+
+    // Only send the message when the connection allows it.
+    // Note: Some messages need to be sent during the connection process.
+    const connectionStatus = this.status$.getValue();
+
+    if (connectionStatus === 'error') {
+      console.error('Cannot send the message. Connection failed.', { status: connectionStatus, message: msg });
+      return;
+    }
+
+    // In order to properly establish a connection, we need to send certain messages, such as
+    // authentication messages, world name, etc.
+    const operation = msg[0];
+    if (
+      operation === 'auth' ||
+      operation === 'protos' ||
+      operation === 'topics-types' ||
+      operation === 'worlds'
+    ) {
+      this.ws.send(this.buildMsg(msg));
+      return;
+    }
+
+    // Other messages should be sent when the connection status is connected or ready.
+    if (connectionStatus === 'disconnected') {
+      console.error('Tyring to send a message and the websocket is disconnected.', msg);
+      return;
+    }
+
+    this.ws.send(this.buildMsg(msg));
+  }
+
+  /**
+   * Exposes the connection status as an Observable.
+   */
+  public getConnectionStatus(): Observable<string> {
+    return this.status$.asObservable();
   }
 
   /**
@@ -220,9 +275,9 @@ export class Transport {
   private onOpen(key?: string): void {
     // An authorization key could be required to request the message definitions.
     if (key) {
-      this.ws.send(this.buildMsg(['auth', '', '', key]));
+      this.sendMessage(['auth', '', '', key]);
     } else {
-      this.ws.send(this.buildMsg(['protos', '', '', '']));
+      this.sendMessage(['protos', '', '', '']);
     }
   }
 
@@ -255,7 +310,7 @@ export class Transport {
         switch (content) {
           case 'authorized':
             // Get the message definitions.
-            this.ws.send(this.buildMsg(['protos', '', '', '']));
+            this.sendMessage(['protos', '', '', '']);
             break;
           case 'invalid':
             // TODO(germanmas) Throw a proper Unauthorized error.
@@ -266,10 +321,10 @@ export class Transport {
             this.root = parse(fileReader.result as string, {keepCase: true}).root;
 
             // Request topics.
-            this.ws.send(this.buildMsg(['topics-types', '', '', '']));
+            this.sendMessage(['topics-types', '', '', '']);
 
             // Request world information.
-            this.ws.send(this.buildMsg(['worlds', '', '', '']));
+            this.sendMessage(['worlds', '', '', '']);
 
             // Now we can update the connection status.
             this.status$.next('connected');
@@ -303,7 +358,7 @@ export class Transport {
       // get the actual msg payload without the header
       const msgData = buffer.slice(
         frameParts[0].length + frameParts[1].length + frameParts[2].length + 3
-        );
+      );
 
       // do not decode image msg as it is raw compressed png data and not a
       // protobuf msg
@@ -340,7 +395,7 @@ export class Transport {
           case 'worlds':
             // The world name needs to be used to get the scene information.
             this.world = msg['data'][0];
-            this.ws.send(this.buildMsg(['scene', this.world, '', '']));
+            this.sendMessage(['scene', this.world, '', '']);
             break;
           case 'scene':
             // Emit the scene information. Contains all the models used.

@@ -67,6 +67,7 @@ export class Scene {
   private selectEntityEvent: string;
   private followEntityEvent: string;
   private moveToEntityEvent: string;
+  private thirdPersonFollowEntityEvent: string;
   private cameraMode: string;
   private sceneOrtho: THREE.Scene;
   private camera: THREE.PerspectiveCamera;
@@ -98,6 +99,8 @@ export class Scene {
   private spawnModel: SpawnModel;
   private COMVisual: THREE.Object3D = new THREE.Object3D;
   private textureCache = new Map<string, THREE.Texture>();
+  private currentThirdPersonLookAt = new THREE.Vector3();
+  private lastThirdPersonTimestamp: any;
 
   constructor(shaders: Shaders, defaultCameraPosition?: THREE.Vector3,
               defaultCameraLookAt?: THREE.Vector3,
@@ -146,6 +149,11 @@ export class Scene {
      */
     this.moveToEntityEvent = 'move_to_entity';
 
+    /**
+     * @member {string} thirdPersonFollowEntity
+     * The third-person follow entity event name.
+     */
+    this.thirdPersonFollowEntityEvent = 'third_person_follow_entity';
 
     var that = this;
 
@@ -181,6 +189,30 @@ export class Scene {
 
         // Set the camera mode.
         that.cameraMode = that.followEntityEvent;
+      }
+    });
+
+    /**
+     * Handle the third-person follow entity follow signal ('third_person_follow_entity').
+     * @param {string} entityName Name of the entity. Pass in null or an empty
+     * string to stop third-person following.
+     */
+    this.emitter.on(this.thirdPersonFollowEntityEvent, function(entityName) {
+
+      // Turn off following if `entity` is null.
+      if (entityName === undefined || entityName === null) {
+        that.cameraMode = '';
+        return;
+      }
+
+      var object = that.scene.getObjectByName(entityName);
+
+      if (object !== undefined && object !== null) {
+        // Set the object to track.
+        that.cameraTrackObject =  object;
+
+        // Set the camera mode.
+        that.cameraMode = that.thirdPersonFollowEntityEvent;
       }
     });
 
@@ -591,6 +623,8 @@ export class Scene {
     mesh.name = 'COM_VISUAL';
     mesh.rotation.z = -Math.PI/2;
     this.COMvisual.add(mesh);
+
+    this.lastThirdPersonTimestamp = null;
   }
 
   public addSky(): void {
@@ -947,7 +981,7 @@ export class Scene {
     // If 'follow' mode, then track the specifiec object.
     if (this.cameraMode === this.followEntityEvent) {
       // Using a hard-coded offset for now.
-      var relativeCameraOffset = new THREE.Vector3(-5,0,2);
+      var relativeCameraOffset = new THREE.Vector3(-5, 0, 2);
       this.cameraTrackObject.updateMatrixWorld();
       var cameraOffset = relativeCameraOffset.applyMatrix4(
         this.cameraTrackObject.matrixWorld);
@@ -955,6 +989,39 @@ export class Scene {
       this.camera.position.lerp(cameraOffset, 0.1);
       this.camera.lookAt(this.cameraTrackObject.position);
 
+    } else if (this.cameraMode === this.thirdPersonFollowEntityEvent) {
+      // Based on https://discoverthreejs.com/book/first-steps/transformations/ ,
+      // in THREE.js we have the following coordinate system:
+      //
+      // +X - Across the camera, to the right
+      // -X - Across the camera, to the left
+      // +Y - Up relative to the camera
+      // -Y - Down relative to the camera
+      // +Z - Towards the camera
+      // -Z - Away from the camera
+
+      let fixedCameraOffset = new THREE.Vector3(-6, -2, 1.5);
+      fixedCameraOffset.applyQuaternion(this.cameraTrackObject.quaternion);
+      fixedCameraOffset.add(this.cameraTrackObject.position);
+
+      let fixedLookAt = new THREE.Vector3(12, -4, 0);
+      fixedLookAt.applyQuaternion(this.cameraTrackObject.quaternion);
+      fixedLookAt.add(this.cameraTrackObject.position);
+
+      const now = performance.now();
+      if (this.lastThirdPersonTimestamp === null) {
+        this.lastThirdPersonTimestamp = now;
+      }
+
+      // The calculation here comes from:
+      // https://github.com/simondevyoutube/ThreeJS_Tutorial_ThirdPersonCamera/blob/main/main.js
+      const timeElapsedSec = (now - this.lastThirdPersonTimestamp) * 0.001;
+      const timestep = 1.0 - Math.pow(0.001, timeElapsedSec);
+
+      this.currentThirdPersonLookAt.lerp(fixedLookAt, timestep);
+
+      this.camera.position.lerp(fixedCameraOffset, timestep);
+      this.camera.lookAt(this.currentThirdPersonLookAt);
     } else if (this.cameraMode === this.moveToEntityEvent) {
       // Move the camera if "lerping" to an object.
       // Compute the lerp factor.

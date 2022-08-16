@@ -4,7 +4,7 @@ import { Publisher } from './Publisher';
 import { Scene } from './Scene';
 import { SDFParser } from './SDFParser';
 import { Shaders } from './Shaders';
-import { Subscription } from 'rxjs';
+import { map, Observable, Subscription } from 'rxjs';
 import { Topic } from './Topic';
 import { Transport } from './Transport';
 
@@ -45,12 +45,6 @@ export class SceneManagerConfig {
  * ```
  */
 export class SceneManager {
-
-  /**
-   * A Transport interface used to connect to a Gazebo server.
-   */
-  private transport = new Transport();
-
   /**
    * Particle emitter updates.
    */
@@ -90,6 +84,11 @@ export class SceneManager {
    * A sun directional light for global illumination
    */
   private sunLight: object;
+
+  /**
+   * A Transport interface used to connect to a Gazebo server.
+   */
+  private transport = new Transport();
 
   /**
    * ID of the Request Animation Frame method. Required to cancel the animation.
@@ -160,6 +159,19 @@ export class SceneManager {
   }
 
   /**
+   * Get the connection status as an observable.
+   * Allows clients to subscribe to this stream, to let them know when the connection to Gazebo
+   * is ready for communication.
+   *
+   * @returns An Observable of a boolean: Whether the connection status is ready or not.
+   */
+  public getConnectionStatusAsObservable(): Observable<boolean> {
+    return this.transport.getConnectionStatus().pipe(
+      map((status) => status === 'ready'),
+    );
+  }
+
+  /**
    * Change the width and height of the visualization upon a resize event.
    */
   public resize(): void {
@@ -184,6 +196,12 @@ export class SceneManager {
   public follow(entityName: String): void {
     if (this.scene) {
       this.scene.emitter.emit('follow_entity', entityName);
+    }
+  }
+
+  public thirdPersonFollow(entityName: String): void {
+    if (this.scene) {
+      this.scene.emitter.emit('third_person_follow_entity', entityName);
     }
   }
 
@@ -241,7 +259,7 @@ export class SceneManager {
   public connect(url: string, key?: string): void {
     this.transport.connect(url, key);
 
-    this.statusSubscription = this.transport.status$.subscribe((response) => {
+    this.statusSubscription = this.transport.getConnectionStatus().subscribe((response) => {
       if (response === 'error') {
         // TODO: Return an error so the caller can open a snackbar
         console.log('Connection failed. Please contact an administrator.');
@@ -310,8 +328,68 @@ export class SceneManager {
   }
 
   /**
-   * Subscribe to Gazebo topics required to render a scene. This include
-   * /world/WORLD_NAME/dynamic_pose/info and /world/WORLD_NAME/scene/info
+   * Allows clients to subscribe to a custom topic.
+   *
+   * @param topic The topic to subscribe to.
+   */
+  public subscribeToTopic(topic: Topic): void {
+    this.transport.subscribe(topic);
+  }
+
+  /**
+   * Allows clients to unsubscribe from topics.
+   *
+   * @param name The name of the topic to unsubscribe from.
+   */
+  public unsubscribeFromTopic(name: string): void {
+    this.transport.unsubscribe(name);
+  }
+
+  /**
+   * Play the Simulation.
+   */
+  public play(): void {
+    const topic = `/world/${this.transport.getWorld()}/control`;
+    this.transport.sendMessage([
+      'sim',
+      topic,
+      'play',
+      ''
+    ]);
+  }
+
+  /**
+   * Pause the Simulation.
+   */
+  public pause(): void {
+    const topic = `/world/${this.transport.getWorld()}/control`;
+    this.transport.sendMessage([
+      'sim',
+      topic,
+      'pause',
+      ''
+    ]);
+  }
+
+  /**
+   * Stop the Simulation.
+   */
+  public stop(): void {
+    const topic = `/server_control`;
+    this.transport.sendMessage([
+      'sim',
+      topic,
+      'stop',
+      ''
+    ]);
+  }
+
+  /**
+   * Subscribe to Gazebo topics required to render a scene.
+   *
+   * This includes:
+   * - /world/WORLD_NAME/dynamic_pose/info
+   * - /world/WORLD_NAME/scene/info
    */
   private subscribeToTopics(): void {
     // Subscribe to the pose topic and modify the models' poses.
