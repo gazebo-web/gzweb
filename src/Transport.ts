@@ -101,7 +101,7 @@ export class Transport {
    * @returns The Publisher instance.
    */
   public advertise(topic: string, msgTypeName: string): Publisher {
-    this.ws.send(this.buildMsg(['adv', topic, msgTypeName, '']));
+    this.sendMessage(['adv', topic, msgTypeName, '']);
 
     const msgDef = this.root!.lookupType(msgTypeName);
 
@@ -123,7 +123,7 @@ export class Transport {
    * @param msg The message to publish.
    */
   public publish(topic: string, msgTypeName: string, msg: string): void {
-    this.ws.send(this.buildMsg(['pub_in', topic, msgTypeName, msg]));
+    this.sendMessage(['pub_in', topic, msgTypeName, msg]);
   }
 
   /**
