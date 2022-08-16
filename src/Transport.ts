@@ -97,25 +97,32 @@ export class Transport {
    * Advertise a topic.
    *
    * @param topic The topic to advertise.
+   * @param msgTypeName The message type the topic will handle.
+   * @returns The Publisher instance.
    */
   public advertise(topic: string, msgTypeName: string): Publisher {
     this.ws.send(this.buildMsg(['adv', topic, msgTypeName, '']));
 
     const msgDef = this.root!.lookupType(msgTypeName);
-    return new Publisher(topic, msgTypeName, msgDef, 
-                         (topic: string, msgTypeName: string, msg: string) => {
-                           this.publish(topic, msgTypeName, msg);});
+
+    return new Publisher(
+      topic,
+      msgTypeName,
+      msgDef,
+      (topic: string, msgTypeName: string, msg: string) => {
+        this.publish(topic, msgTypeName, msg);
+      }
+    );
   }
 
   /**
    * Publish to a topic.
    *
-   * @param topic The topic to advertise.
+   * @param topic The topic to publish to.
+   * @param msgTypeName The message type.
+   * @param msg The message to publish.
    */
   public publish(topic: string, msgTypeName: string, msg: string): void {
-    //const StringMsg = this.root!.lookupType(msgTypeName);
-    // let strMsg = StringMsg.create({data: msg});
-
     this.ws.send(this.buildMsg(['pub_in', topic, msgTypeName, msg]));
   }
 
