@@ -1,4 +1,3 @@
-/* eslint-disable */
 import {
 	AmbientLight,
 	AnimationClip,
@@ -30,6 +29,7 @@ import {
 	Quaternion,
 	QuaternionKeyframeTrack,
 	RepeatWrapping,
+  RGBAFormat,
 	Scene,
 	Skeleton,
 	SkinnedMesh,
@@ -37,34 +37,87 @@ import {
 	TextureLoader,
 	Vector2,
 	Vector3,
-	VectorKeyframeTrack
+	VectorKeyframeTrack,
+	sRGBEncoding
 } from 'three';
-import { TGALoader } from 'three/examples/jsm/loaders/TGALoader';
+import { TGALoader } from './TGALoader';
 
 /**
  * @author mrdoob / http://mrdoob.com/
  * @author Mugen87 / https://github.com/Mugen87
  *
  *
- * This is a modified version of the Collada loader found in
- * three/examples/jsm/loaders/ColladaLoader. Lint is disabled in this file.
+ * Diff of modification by Nate Koenig:
  *
+diff --git a/include/ColladaLoader.js b/include/ColladaLoader.js
+index cea5ac1..1980da1 100644
+--- a/include/ColladaLoader.js
++++ b/include/ColladaLoader.js
+@@ -29,6 +29,7 @@ import {
+ 	Quaternion,
+ 	QuaternionKeyframeTrack,
+ 	RepeatWrapping,
++  RGBAFormat,
+ 	Scene,
+ 	Skeleton,
+ 	SkinnedMesh,
+@@ -1644,14 +1645,14 @@ class ColladaLoader extends Loader {
+ 
+ 					if ( loader !== undefined ) {
+ 
+-						const texture = loader.load( image );
++						let texture;
+ 
+ 						// Check against the cache, if enabled.
+ 						if (scope.enableTexturesCache && scope.texturesCache.has(image)) {
+ 							texture = scope.texturesCache.get(image);
+ 							return texture;
+ 						} else {
+-							savedPath = loader.path;
++							const savedPath = loader.path;
+ 							// Remove the path if the image has a full URL.
+ 							if (image.startsWith('https://')) {
+ 								loader.path = undefined;
+@@ -1689,7 +1690,7 @@ class ColladaLoader extends Loader {
+                       imageElem.src = isJPEG ? "data:image/jpg;base64,": "data:image/png;base64,";
+                       imageElem.src += window.btoa(binary);
+ 
+-                      scopeTexture.format = isJPEG ? THREE.RGBFormat : THREE.RGBAFormat;
++                      scopeTexture.format = isJPEG ? RGBFormat : RGBAFormat;
+                       scopeTexture.needsUpdate = true;
+                       scopeTexture.image = imageElem;
+                     });
+@@ -4216,9 +4217,9 @@ class ColladaLoader extends Loader {
+ 		const scene = parseScene( getElementsByTagName( collada, 'scene' )[ 0 ] );
+ 		scene.animations = animations;
+ 
+-		if ( asset.upAxis === 'Z_UP' ) {
++		if ( asset.upAxis === 'Y_UP' ) {
+ 
+-			scene.quaternion.setFromEuler( new Euler( - Math.PI / 2, 0, 0 ) );
++			scene.quaternion.setFromEuler( new Euler( Math.PI / 2, 0, 0 ) );
+ 
+ 		}
+ * 
+ *
+ *
+ * Modified by Nate Koenig :
+ *
+ *     Added a findResourceCb variable that is used by the texture loading
+ *     in the `getTexture` function to fetch resources that were not
+ *     accessible via standard URIs.
  *
  * Modified by German Mas:
  *
  * The Collada Loader caches the textures of meshes by default.
  * To disable:
- *   const loader = new ColladaLoader();
+ *   const loader = new THREE.ColladaLoader();
  *   loader.enableTexturesCache = false;
  *
  * Change the texture loader, if the requestHeader is present.
  * Texture Loaders use an Image Loader internally, instead of a File Loader.
  * Image Loader uses an img tag, and their src request doesn't accept custom headers.
  * See https://github.com/mrdoob/three.js/issues/10439
- *
- *
- * parseAssetUpAxis was modified to return Y_UP, for backwards compatibility.
- *
  *
  * Modified by Nate Koenig. Added the following to the 'parse' function:
  *
@@ -75,18 +128,17 @@ import { TGALoader } from 'three/examples/jsm/loaders/TGALoader';
  * // Single quote version
  * text = text.replace(/'\<(.*?)\>'/g, '"$1" ');
  */
-
 class ColladaLoader extends Loader {
 
 	constructor( manager ) {
 
 		super( manager );
+	// Cache textures enabled by default.
+  	this.enableTexturesCache = true;
 
-		// Cache textures enabled by default.
-		this.enableTexturesCache = true;
-
-		// The Map used to cache textures.
-		this.texturesCache = new Map();
+	// The Map used to cache textures.
+  	this.texturesCache = new Map();
+	this.findResourceCb = undefined;
 	}
 
 	load( url, onLoad, onProgress, onError ) {
@@ -246,9 +298,7 @@ class ColladaLoader extends Loader {
 
 		function parseAssetUpAxis( xml ) {
 
-			// NOTE: modified from original ColladaLoader.js.r95
-			// use Y_UP for backwards compatibility.
-			return 'Y_UP';
+			return xml !== undefined ? xml.textContent : 'Y_UP';
 
 		}
 
@@ -1512,11 +1562,11 @@ class ColladaLoader extends Loader {
 
 		function parseEffectExtraTechniqueBump( xml ) {
 
-			var data = {};
+			const data = {};
 
-			for ( var i = 0, l = xml.childNodes.length; i < l; i ++ ) {
+			for ( let i = 0, l = xml.childNodes.length; i < l; i ++ ) {
 
-				var child = xml.childNodes[ i ];
+				const child = xml.childNodes[ i ];
 
 				if ( child.nodeType !== 1 ) continue;
 
@@ -1622,7 +1672,7 @@ class ColladaLoader extends Loader {
 
 			material.name = data.name || '';
 
-			function getTexture( textureObject ) {
+			function getTexture( textureObject, encoding = null ) {
 
 				const sampler = effect.profile.samplers[ textureObject.id ];
 				let image = null;
@@ -1650,18 +1700,57 @@ class ColladaLoader extends Loader {
 					if ( loader !== undefined ) {
 
 						let texture;
-						let savedPath;
 
+						// Check against the cache, if enabled.
 						if (scope.enableTexturesCache && scope.texturesCache.has(image)) {
 							texture = scope.texturesCache.get(image);
 							return texture;
 						} else {
-							savedPath = loader.path;
+							const savedPath = loader.path;
 							// Remove the path if the image has a full URL.
 							if (image.startsWith('https://')) {
 								loader.path = undefined;
 							}
-							texture = loader.load( image );
+              
+							texture = loader.load(image,
+                // onLoad
+                undefined,
+                // onProgress
+                undefined,
+                // onError
+                function(error) {
+                  if (scope.findResourceCb) {
+                    // Create the filename to look up.
+                    var filename = [path.substring(0, path.lastIndexOf("/")),
+                      image].join("/");
+                
+                    // Store the texture pointer
+                    var scopeTexture = texture;
+
+                    // Get the image using the find resource callback.
+                    scope.findResourceCb(filename, function(image) {
+                      // Create the image element
+                      var imageElem = document.createElementNS(
+                        'http://www.w3.org/1999/xhtml', 'img');
+
+                      var isJPEG = filename.search( /\.jpe?g($|\?)/i ) > 0 || filename.search( /^data\:image\/jpeg/ ) === 0;
+
+                      var binary = '';
+                      var len = image.byteLength;
+                      for (var i = 0; i < len; i++) {
+                        binary += String.fromCharCode( image[ i ] );
+                      }
+                      // Set the image source using base64 encoding
+                      imageElem.src = isJPEG ? "data:image/jpg;base64,": "data:image/png;base64,";
+                      imageElem.src += window.btoa(binary);
+
+                      scopeTexture.format = isJPEG ? RGBFormat : RGBAFormat;
+                      scopeTexture.needsUpdate = true;
+                      scopeTexture.image = imageElem;
+                    });
+                  }
+                });
+
 							// Restore the path.
 							loader.path = savedPath;
 						}
@@ -1682,6 +1771,12 @@ class ColladaLoader extends Loader {
 
 							texture.wrapS = RepeatWrapping;
 							texture.wrapT = RepeatWrapping;
+
+						}
+
+						if ( encoding !== null ) {
+
+							texture.encoding = encoding;
 
 						}
 
@@ -1720,7 +1815,7 @@ class ColladaLoader extends Loader {
 
 					case 'diffuse':
 						if ( parameter.color ) material.color.fromArray( parameter.color );
-						if ( parameter.texture ) material.map = getTexture( parameter.texture );
+						if ( parameter.texture ) material.map = getTexture( parameter.texture, sRGBEncoding );
 						break;
 					case 'specular':
 						if ( parameter.color && material.specular ) material.specular.fromArray( parameter.color );
@@ -1730,19 +1825,23 @@ class ColladaLoader extends Loader {
 						if ( parameter.texture ) material.normalMap = getTexture( parameter.texture );
 						break;
 					case 'ambient':
-						if ( parameter.texture ) material.lightMap = getTexture( parameter.texture );
+						if ( parameter.texture ) material.lightMap = getTexture( parameter.texture, sRGBEncoding );
 						break;
 					case 'shininess':
 						if ( parameter.float && material.shininess ) material.shininess = parameter.float;
 						break;
 					case 'emission':
 						if ( parameter.color && material.emissive ) material.emissive.fromArray( parameter.color );
-						if ( parameter.texture ) material.emissiveMap = getTexture( parameter.texture );
+						if ( parameter.texture ) material.emissiveMap = getTexture( parameter.texture, sRGBEncoding );
 						break;
 
 				}
 
 			}
+
+			material.color.convertSRGBToLinear();
+			if ( material.specular ) material.specular.convertSRGBToLinear();
+			if ( material.emissive ) material.emissive.convertSRGBToLinear();
 
 			//
 
@@ -2078,7 +2177,7 @@ class ColladaLoader extends Loader {
 
 					case 'color':
 						const array = parseFloats( child.textContent );
-						data.color = new Color().fromArray( array );
+						data.color = new Color().fromArray( array ).convertSRGBToLinear();
 						break;
 
 					case 'falloff_angle':
@@ -2544,7 +2643,7 @@ class ColladaLoader extends Loader {
 							break;
 
 						case 'COLOR':
-							buildGeometryData( primitive, sources[ input.id ], input.offset, color.array );
+							buildGeometryData( primitive, sources[ input.id ], input.offset, color.array, true );
 							color.stride = sources[ input.id ].stride;
 							break;
 
@@ -2583,7 +2682,7 @@ class ColladaLoader extends Loader {
 
 		}
 
-		function buildGeometryData( primitive, source, offset, array ) {
+		function buildGeometryData( primitive, source, offset, array, isColor = false ) {
 
 			const indices = primitive.p;
 			const stride = primitive.stride;
@@ -2597,6 +2696,22 @@ class ColladaLoader extends Loader {
 				for ( ; index < length; index ++ ) {
 
 					array.push( sourceArray[ index ] );
+
+				}
+
+				if ( isColor ) {
+
+					// convert the vertex colors from srgb to linear if present
+					const startIndex = array.length - sourceStride - 1;
+					tempColor.setRGB(
+						array[ startIndex + 0 ],
+						array[ startIndex + 1 ],
+						array[ startIndex + 2 ]
+					).convertSRGBToLinear();
+
+					array[ startIndex + 0 ] = tempColor.r;
+					array[ startIndex + 1 ] = tempColor.g;
+					array[ startIndex + 2 ] = tempColor.b;
 
 				}
 
@@ -3037,7 +3152,7 @@ class ColladaLoader extends Loader {
 						const param = child.getElementsByTagName( 'param' )[ 0 ];
 						data.axis = param.textContent;
 						const tmpJointIndex = data.axis.split( 'inst_' ).pop().split( 'axis' )[ 0 ];
-						data.jointIndex = tmpJointIndex.substr( 0, tmpJointIndex.length - 1 );
+						data.jointIndex = tmpJointIndex.substring( 0, tmpJointIndex.length - 1 );
 						break;
 
 				}
@@ -3996,12 +4111,12 @@ class ColladaLoader extends Loader {
 
 		}
 
-		// A name or id could be a string enclosed by angle brackets like
-		// "<name>". A name like this will not be parsed correctly by the
-		// DOMParser, so we remove the angle brackets.
-		text = text.replace(/"\<(.*?)\>"/g, '"$1" ');
-		// Single quote version
-		text = text.replace(/'\<(.*?)\>'/g, '"$1" ');
+    // A name or id could be a string enclosed by angle brackets like
+    // "<name>". A name like this will not be parsed correctly by the
+    // DOMParser, so we remove the angle brackets.
+    text = text.replace(/"\<(.*?)\>"/g, '"$1" ');
+    // Single quote version
+    text = text.replace(/'\<(.*?)\>'/g, '"$1" ');
 
 		const xml = new DOMParser().parseFromString( text, 'application/xml' );
 
@@ -4037,11 +4152,12 @@ class ColladaLoader extends Loader {
 		console.log( 'THREE.ColladaLoader: File version', version );
 
 		const asset = parseAsset( getElementsByTagName( collada, 'asset' )[ 0 ] );
-		const textureLoader = new TextureLoader( this.manager );
-		textureLoader.setPath( this.resourcePath || path ).setCrossOrigin( this.crossOrigin );
 
 		// Allows internal methods to access the cache.
 		var scope = this;
+
+		const textureLoader = new TextureLoader( this.manager );
+		textureLoader.setPath( this.resourcePath || path ).setCrossOrigin( this.crossOrigin );
 
 		// Change the texture loader, if the requestHeader is present.
 		// Texture Loaders use an Image Loader internally, instead of a File Loader.
@@ -4049,12 +4165,12 @@ class ColladaLoader extends Loader {
 		// See https://github.com/mrdoob/three.js/issues/10439
 		if (scope.requestHeader && Object.keys(scope.requestHeader).length > 0) {
 			textureLoader.load = function(url, onLoad, onProgress, onError) {
-				const fileLoader = new THREE.FileLoader(scope.manager);
+				var fileLoader = new THREE.FileLoader(scope.manager);
 				fileLoader.setPath(this.path).setCrossOrigin(scope.crossOrigin);
 				fileLoader.setResponseType('blob');
 				fileLoader.setRequestHeader(scope.requestHeader);
-				const texture = new THREE.Texture();
-				const image = document.createElementNS( 'http://www.w3.org/1999/xhtml', 'img' );
+				var texture = new THREE.Texture();
+				var image = document.createElementNS( 'http://www.w3.org/1999/xhtml', 'img' );
 
 				// Once the image is loaded, we need to revoke the ObjectURL.
 				image.onload = function () {
@@ -4092,10 +4208,14 @@ class ColladaLoader extends Loader {
 			tgaLoader = new TGALoader( this.manager );
 			tgaLoader.setPath( this.resourcePath || path );
 
+			if (scope.requestHeader && Object.keys(scope.requestHeader).length > 0) {
+				tgaLoader.setRequestHeader(scope.requestHeader);
+			}
 		}
 
 		//
 
+		const tempColor = new Color();
 		const animations = [];
 		let kinematics = {};
 		let count = 0;
@@ -4151,11 +4271,9 @@ class ColladaLoader extends Loader {
 		const scene = parseScene( getElementsByTagName( collada, 'scene' )[ 0 ] );
 		scene.animations = animations;
 
-		if ( asset.upAxis === 'Z_UP' ) {
+		if ( asset.upAxis === 'Y_UP' ) {
 
-
-
-			scene.quaternion.setFromEuler( new Euler( - Math.PI / 2, 0, 0 ) );
+			scene.quaternion.setFromEuler( new Euler( Math.PI / 2, 0, 0 ) );
 
 		}
 
@@ -4178,4 +4296,4 @@ class ColladaLoader extends Loader {
 }
 
 export { ColladaLoader };
-/* eslint-enable */
+

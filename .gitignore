@@ -1,3 +1,4 @@
+dist
 # Logs
 logs
 *.log
@@ -27,6 +28,7 @@ build/Release
 ehthumbs.db
 Icon?
 Thumbs.db
+tsc-out
 
 # Node Files #
 node_modules/*
@@ -44,13 +46,11 @@ npm-debug.log
 /tsd_typings/
 
 # Dist #
-dist/*
 public/__build__/
 src/*/__build__/
 __build__/**
 public/dist/
 src/*/dist/
-dist/**
 .awcache
 .webpack.json
 compiled/
