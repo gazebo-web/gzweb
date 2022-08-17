@@ -211,6 +211,12 @@ export class SceneManager {
     }
   }
 
+  public firstPerson(entityName: string): void {
+    if (this.scene) {
+      this.scene.emitter.emit('first_person_entity', entityName);
+    }
+  }
+
   public moveTo(entityName: string): void {
     if (this.scene) {
       this.scene.emitter.emit('move_to_entity', entityName);

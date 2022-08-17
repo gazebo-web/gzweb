@@ -68,6 +68,7 @@ export class Scene {
   private followEntityEvent: string;
   private moveToEntityEvent: string;
   private thirdPersonFollowEntityEvent: string;
+  private firstPersonEntityEvent: string;
   private cameraMode: string;
   private sceneOrtho: THREE.Scene;
   private camera: THREE.PerspectiveCamera;
@@ -103,6 +104,7 @@ export class Scene {
   private defaultThirdPersonCameraOffset: THREE.Vector3 = new THREE.Vector3(-6, -2, 1.5);
   private currentThirdPersonCameraOffset: THREE.Vector3 = new THREE.Vector3();
   private mousePointerDown: boolean = false;
+  private currentFirstPersonLookAt = new THREE.Vector3();
 
   constructor(shaders: Shaders, defaultCameraPosition?: THREE.Vector3,
               defaultCameraLookAt?: THREE.Vector3,
@@ -157,6 +159,12 @@ export class Scene {
      */
     this.thirdPersonFollowEntityEvent = 'third_person_follow_entity';
 
+    /**
+     * @member {string} firstPersonEntity
+     * The first-person camera entity event name.
+     */
+    this.firstPersonEntityEvent = 'first_person_entity';
+
     var that = this;
 
     /**
@@ -195,7 +203,7 @@ export class Scene {
     });
 
     /**
-     * Handle the third-person follow entity follow signal ('third_person_follow_entity').
+     * Handle the third-person follow entity signal ('third_person_follow_entity').
      * @param {string} entityName Name of the entity. Pass in null or an empty
      * string to stop third-person following.
      */
@@ -218,6 +226,30 @@ export class Scene {
 
         // Set the camera mode.
         that.cameraMode = that.thirdPersonFollowEntityEvent;
+      }
+    });
+
+    /**
+     * Handle the first-person entity signal ('first_person_entity').
+     * @param {string} entityName Name of the entity. Pass in null or an empty
+     * string to stop first-person following.
+     */
+    this.emitter.on(this.firstPersonEntityEvent, function(entityName) {
+
+      // Turn off following if `entity` is null.
+      if (entityName === undefined || entityName === null) {
+        that.cameraMode = '';
+        return;
+      }
+
+      var object = that.scene.getObjectByName(entityName);
+
+      if (object !== undefined && object !== null) {
+        // Set the object to track.
+        that.cameraTrackObject =  object;
+
+        // Set the camera mode.
+        that.cameraMode = that.firstPersonEntityEvent;
       }
     });
 
@@ -1036,6 +1068,34 @@ export class Scene {
 
       this.camera.position.lerp(fixedCameraOffset, timestep);
       this.camera.lookAt(this.currentThirdPersonLookAt);
+    } else if (this.cameraMode === this.firstPersonEntityEvent) {
+      // Based on https://discoverthreejs.com/book/first-steps/transformations/ ,
+      // in THREE.js we have the following coordinate system:
+      //
+      // +X - Across the camera, to the right
+      // -X - Across the camera, to the left
+      // +Y - Up relative to the camera
+      // -Y - Down relative to the camera
+      // +Z - Towards the camera
+      // -Z - Away from the camera
+
+      let fixedCameraOffset = new THREE.Vector3(-0.12, 0, 0.4);
+      fixedCameraOffset.applyQuaternion(this.cameraTrackObject.quaternion);
+      fixedCameraOffset.add(this.cameraTrackObject.position);
+
+      let fixedLookAt = new THREE.Vector3(6, 0, 0);
+      fixedLookAt.applyQuaternion(this.cameraTrackObject.quaternion);
+      fixedLookAt.add(this.cameraTrackObject.position);
+
+      // This is a pretty aggressive timestamp for lerping that makes the camera
+      // bob a lot with the motion of the vehicle.  But I think it is what we want;
+      // first-person camera should more-or-less feel like it is tied to the vehicle.
+      const timestep = 0.5;
+
+      this.currentFirstPersonLookAt.lerp(fixedLookAt, timestep);
+
+      this.camera.position.lerp(fixedCameraOffset, timestep);
+      this.camera.lookAt(this.currentFirstPersonLookAt);
     } else if (this.cameraMode === this.moveToEntityEvent) {
       // Move the camera if "lerping" to an object.
       // Compute the lerp factor.
