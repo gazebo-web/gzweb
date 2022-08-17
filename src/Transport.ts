@@ -1,5 +1,6 @@
 import { BehaviorSubject, Observable } from 'rxjs';
 import { Root, Type, parse } from 'protobufjs';
+import { Publisher } from './Publisher';
 import { Topic } from './Topic';
 import { Asset, AssetCb } from './Asset';
 
@@ -90,6 +91,39 @@ export class Transport {
     if (this.ws) {
       this.ws.close();
     }
+  }
+
+  /**
+   * Advertise a topic.
+   *
+   * @param topic The topic to advertise.
+   * @param msgTypeName The message type the topic will handle.
+   * @returns The Publisher instance.
+   */
+  public advertise(topic: string, msgTypeName: string): Publisher {
+    this.sendMessage(['adv', topic, msgTypeName, '']);
+
+    const msgDef = this.root!.lookupType(msgTypeName);
+
+    return new Publisher(
+      topic,
+      msgTypeName,
+      msgDef,
+      (topic: string, msgTypeName: string, msg: string) => {
+        this.publish(topic, msgTypeName, msg);
+      }
+    );
+  }
+
+  /**
+   * Publish to a topic.
+   *
+   * @param topic The topic to publish to.
+   * @param msgTypeName The message type.
+   * @param msg The message to publish.
+   */
+  public publish(topic: string, msgTypeName: string, msg: string): void {
+    this.sendMessage(['pub_in', topic, msgTypeName, msg]);
   }
 
   /**

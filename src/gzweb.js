@@ -8,6 +8,7 @@ export { Material } from './Material';
 export { ModelUserData } from './ModelUserData';
 export { PBRMaterial } from './PBRMaterial';
 export { Pose } from './Pose';
+export { Publisher } from './Publisher';
 export { SceneManager, SceneManagerConfig } from './SceneManager';
 export { Scene } from './Scene';
 export { SDFParser } from './SDFParser';
