@@ -147,7 +147,7 @@ export class SceneManager {
   private msgData: any
 
   /*
-   * Publisher object to publish a gazebo message
+   * Publisher object to publish to a topic
    */
   private publisher: Publisher;
 
@@ -243,8 +243,11 @@ export class SceneManager {
     }
   }
 
+  /**
+   * Publishes a message to an advertised topic.
+   */
   public publish(): void {
-    if (this.scene) {
+    if (this.scene && this.publisher) {
       let msg = this.publisher.createMessage(this.msgData);
       this.publisher.publish(msg);
     }
@@ -312,9 +315,9 @@ export class SceneManager {
       if (response === 'ready') {
         this.subscribeToTopics();
         this.publisher = this.advertise(this.topicName, this.msgType);
-        console.log("Advertised " + this.topicName + " with msg type of "
-          + this.msgType);
-    }
+        console.log(`Advertised ${this.topicName} with msg type of
+          ${this.msgType}`);
+      }
     });
 
     // Scene information.
