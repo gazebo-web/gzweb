@@ -29,6 +29,21 @@ export class SceneManagerConfig {
    * The name of a an audio control topic, used to play audio files.
    */
   public audioTopic: string;
+
+  /*
+   * Name of the topic to advertise.
+   */
+  public topicName: string;
+
+  /*
+   * Message type of the topic to advertise.
+   */
+  public msgType: string;
+
+  /*
+   * Message data of the topic to advertise.
+   */
+  public msgData: any;
 }
 
 /**
@@ -120,6 +135,27 @@ export class SceneManager {
    */
   private audioTopic: string;
 
+  /*
+   * Name of the topic to advertise.
+   */
+  private topicName: string;
+
+  /*
+   * Message type of the topic to advertise.
+   */
+  private msgType: string;
+
+  /*
+   * Message data of the topic to advertise.
+   */
+  private msgData: any
+
+  /*
+   * Publisher object to publish to a topic
+   */
+  private publisher: Publisher;
+
+
   /**
    * Constructor. If a url is specified, then then SceneManager will connect
    * to the specified websocket server. Otherwise, the `connect` function
@@ -134,6 +170,14 @@ export class SceneManager {
 
     if (typeof config.audioTopic !== 'undefined') {
       this.audioTopic = config.audioTopic;
+    }
+
+    if (typeof config.topicName !== 'undefined' &&
+        typeof config.msgType !== 'undefined' &&
+        typeof config.msgData !== 'undefined') {
+      this.topicName = config.topicName;
+      this.msgType = config.msgType;
+      this.msgData = config.msgData;
     }
 
     if (typeof config.websocketUrl !== 'undefined') {
@@ -231,6 +275,16 @@ export class SceneManager {
   }
 
   /**
+   * Publishes a message to an advertised topic.
+   */
+  public publish(): void {
+    if (this.scene && this.publisher) {
+      let msg = this.publisher.createMessage(this.msgData);
+      this.publisher.publish(msg);
+    }
+  }
+
+  /**
    * Get the list of models in the scene
    * @return The list of available models.
    */
@@ -291,6 +345,9 @@ export class SceneManager {
       // available.
       if (response === 'ready') {
         this.subscribeToTopics();
+        this.publisher = this.advertise(this.topicName, this.msgType);
+        console.log(`Advertised ${this.topicName} with msg type of
+          ${this.msgType}`);
       }
     });
 
