@@ -419,12 +419,16 @@ export class SceneManager {
    * Play the Simulation.
    */
   public play(): void {
+    const service = 'service';
     const topic = `/world/${this.transport.getWorld()}/control`;
+    const type = 'ignition.msgs.WorldControl';
+    const msg = "pause: false";
+
     this.transport.sendMessage([
-      'sim',
+      service,
       topic,
-      'play',
-      ''
+      type,
+      msg,
     ]);
   }
 
@@ -432,12 +436,18 @@ export class SceneManager {
    * Pause the Simulation.
    */
   public pause(): void {
+    const service = 'service';
     const topic = `/world/${this.transport.getWorld()}/control`;
+    const type = 'ignition.msgs.WorldControl';
+    const msg = "{ \"pause\": true }";
+    const msgJson = {pause: true };
+
     this.transport.sendMessage([
-      'sim',
+      service,
       topic,
-      'pause',
-      ''
+      type,
+      msg,
+      // JSON.stringify(msgJson),
     ]);
   }
 
@@ -445,12 +455,16 @@ export class SceneManager {
    * Stop the Simulation.
    */
   public stop(): void {
+    const service = 'service';
     const topic = `/server_control`;
+    const type = 'ignition.msgs.ServerControl';
+    const msg = '{"stop":"true"}';
+
     this.transport.sendMessage([
-      'sim',
+      service,
       topic,
-      'stop',
-      ''
+      type,
+      msg,
     ]);
   }
 
