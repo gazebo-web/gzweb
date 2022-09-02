@@ -160,6 +160,7 @@ export class Transport {
     const buffer = msgDef.encode(msg).finish();
     if (!buffer || buffer === undefined || buffer.length === 0) {
       console.error('Unable to serialize message.');
+      return;
     }
 
     const strBuf = new TextDecoder().decode(buffer);
