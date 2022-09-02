@@ -4,6 +4,7 @@ export { Color } from './Color';
 export { FuelServer } from './FuelServer';
 export { Gamepad } from './Gamepad';
 export { Inertia } from './Inertia';
+export { Logplayback } from './Logplayback';
 export { Material } from './Material';
 export { ModelUserData } from './ModelUserData';
 export { PBRMaterial } from './PBRMaterial';

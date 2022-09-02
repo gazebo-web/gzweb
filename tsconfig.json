@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
-    "target": "es2015",
-    "module": "es2015",
+    "target": "es2020",
+    "module": "es2020",
     "moduleResolution": "node",
     "forceConsistentCasingInFileNames": true,
     "suppressImplicitAnyIndexErrors": true,
@@ -10,7 +10,7 @@
     "strict": true,
     "skipLibCheck": true,
     "outDir":"./tsc-out",
-    "lib": ["dom", "es2015"]
+    "lib": ["dom", "es2020"]
   },
   "include": ["./src/*"]
 }

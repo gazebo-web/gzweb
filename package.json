@@ -29,6 +29,7 @@
     "build": "rimraf dist && tsc --allowJs && rollup -c"
   },
   "dependencies": {
+    "@foxglove/sql.js": "^0.0.4",
     "eventemitter2": "^6.4.5",
     "jszip": "^3.10.0",
     "protobufjs": "^6.11.3",

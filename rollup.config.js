@@ -3,19 +3,20 @@
 import { terser } from 'rollup-plugin-terser';
 import babel from '@rollup/plugin-babel';
 // import { nodeResolve } from '@rollup/plugin-node-resolve';
-//import commonjs from '@rollup/plugin-commonjs';
 
 let builds = [
   // Module
   {
     input: 'tsc-out/src/gzweb.js',
-    plugins: [ ],
+    plugins: [
+    ],
     external: [
       'eventemitter2',
       'jszip',
       'protobufjs',
       'rxjs',
-      'three'
+      'three',
+      '@foxglove/sql.js'
     ],
     output: [
       {
@@ -27,7 +28,8 @@ let builds = [
           protobufjs: 'protobufjs',
           rxjs: 'rxjs',
           three: 'THREE',
-          jszip: 'JSZip'
+          jszip: 'JSZip',
+          '@foxglove/sql.js': '@foxglove/sql.js'
         }
       }
     ]
@@ -37,10 +39,6 @@ let builds = [
   {
     input: 'tsc-out/src/gzweb.js',
     plugins: [
-      /*commonjs(),
-      nodeResolve({
-        browser: true,
-      }),*/
       babel({
         babelHelpers: 'bundled',
         exclude: 'node_modules/**',
@@ -52,7 +50,8 @@ let builds = [
       'jszip',
       'protobufjs',
       'rxjs',
-      'three'
+      'three',
+      '@foxglove/sql.js',
     ],
     output: [
       {
@@ -64,7 +63,8 @@ let builds = [
           protobufjs: 'protobufjs',
           rxjs: 'rxjs',
           three: 'THREE',
-          jszip: 'JSZip'
+          jszip: 'JSZip',
+          '@foxglove/sql.js': '@foxglove/sql.js'
         }
       }
     ]
@@ -74,10 +74,6 @@ let builds = [
   {
     input: 'tsc-out/src/gzweb.js',
     plugins: [
-      /*commonjs(),
-      nodeResolve({
-        browser: true,
-      }),*/
       babel({
         babelHelpers: 'bundled',
         exclude: 'node_modules/**'
@@ -89,7 +85,8 @@ let builds = [
       'jszip',
       'protobufjs',
       'rxjs',
-      'three'
+      'three',
+      '@foxglove/sql.js'
     ],
     output: [
       {
@@ -101,7 +98,8 @@ let builds = [
           protobufjs: 'protobufjs',
           rxjs: 'rxjs',
           three: 'THREE',
-          jszip: 'JSZip'
+          jszip: 'JSZip',
+          '@foxglove/sql.js': '@foxglove/sql.js'
         }
       }
     ]
@@ -109,49 +107,3 @@ let builds = [
 ]
 
 export default builds;
-//{
-//  input: 'tsc-out/src/gzweb.js',
-//  external: [
-//    'eventemitter2',
-//    'protobufjs',
-//    'rxjs',
-//    'three',
-//  ],
-//  output: [
-//    {
-//      file: 'dist/gzweb.js',
-//      format: 'umd',
-//      name: 'gzweb',
-//      sourcemap: 'inline',
-//      globals: {
-//        eventemitter2: 'eventemitter2',
-//        protobufjs: 'protobufjs',
-//        rxjs: 'rxjs',
-//        three: 'three'
-//      }
-//    },
-//    {
-//      file: 'dist/gzweb.min.js',
-//      format: 'umd',
-//      name: 'gzweb',
-//      plugins: [terser()],
-//      globals: {
-//        eventemitter2: 'eventemitter2',
-//        protobufjs: 'protobufjs',
-//        rxjs: 'rxjs',
-//        three: 'three'
-//      }
-//    }
-//  ],
-//
-//  plugins: [
-//    /*commonjs(),
-//    nodeResolve({
-//      browser: true,
-//    }),*/
-//    babel({
-//      babelHelpers: 'bundled',
-//      exclude: 'node_modules/**'
-//    })
-//  ]
-//};
