@@ -419,7 +419,7 @@ export class SceneManager {
    * Play the Simulation.
    */
   public play(): void {
-    this.transport.request(
+    this.transport.requestService(
       `/world/${this.transport.getWorld()}/control`,
       'ignition.msgs.WorldControl',
       {pause: false}
@@ -430,8 +430,7 @@ export class SceneManager {
    * Pause the Simulation.
    */
   public pause(): void {
-    console.log('PAUSE');
-    this.transport.request(
+    this.transport.requestService(
       `/world/${this.transport.getWorld()}/control`,
       'ignition.msgs.WorldControl',
       {pause: true, multi_step: 5}
@@ -442,7 +441,7 @@ export class SceneManager {
    * Stop the Simulation.
    */
   public stop(): void {
-    this.transport.request(
+    this.transport.requestService(
       '/server_control',
       'ignition.msgs.ServerControl',
       {stop: true}

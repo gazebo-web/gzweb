@@ -134,24 +134,35 @@ export class Transport {
    * @param msg The message to publish. This should be a JSON representation
    * of the protobuf message.
    */
-  public request(topic: string, msgTypeName: string, msgProperties: any): void {
-    const msgDef: Type = this.root!.lookupType(msgTypeName);
+  public requestService(
+    topic: string,
+    msgTypeName: string,
+    msgProperties: {[key: string]: any;}
+  ): void {
+    if (!this.root) {
+      console.error('Unable to request service - Message definitions are not ready');
+      return;
+    }
+
+    const msgDef = this.root.lookupType(msgTypeName);
     if (!msgDef || msgDef === undefined) {
-      console.error('Unable to lookup message type ', msgTypeName);
+      console.error(`Unable to lookup message type: ${msgTypeName}`);
+      return;
     }
 
     const msg: Message = msgDef.create(msgProperties);
     if (!msg || msg === undefined) {
-      console.error('Unable to create ', msgTypeName, ' from ', msgProperties);
+      console.error(`Unable to create ${msgTypeName}, from, ${msgProperties}`);
+      return;
     }
 
     // Serialized the message
-    let buffer = msgDef.encode(msg).finish();
+    const buffer = msgDef.encode(msg).finish();
     if (!buffer || buffer === undefined || buffer.length === 0) {
       console.error('Unable to serialize message.');
     }
 
-    let strBuf = new TextDecoder().decode(buffer);
+    const strBuf = new TextDecoder().decode(buffer);
 
     this.sendMessage(['req', topic, msgTypeName, strBuf]);
   }
