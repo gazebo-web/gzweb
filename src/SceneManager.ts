@@ -433,7 +433,7 @@ export class SceneManager {
     this.transport.requestService(
       `/world/${this.transport.getWorld()}/control`,
       'ignition.msgs.WorldControl',
-      {pause: true, multi_step: 5}
+      {pause: true}
     );
   }
 
