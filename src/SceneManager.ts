@@ -419,39 +419,33 @@ export class SceneManager {
    * Play the Simulation.
    */
   public play(): void {
-    const topic = `/world/${this.transport.getWorld()}/control`;
-    this.transport.sendMessage([
-      'sim',
-      topic,
-      'play',
-      ''
-    ]);
+    this.transport.requestService(
+      `/world/${this.transport.getWorld()}/control`,
+      'ignition.msgs.WorldControl',
+      {pause: false}
+    );
   }
 
   /**
    * Pause the Simulation.
    */
   public pause(): void {
-    const topic = `/world/${this.transport.getWorld()}/control`;
-    this.transport.sendMessage([
-      'sim',
-      topic,
-      'pause',
-      ''
-    ]);
+    this.transport.requestService(
+      `/world/${this.transport.getWorld()}/control`,
+      'ignition.msgs.WorldControl',
+      {pause: true}
+    );
   }
 
   /**
    * Stop the Simulation.
    */
   public stop(): void {
-    const topic = `/server_control`;
-    this.transport.sendMessage([
-      'sim',
-      topic,
-      'stop',
-      ''
-    ]);
+    this.transport.requestService(
+      '/server_control',
+      'ignition.msgs.ServerControl',
+      {stop: true}
+    );
   }
 
   /**

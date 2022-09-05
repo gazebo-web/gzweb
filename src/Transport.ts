@@ -1,5 +1,5 @@
 import { BehaviorSubject, Observable } from 'rxjs';
-import { Root, Type, parse } from 'protobufjs';
+import { Root, Message, Type, parse } from 'protobufjs';
 import { Publisher } from './Publisher';
 import { Topic } from './Topic';
 import { Asset, AssetCb } from './Asset';
@@ -124,6 +124,48 @@ export class Transport {
    */
   public publish(topic: string, msgTypeName: string, msg: string): void {
     this.sendMessage(['pub_in', topic, msgTypeName, msg]);
+  }
+
+  /**
+   * Request a service.
+   *
+   * @param topic The service to request to.
+   * @param msgTypeName The message type.
+   * @param msg The message to publish. This should be a JSON representation
+   * of the protobuf message.
+   */
+  public requestService(
+    topic: string,
+    msgTypeName: string,
+    msgProperties: {[key: string]: any;}
+  ): void {
+    if (!this.root) {
+      console.error('Unable to request service - Message definitions are not ready');
+      return;
+    }
+
+    const msgDef = this.root.lookupType(msgTypeName);
+    if (!msgDef || msgDef === undefined) {
+      console.error(`Unable to lookup message type: ${msgTypeName}`);
+      return;
+    }
+
+    const msg: Message = msgDef.create(msgProperties);
+    if (!msg || msg === undefined) {
+      console.error(`Unable to create ${msgTypeName}, from, ${msgProperties}`);
+      return;
+    }
+
+    // Serialized the message
+    const buffer = msgDef.encode(msg).finish();
+    if (!buffer || buffer === undefined || buffer.length === 0) {
+      console.error('Unable to serialize message.');
+      return;
+    }
+
+    const strBuf = new TextDecoder().decode(buffer);
+
+    this.sendMessage(['req', topic, msgTypeName, strBuf]);
   }
 
   /**
@@ -413,6 +455,9 @@ export class Transport {
             }
             break;
         }
+
+      } else if (frameParts[0] == 'req') {
+        // We are not handling response messages from service calls.
       } else {
         console.warn('Unhandled websocket message with frame operation', frameParts[0]);
       }
