@@ -31,7 +31,7 @@ enum JointTypes {
 }
 
 /**
- * Interface of optional arguments for the Scene's constructor.
+ * Interface of arguments for the Scene's constructor.
  */
 export interface SceneConfig {
   shaders: Shaders;
