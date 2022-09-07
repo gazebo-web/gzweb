@@ -5,7 +5,7 @@ import { Topic } from './Topic';
 import { Asset, AssetCb } from './Asset';
 
 /**
- * The Trasnport class is in charge of managing the websocket connection to a
+ * The Transport class is in charge of managing the websocket connection to a
  * Gazebo websocket server.
  */
 export class Transport {
@@ -418,9 +418,9 @@ export class Transport {
         // Run the callback associated with the asset. This lets the requester
         // process the asset message.
         if (this.assetMap.has(frameParts[1])) {
-          this?.assetMap?.get(frameParts[1])?.cb(msg['data']);
+          this.assetMap.get(frameParts[1])!.cb(msg['data']);
         } else {
-          console.error('No resource callback');
+          console.error(`No resource callback for ${this.assetMap.get(frameParts[1])!.uri}`);
         }
       } else if (frameParts[0] == 'pub') {
 
