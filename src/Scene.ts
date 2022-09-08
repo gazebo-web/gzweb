@@ -31,6 +31,17 @@ enum JointTypes {
 }
 
 /**
+ * Interface of arguments for the Scene's constructor.
+ */
+export interface SceneConfig {
+  shaders: Shaders;
+  defaultCameraPosition?: THREE.Vector3;
+  defaultCameraLookAt?: THREE.Vector3;
+  backgroundColor?: THREE.Color;
+  findResourceCb?: FindResourceCb;
+}
+
+/**
  * The scene is where everything is placed, from objects, to lights and cameras.
  *
  * Supports radial menu on an orthographic scene when gzradialmenu.js has been
@@ -106,31 +117,27 @@ export class Scene {
   private mousePointerDown: boolean = false;
   private currentFirstPersonLookAt = new THREE.Vector3();
 
-  constructor(shaders: Shaders, defaultCameraPosition?: THREE.Vector3,
-              defaultCameraLookAt?: THREE.Vector3,
-              backgroundColor?: THREE.Color,
-              findResourceCb?: FindResourceCb)
-  {
+  constructor(config: SceneConfig) {
     this.emitter = new EventEmitter2({verboseMemoryLeak: true});
-    this.shaders = shaders;
-    if (findResourceCb) {
-      this.findResourceCb = findResourceCb;
+    this.shaders = config.shaders;
+    if (config.findResourceCb) {
+      this.findResourceCb = config.findResourceCb;
     }
 
     // This matches Gazebo's default camera position
     this.defaultCameraPosition = new THREE.Vector3(-6, 0, 6);
-    if (defaultCameraPosition) {
-      this.defaultCameraPosition.copy(defaultCameraPosition);
+    if (config.defaultCameraPosition) {
+      this.defaultCameraPosition.copy(config.defaultCameraPosition);
     }
 
     this.defaultCameraLookAt = new THREE.Vector3(0, 0, 0);
-    if (defaultCameraLookAt) {
-      this.defaultCameraLookAt.copy(defaultCameraLookAt);
+    if (config.defaultCameraLookAt) {
+      this.defaultCameraLookAt.copy(config.defaultCameraLookAt);
     }
 
     this.backgroundColor = new THREE.Color(0xb2b2b2);
-    if (backgroundColor) {
-      this.backgroundColor.copy(backgroundColor);
+    if (config.backgroundColor) {
+      this.backgroundColor.copy(config.backgroundColor);
     }
 
     this.init();

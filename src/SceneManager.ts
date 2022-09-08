@@ -543,8 +543,10 @@ export class SceneManager {
       that.transport.getAsset(_uri, _cb);
     }
 
-    this.scene = new Scene(new Shaders(), undefined, undefined,
-                           undefined, findAsset);
+    this.scene = new Scene({
+      shaders: new Shaders(),
+      findResourceCb: findAsset,
+    });
     this.sdfParser = new SDFParser(this.scene);
     this.sdfParser.usingFilesUrls = true;
 
