@@ -250,6 +250,8 @@ export class Transport {
       cb: _cb
     };
 
+    console.log(`Getting asset via websocket - ${_uri}`);
+
     this.assetMap.set(_uri, asset);
     this.sendMessage(['asset', '', '', _uri]);
   }
