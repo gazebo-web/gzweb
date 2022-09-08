@@ -343,9 +343,18 @@ export class Scene {
     this.colladaLoader = new ColladaLoader();
     this.stlLoader = new STLLoader();
 
+    // Progress and Load events.
+    const progressEvent = (url: string , items: number, total: number) => {
+      this.emitter.emit('load_progress', url, items, total);
+    };
+
+    const loadEvent = () => {
+      this.emitter.emit('load_finished');
+    }
+
     // Set the right loading manager for handling websocket assets.
     if (this.findResourceCb) {
-      const wsLoadingManager = new WsLoadingManager();
+      const wsLoadingManager = new WsLoadingManager(loadEvent, progressEvent);
 
       // Collada Loader uses the findResourceCb internally.
       this.colladaLoader.findResourceCb = this.findResourceCb;
@@ -355,22 +364,13 @@ export class Scene {
       this.stlLoader.manager = wsLoadingManager;
     }
 
-    // Progress and Load events.
-    /* jshint ignore:start */
-    const progress = (url:string , items: any, total: number) => {
-      this.emitter.emit('load_progress', url, items, total);
-    };
-    this.textureLoader.manager.onProgress = progress;
-    this.colladaLoader.manager.onProgress = progress;
-    this.stlLoader.manager.onProgress = progress;
+    this.textureLoader.manager.onProgress = progressEvent;
+    this.colladaLoader.manager.onProgress = progressEvent;
+    this.stlLoader.manager.onProgress = progressEvent;
 
-    const load = () => {
-      this.emitter.emit('load_finished');
-    }
-    this.textureLoader.manager.onLoad = load;
-    this.colladaLoader.manager.onLoad = load;
-    this.stlLoader.manager.onLoad = load;
-    /* jshint ignore:end */
+    this.textureLoader.manager.onLoad = loadEvent;
+    this.colladaLoader.manager.onLoad = loadEvent;
+    this.stlLoader.manager.onLoad = loadEvent;
 
     this.renderer = new THREE.WebGLRenderer({antialias: true});
     this.renderer.setPixelRatio(window.devicePixelRatio);
