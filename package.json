@@ -33,7 +33,8 @@
     "jszip": "^3.10.0",
     "protobufjs": "^6.11.3",
     "rxjs": "^7.5.5",
-    "three": "^0.141.0"
+    "three": "^0.141.0",
+    "three-nebula": "^10.0.3"
   },
   "devDependencies": {
     "@babel/core": "^7.18.2",
