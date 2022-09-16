@@ -62,12 +62,12 @@ index cea5ac1..1980da1 100644
  	Skeleton,
  	SkinnedMesh,
 @@ -1644,14 +1645,14 @@ class ColladaLoader extends Loader {
- 
+
  					if ( loader !== undefined ) {
- 
+
 -						const texture = loader.load( image );
 +						let texture;
- 
+
  						// Check against the cache, if enabled.
  						if (scope.enableTexturesCache && scope.texturesCache.has(image)) {
  							texture = scope.texturesCache.get(image);
@@ -81,7 +81,7 @@ index cea5ac1..1980da1 100644
 @@ -1689,7 +1690,7 @@ class ColladaLoader extends Loader {
                        imageElem.src = isJPEG ? "data:image/jpg;base64,": "data:image/png;base64,";
                        imageElem.src += window.btoa(binary);
- 
+
 -                      scopeTexture.format = isJPEG ? THREE.RGBFormat : THREE.RGBAFormat;
 +                      scopeTexture.format = isJPEG ? RGBFormat : RGBAFormat;
                        scopeTexture.needsUpdate = true;
@@ -90,15 +90,15 @@ index cea5ac1..1980da1 100644
 @@ -4216,9 +4217,9 @@ class ColladaLoader extends Loader {
  		const scene = parseScene( getElementsByTagName( collada, 'scene' )[ 0 ] );
  		scene.animations = animations;
- 
+
 -		if ( asset.upAxis === 'Z_UP' ) {
 +		if ( asset.upAxis === 'Y_UP' ) {
- 
+
 -			scene.quaternion.setFromEuler( new Euler( - Math.PI / 2, 0, 0 ) );
 +			scene.quaternion.setFromEuler( new Euler( Math.PI / 2, 0, 0 ) );
- 
+
  		}
- * 
+ *
  *
  *
  * Modified by Nate Koenig :
@@ -1711,7 +1711,7 @@ class ColladaLoader extends Loader {
 							if (image.startsWith('https://')) {
 								loader.path = undefined;
 							}
-              
+
 							texture = loader.load(image,
                 // onLoad
                 undefined,
@@ -1723,12 +1723,17 @@ class ColladaLoader extends Loader {
                     // Create the filename to look up.
                     var filename = [path.substring(0, path.lastIndexOf("/")),
                       image].join("/");
-                
+
                     // Store the texture pointer
                     var scopeTexture = texture;
 
                     // Get the image using the find resource callback.
-                    scope.findResourceCb(filename, function(image) {
+                    scope.findResourceCb(filename, (image, error) => {
+                      if (error !== undefined) {
+                        // Mark the texture as error in the loading manager.
+                        loader.manager.markAsError(filename);
+                        return;
+                      }
                       // Create the image element
                       var imageElem = document.createElementNS(
                         'http://www.w3.org/1999/xhtml', 'img');
@@ -1747,6 +1752,9 @@ class ColladaLoader extends Loader {
                       scopeTexture.format = isJPEG ? RGBFormat : RGBAFormat;
                       scopeTexture.needsUpdate = true;
                       scopeTexture.image = imageElem;
+
+                      // Mark the texture as done in the loading manager.
+                      loader.manager.markAsDone(filename);
                     });
                   }
                 });
@@ -4296,4 +4304,3 @@ class ColladaLoader extends Loader {
 }
 
 export { ColladaLoader };
-

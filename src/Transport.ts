@@ -2,10 +2,10 @@ import { BehaviorSubject, Observable } from 'rxjs';
 import { Root, Message, Type, parse } from 'protobufjs';
 import { Publisher } from './Publisher';
 import { Topic } from './Topic';
-import { Asset, AssetCb } from './Asset';
+import { Asset, AssetCb, AssetError } from './Asset';
 
 /**
- * The Trasnport class is in charge of managing the websocket connection to a
+ * The Transport class is in charge of managing the websocket connection to a
  * Gazebo websocket server.
  */
 export class Transport {
@@ -250,6 +250,8 @@ export class Transport {
       cb: _cb
     };
 
+    console.log(`Getting asset via websocket - ${_uri}`);
+
     this.assetMap.set(_uri, asset);
     this.sendMessage(['asset', '', '', _uri]);
   }
@@ -415,12 +417,37 @@ export class Transport {
       // For frame format information see the WebsocketServer documentation at:
       // https://github.com/gazebosim/gz-launch/blob/ign-launch5/plugins/websocket_server/WebsocketServer.hh
       if (frameParts[0] == 'asset') {
+        // Error to pass to the callback function, in order for the requester to handle it.
+        let error: string | undefined;
+
+        // Check for errors. We can check if the type is a string to avoid comapring with large assets.
+        if (frameParts[2] === 'ignition.msgs.StringMsg' || frameParts[2] === 'gazebo.msgs.StringMsg') {
+          switch (msg['data']) {
+            case AssetError.URI_MISSING:
+              console.error('Asset is missing an URI');
+              break;
+            case AssetError.NOT_FOUND:
+              console.error(`Asset not found via websocket - ${frameParts[1]}`);
+              // Set the error for the requester to handle.
+              error = AssetError.NOT_FOUND;
+              break;
+            default:
+              console.error(`Asset error:`, msg['data']);
+              break;
+          }
+
+          // There is no error for the requester.
+          if (!error) {
+            return;
+          }
+        }
+
         // Run the callback associated with the asset. This lets the requester
         // process the asset message.
         if (this.assetMap.has(frameParts[1])) {
-          this?.assetMap?.get(frameParts[1])?.cb(msg['data']);
+          this.assetMap.get(frameParts[1])!.cb(msg['data'], error);
         } else {
-          console.error('No resource callback');
+          console.error(`No resource callback for ${this.assetMap.get(frameParts[1])!.uri}`);
         }
       } else if (frameParts[0] == 'pub') {
 
