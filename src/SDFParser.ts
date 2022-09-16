@@ -19,6 +19,7 @@ import System, {
   Position,
   Radius,
   Rate,
+  Scale,
   Span,
   SpriteRenderer,
   VectorVelocity,
@@ -1794,6 +1795,14 @@ export class SDFParser {
     const particleVelocityInitializer = new VectorVelocity(new THREE.Vector3(1, 0, 0), 0);
     particleVelocityInitializer.radiusPan = new Span(minVelocity, maxVelocity);
 
+    const scaleBehaviour = new Scale(
+      // Starting scale factor.
+      1,
+      // Ending scale factor. Since Scale Rate is scale change per second,
+      //we roughly calculate the scale factor at the end of the particle's life.
+      Math.pow(scaleRate, lifetime),
+    );
+
     // Explicity avoid damping, otherwise particles will be slowed down.
     nebulaEmitter.damping = 0;
 
@@ -1807,7 +1816,11 @@ export class SDFParser {
         particleSizeInitializer,
       ])
       .setPosition(parent.position)
-      .setRotation(parent.rotation)
+      .setRotation(parent.rotation);
+
+    if (scaleRate !== 1) {
+      nebulaEmitter.addBehaviour(scaleBehaviour);
+    }
 
     if (emitting) {
       nebulaEmitter.emit();
