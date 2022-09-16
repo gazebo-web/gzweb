@@ -16,6 +16,7 @@ import { SDFParser } from './SDFParser';
 import { Shaders } from './Shaders';
 import { SpawnModel } from './SpawnModel';
 import { STLLoader } from '../include/STLLoader';
+import { WsLoadingManager } from './WsLoadingManager';
 
 import * as JSZip from 'jszip';
 
@@ -343,27 +344,36 @@ export class Scene {
     this.textureLoader = new THREE.TextureLoader();
     this.textureLoader.crossOrigin = '';
     this.colladaLoader = new ColladaLoader();
-    if (this.findResourceCb) {
-      this.colladaLoader.findResourceCb = this.findResourceCb;
-    }
     this.stlLoader = new STLLoader();
 
     // Progress and Load events.
-    /* jshint ignore:start */
-    const progress = (url:string , items: any, total: number) => {
+    const progressEvent = (url: string , items: number, total: number) => {
       this.emitter.emit('load_progress', url, items, total);
     };
-    this.textureLoader.manager.onProgress = progress;
-    this.colladaLoader.manager.onProgress = progress;
-    this.stlLoader.manager.onProgress = progress;
 
-    const load = () => {
+    const loadEvent = () => {
       this.emitter.emit('load_finished');
     }
-    this.textureLoader.manager.onLoad = load;
-    this.colladaLoader.manager.onLoad = load;
-    this.stlLoader.manager.onLoad = load;
-    /* jshint ignore:end */
+
+    // Set the right loading manager for handling websocket assets.
+    if (this.findResourceCb) {
+      const wsLoadingManager = new WsLoadingManager(loadEvent, progressEvent);
+
+      // Collada Loader uses the findResourceCb internally.
+      this.colladaLoader.findResourceCb = this.findResourceCb;
+
+      this.textureLoader.manager = wsLoadingManager;
+      this.colladaLoader.manager = wsLoadingManager;
+      this.stlLoader.manager = wsLoadingManager;
+    }
+
+    this.textureLoader.manager.onProgress = progressEvent;
+    this.colladaLoader.manager.onProgress = progressEvent;
+    this.stlLoader.manager.onProgress = progressEvent;
+
+    this.textureLoader.manager.onLoad = loadEvent;
+    this.colladaLoader.manager.onLoad = loadEvent;
+    this.stlLoader.manager.onLoad = loadEvent;
 
     this.renderer = new THREE.WebGLRenderer({antialias: true});
     this.renderer.setPixelRatio(window.devicePixelRatio);
@@ -1888,12 +1898,24 @@ export class Scene {
         function(progress: any) {
         },
         // onError callback
-        function(error: any) {
-          if (that.findResourceCb) {
-            // Use the find resource callback to get the mesh
-            that.findResourceCb(uri, function(mesh: any) {
-              meshReady(that.colladaLoader.parse(
-                new TextDecoder().decode(mesh), uri));
+        (error: any) => {
+          if (this.findResourceCb) {
+            // Get the mesh from the websocket server.
+            this.findResourceCb(uri, (mesh: any, error?: string) => {
+              if (error !== undefined) {
+                // Mark the mesh as error in the loading manager.
+                const manager = this.colladaLoader.manager as WsLoadingManager;
+                manager.markAsError(uri);
+                return;
+              }
+
+              meshReady(
+                this.colladaLoader.parse(new TextDecoder().decode(mesh), uri)
+              );
+
+              // Mark the mesh as done in the loading manager.
+              const manager = this.colladaLoader.manager as WsLoadingManager;
+              manager.markAsDone(uri);
             });
           }
         });
@@ -2083,9 +2105,20 @@ export class Scene {
       // onError
       function (error: any) {
         if (that.findResourceCb) {
-          // Use the find resource callback to get the mesh
-          that.findResourceCb(uri, function(mesh: any) {
+          // Get the mesh from the websocket server.
+          that.findResourceCb(uri, (mesh: any, error?: string) => {
+            if (error !== undefined) {
+              // Mark the mesh as error in the loading manager.
+              const manager = that.stlLoader.manager as WsLoadingManager;
+              manager.markAsError(uri);
+              return;
+            }
+
             onLoad(that.stlLoader.parse(new TextDecoder().decode(mesh)));
+
+            // Mark the mesh as done in the loading manager.
+            const manager = that.stlLoader.manager as WsLoadingManager;
+            manager.markAsDone(uri);
           });
         }
       }
@@ -3683,7 +3716,14 @@ export class Scene {
     let fallbackLoader = (map: string, texture: THREE.Texture) => {
       if (this.findResourceCb) {
         // Get the image using the find resource callback.
-        this.findResourceCb(map, function(image: any) {
+        this.findResourceCb(map, (image: any, error?: string) => {
+          if (error !== undefined) {
+            // Mark the texture as error in the loading manager.
+            const manager = this.textureLoader.manager as WsLoadingManager;
+            manager.markAsError(map);
+            return;
+          }
+
           // Create the image element
           let imageElem: HTMLImageElement = <HTMLImageElement>(
             document.createElementNS('http://www.w3.org/1999/xhtml', 'img'));
@@ -3704,6 +3744,10 @@ export class Scene {
           texture.format = isJPEG ? THREE.RGBFormat : THREE.RGBAFormat;
           texture.needsUpdate = true;
           texture.image = imageElem;
+
+          // Mark the texture as done in the loading manager.
+          const manager = this.textureLoader.manager as WsLoadingManager;
+          manager.markAsDone(map);
         });
       }
     }
@@ -3712,7 +3756,7 @@ export class Scene {
       url,
       onLoad,
       onProgress,
-      function(_error) {
+      (_error) => {
         let scopeTexture = result;
         fallbackLoader(url, scopeTexture);
     });
