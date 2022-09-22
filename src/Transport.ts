@@ -136,7 +136,7 @@ export class Transport {
 
     const publisher = this.availableTopics.filter(pub => pub['topic'] === topic.name)[0];
     if (publisher['msg_type'] === 'ignition.msgs.Image' ||
-        publisher['msg_type'] === 'gazebo.msgs.Image') {
+        publisher['msg_type'] === 'gz.msgs.Image') {
       this.sendMessage(['image', topic.name, '', '']);
     }
     else {
@@ -363,7 +363,7 @@ export class Transport {
       // do not decode image msg as it is raw compressed png data and not a
       // protobuf msg
       if (frameParts[2] === 'ignition.msgs.Image' ||
-          frameParts[2] === 'gazebo.msgs.Image') {
+          frameParts[2] === 'gz.msgs.Image') {
         msg = msgData;
       }
       else {
