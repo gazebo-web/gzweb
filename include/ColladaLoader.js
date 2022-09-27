@@ -1729,7 +1729,7 @@ class ColladaLoader extends Loader {
 
                     // Get the image using the find resource callback.
                     scope.findResourceCb(filename, (imageBytes, error) => {
-											const item = `${savedPath}${image}`;
+                      const item = `${savedPath}${image}`;
                       if (error !== undefined) {
                         // Mark the texture as error in the loading manager.
                         loader.manager.markAsError(item);
