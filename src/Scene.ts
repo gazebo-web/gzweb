@@ -1096,7 +1096,7 @@ export class Scene {
       // +Z - Towards the camera
       // -Z - Away from the camera
 
-      let fixedCameraOffset = new THREE.Vector3(-0.12, 0, 0.4);
+      let fixedCameraOffset = new THREE.Vector3(-0.12, 0, 0.6);
       fixedCameraOffset.applyQuaternion(this.cameraTrackObject.quaternion);
       fixedCameraOffset.add(this.cameraTrackObject.position);
 
