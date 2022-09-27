@@ -1728,10 +1728,11 @@ class ColladaLoader extends Loader {
                     var scopeTexture = texture;
 
                     // Get the image using the find resource callback.
-                    scope.findResourceCb(filename, (image, error) => {
+                    scope.findResourceCb(filename, (imageBytes, error) => {
+											const item = `${savedPath}${image}`;
                       if (error !== undefined) {
                         // Mark the texture as error in the loading manager.
-                        loader.manager.markAsError(filename);
+                        loader.manager.markAsError(item);
                         return;
                       }
                       // Create the image element
@@ -1741,9 +1742,9 @@ class ColladaLoader extends Loader {
                       var isJPEG = filename.search( /\.jpe?g($|\?)/i ) > 0 || filename.search( /^data\:image\/jpeg/ ) === 0;
 
                       var binary = '';
-                      var len = image.byteLength;
+                      var len = imageBytes.byteLength;
                       for (var i = 0; i < len; i++) {
-                        binary += String.fromCharCode( image[ i ] );
+                        binary += String.fromCharCode( imageBytes[ i ] );
                       }
                       // Set the image source using base64 encoding
                       imageElem.src = isJPEG ? "data:image/jpg;base64,": "data:image/png;base64,";
@@ -1754,7 +1755,7 @@ class ColladaLoader extends Loader {
                       scopeTexture.image = imageElem;
 
                       // Mark the texture as done in the loading manager.
-                      loader.manager.markAsDone(filename);
+                      loader.manager.markAsDone(item);
                     });
                   }
                 });
