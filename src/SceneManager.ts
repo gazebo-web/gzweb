@@ -583,13 +583,22 @@ export class SceneManager {
     this.scene.setSize(this.sceneElement.clientWidth, this.sceneElement.clientHeight);
   }
 
-  private RAF(): void {
+  /**
+   * Animation loop.
+   *
+   * Renders the scene and updates any system and time-related variables.
+   */
+  private animate(): void {
     this.cancelAnimation = requestAnimationFrame((timestampMs) => {
       if (this.previousRenderTimestampMs === 0) {
         this.previousRenderTimestampMs = timestampMs;
       }
 
-      this.RAF();
+      this.animate();
+
+      if (this.scene.getParticleSystem()) {
+        this.scene.getParticleSystem().update();
+      }
 
       this.scene.render(timestampMs - this.previousRenderTimestampMs);
       this.previousRenderTimestampMs = timestampMs;
@@ -600,6 +609,6 @@ export class SceneManager {
    * Start the visualization rendering loop.
    */
   private startVisualization(): void {
-    this.RAF();
+    this.animate();
   }
 }

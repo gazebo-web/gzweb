@@ -1,5 +1,7 @@
 import * as THREE from 'three';
-// Nate disabled import * as SPE from '../include/SPE';
+
+// @ts-ignore
+import NebulaSystem, { SpriteRenderer } from 'three-nebula';
 import { getDescendants } from './Globals';
 import { ColladaLoader } from '../include/ColladaLoader';
 import { Color } from './Color';
@@ -96,7 +98,8 @@ export class Scene {
   private pointerOnMenu: boolean;
   private grid: THREE.GridHelper;
   private renderer: THREE.WebGLRenderer;
-  // Nate disabled: private particleGroup: SPE.Group;
+  private nebulaSystem: NebulaSystem;
+  private nebulaRenderer: SpriteRenderer;
   private cameraMoveToClock: THREE.Clock;
   private colladaLoader: ColladaLoader;
   private stlLoader: STLLoader;
@@ -1172,11 +1175,6 @@ export class Scene {
     /*if (this.radialMenu)
     {
       this.radialMenu.update();
-    }*/
-
-    /* Nate disabled if (this.particleGroup) {
-      var clock = new THREE.Clock();
-      this.particleGroup.tick( clock.getDelta() );
     }*/
 
     this.renderer.clear();
@@ -3627,6 +3625,11 @@ export class Scene {
       }
     });
 
+    // Destroy particles.
+    if (this.nebulaSystem) {
+      this.nebulaSystem.destroy();
+    }
+
     // Clean scene and renderer.
     this.renderer.renderLists.dispose();
     this.renderer.dispose();
@@ -3693,15 +3696,37 @@ export class Scene {
   };
 
   /**
-   * Add a Particle Group to render. It is required to calculate the values of
-   * particles during each cycle.
+   * Get the Nebula System.
    *
-   * @param {SPE.Group} particleGroup - A SPE Particle Group to render.
+   * The System is usually required by render loops in order to be updated.
+   *
+   * @returns The Nebula System, or undefined if it wasn't set.
    */
-  /* Nate disabled public addParticleGroup(particleGroup: SPE.Group): void
-  {
-    this.particleGroup = particleGroup;
-  }*/
+  public getParticleSystem(): NebulaSystem | undefined {
+    return this.nebulaSystem;
+  }
+
+  /**
+   * Get the Nebula Renderer.
+   *
+   * Used by emitters to render particles.
+   *
+   * @returns The Nebula Renderer, or undefined if it wasn't set.
+   */
+  public getParticleRenderer(): SpriteRenderer | undefined {
+    return this.nebulaRenderer;
+  }
+
+  /**
+   * Set the Nebula System in order to use particles.
+   *
+   * @param system The Nebula System.
+   * @param renderer The renderer the Nebula System will use.
+   */
+  public setupParticleSystem(system: NebulaSystem, renderer: SpriteRenderer) {
+    this.nebulaSystem = system;
+    this.nebulaRenderer = renderer;
+  }
 
  /**
   * Print out the scene graph with position of each node.
