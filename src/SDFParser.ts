@@ -11,6 +11,23 @@ import { Pose } from './Pose';
 import { Scene } from './Scene';
 import { EventEmitter2 } from 'eventemitter2';
 
+import System, {
+  Body,
+  BoxZone,
+  Emitter,
+  Life,
+  Position,
+  Radius,
+  Rate,
+  Scale,
+  Span,
+  SpriteRenderer,
+  VectorVelocity,
+  // @ts-ignore
+} from 'three-nebula';
+
+import { Message } from 'protobufjs';
+
 // Nate disabled import * as xml2json from 'xml2json';
 
 class PendingMesh {
@@ -1619,7 +1636,7 @@ export class SDFParser {
         link.particle_emitter = [link.particle_emitter];
       }
       for (var em = 0; em < link.particle_emitter.length; ++em) {
-        var emitter = this.createParticleEmitter(link.particle_emitter[em]);
+        const emitter = this.createParticleEmitter(link.particle_emitter[em], linkObj);
         if (emitter !== null && emitter !== undefined) {
           linkObj.userData = {
             emitter: emitter
@@ -1648,251 +1665,171 @@ export class SDFParser {
   /**
    * Creates the Particle Emitter.
    *
-   * @param {object} The emitter element from SDF or protobuf object.
-   * @return {object} A THREE.Object that contains the particle emitter.
+   * @param {object} Emitter. The emitter element from SDF or protobuf object.
+   * @param {THREE.Object3D} Parent. The link that contains the emitter.
+   * @return {THREE.Object3D} A THREE.Object3D that contains the particle emitter.
    */
-  public createParticleEmitter(emitter: object): THREE.Object3D {
-    // Particle Emitter is handled with ShaderParticleEngine, a third-party library.
-    // More information at https://github.com/squarefeet/ShaderParticleEngine
+  public createParticleEmitter(emitter: {[key: string]: any | Message;}, parent: THREE.Object3D): THREE.Object3D {
+    // Particle Emitter is handled with Three Nebula, a third-party library.
+    // More information at https://github.com/creativelifeform/three-nebula
 
     // Auxliar function to extract the value of an emitter property from
     // either SDF or protobuf object (stored in a data property).
-    function extractValue(property: any) {
+    function extractValue(property: string): any | undefined {
       if (emitter && emitter[property] !== undefined) {
-        if (emitter[property]['data'] !== undefined) {
-          return emitter[property].data;
+        if (emitter[property].data !== undefined) {
+          // The Message Prototype has data, but if not specified, it uses a default
+          // value (like 0 or false). We want only explicitly set data, which we get by converting
+          // the message to JSON.
+          const value = emitter[property] as Message;
+          const valueJson = value.toJSON();
+          return valueJson.data;
         } else {
           return emitter[property];
         }
       }
       return undefined;
     }
-    let particleEmitterObj = new THREE.Object3D();
-    /* Nate disabled
+
+    const particleEmitterObj = new THREE.Object3D();
 
     // Given name of the emitter.
-    let emitterName: string = this.createUniqueName(emitter);
+    const emitterName: string = this.createUniqueName(emitter);
 
     // Whether the emitter is generating particles or not.
-    let emitting: boolean = this.parseBool(extractValue('emitting')) || false;
+    const emitting: boolean = this.parseBool(extractValue('emitting')) || false;
 
     // Duration of the particle emitter. Infinite if null.
-    var duration = extractValue('duration');
-    duration = duration !== undefined ? parseFloat(duration) : null;
+    const extractedDuration = extractValue('duration');
+    const duration = extractedDuration !== undefined ? parseFloat(extractedDuration) : null;
 
     // Emitter type.
-    var type = extractValue('type') || extractValue('@type');
-    type = type || 'point';
+    const type = extractValue('type') || extractValue('@type') || 'point';
 
     // Lifetime of the individual particles, in seconds.
-    var lifetime = extractValue('lifetime');
-    lifetime = lifetime !== undefined ? parseFloat(lifetime) : 5;
+    const extractedLifetime = extractValue('lifetime');
+    const lifetime = extractedLifetime !== undefined ? parseFloat(extractedLifetime) : 5;
 
     // Velocity range.
-    var minVelocity = extractValue('min_velocity');
-    minVelocity = minVelocity !== undefined ? parseFloat(minVelocity) : 1;
+    const extractedMinVelocity = extractValue('min_velocity');
+    const minVelocity = extractedMinVelocity !== undefined ? parseFloat(extractedMinVelocity) : 1;
 
-    var maxVelocity = extractValue('max_velocity');
-    maxVelocity = maxVelocity !== undefined ? parseFloat(maxVelocity) : 1;
+    const extractedMaxVelocity = extractValue('max_velocity');
+    const maxVelocity = extractedMaxVelocity !== undefined ? parseFloat(extractedMaxVelocity) : 1;
 
     // Size of the particle emitter.
     // The SDF particle emitter spec lists size as
     // [x: width, y: height, z: depth].
-    var size = this.parse3DVector(emitter['size']) || new THREE.Vector3(1, 1, 1);
-    size.set(size.z, size.x, size.y);
+    const extractedSize = extractValue('size');
+    const size = this.parse3DVector(extractedSize) || new THREE.Vector3(1, 1, 1);
 
     // Size of the individual particles.
-    var particleSize = this.parse3DVector(emitter['particle_size']) || new THREE.Vector3(1, 1, 1);
+    const extractedParticleSize = extractValue('particle_size');
+    const particleSize = this.parse3DVector(extractedParticleSize) || new THREE.Vector3(1, 1, 1);
 
     // Pose of the particle emitter
-    var pose = this.parsePose(emitter['pose']);
+    const extractedPose = extractValue('pose');
+    const pose = this.parsePose(extractedPose);
 
     // Particles per second emitted.
-    var rate = extractValue('rate');
-    rate = rate !== undefined ? parseFloat(rate) : 10;
+    const extractedRate = extractValue('rate');
+    const rate = extractedRate !== undefined ? parseFloat(extractedRate) : 10;
 
     // Scale modifier for each particle. Modifies their size per second.
-    var scaleRate = extractValue('scale_rate');
-    scaleRate = scaleRate !== undefined ? parseFloat(scaleRate) : 1;
+    const extractedScaleRate = extractValue('scale_rate');
+    const scaleRate = extractedScaleRate !== undefined ? parseFloat(extractedScaleRate) : 1;
 
-    // Image that determines the color range. This image should be 1px in height.
-    // NOTE: SPE can have up to four different values, and internally it
-    // interpolates between these
-    // values for the lifetime of the particle.
-    var colorRangeImage = emitter['color_range_image'] || '';
-    // Handle the case where the emitter information is from a protobuf
-    // message.
-    if (typeof colorRangeImage === 'object' && colorRangeImage !== null &&
-        'data' in colorRangeImage) {
-      colorRangeImage = colorRangeImage.data;
-    }
-    let colorRangeImageUrl: string = '';
+    // Material
+    const particleMaterial = extractValue('material');
+    const particleTextureUrl = particleMaterial.pbr.albedo_map;
+    const particleTexture = this.scene.loadTexture(particleTextureUrl);
 
-    var particleTexture;
+    // Create a Nebula Emitter.
+    const nebulaEmitter = new Emitter();
 
-    // Texture image of the particles.
-    if ('material' in emitter && 'pbr' in emitter['material']) {
-      // SDF has a nested metal tag, while protobuf does not. Need to handle
-      // both.
-      if ('metal' in emitter['material']['pbr']) {
-        particleTexture = emitter['material']['pbr']['metal']['albedo_map'];
-      } else {
-        particleTexture = emitter['material']['pbr']['albedo_map'];
-      }
-    }
-    let particleTextureUrl: string = '';
+    // Create the Nebula System, if needed.
+    // We need only one system regardless of the amount of emitter we have.
+    let nebulaSystem = this.scene.getParticleSystem();
+    let nebulaRenderer = this.scene.getParticleRenderer();
 
-    // Get the URL of the images used.
-    if (this.usingFilesUrls) {
-      for (var u = 0; u < this.customUrls.length; u++) {
-        if (this.customUrls[u].indexOf(colorRangeImage) > -1) {
-          colorRangeImageUrl = this.customUrls[u];
-        }
+    if (!nebulaSystem) {
+      nebulaSystem = new System();
+      // Note: We pass the global THREE object here, but we could pass an object with just the
+      // THREE methods it uses.
+      // See https://github.com/creativelifeform/three-nebula/tree/master/src/renderer
+      nebulaRenderer = new SpriteRenderer(this.scene.scene, THREE);
+      nebulaSystem.addRenderer(nebulaRenderer)
 
-        if (this.customUrls[u].indexOf(particleTexture) > -1) {
-          particleTextureUrl = this.customUrls[u];
-        }
-
-        if (colorRangeImageUrl && particleTextureUrl) {
-          break;
-        }
-      }
-
-      if (colorRangeImage && !colorRangeImageUrl) {
-        colorRangeImageUrl = createFuelUri(colorRangeImage);
-      }
-      if (particleTexture && !particleTextureUrl) {
-        particleTextureUrl = createFuelUri(particleTexture);
-      }
+      this.scene.setupParticleSystem(nebulaSystem, nebulaRenderer);
     }
 
-    if (!colorRangeImageUrl) {
-      console.error('color_range_image is missing, the particle emitter will not work');
-      return particleEmitterObj ;
+    // Initializers
+
+    // Create the particle sprite and body.
+    const createSprite = () => {
+      const map = particleTexture;
+      const material = new THREE.SpriteMaterial({
+        map,
+        transparent: true,
+      });
+      return new THREE.Sprite(material);
+    };
+    const bodyInitializer = new Body(createSprite());
+
+    // Emitter's size
+    // Note: Only Box type supported for now.
+    const positionInitializer = new Position();
+
+    const boxZone = new BoxZone(size.x, size.y, size.z);
+    positionInitializer.addZone(boxZone);
+
+    const particleLifetimeInitializer = new Life(lifetime);
+
+    // Since rate is particles per second, we emit 1 particle per (1 / rate) seconds.
+    const particleRate = new Rate(
+      1,
+      1 / rate
+    );
+
+    const particleSizeInitializer = new Radius(particleSize.x, particleSize.y);
+    const particleVelocityInitializer = new VectorVelocity(new THREE.Vector3(1, 0, 0), 0);
+    particleVelocityInitializer.radiusPan = new Span(minVelocity, maxVelocity);
+
+    const scaleBehaviour = new Scale(
+      // Starting scale factor.
+      1,
+      // Ending scale factor. Since Scale Rate is scale change per second,
+      //we roughly calculate the scale factor at the end of the particle's life.
+      Math.pow(scaleRate, lifetime),
+    );
+
+    // Explicity avoid damping, otherwise particles will be slowed down.
+    nebulaEmitter.damping = 0;
+
+    nebulaEmitter
+      .setRate(particleRate)
+      .addInitializers([
+        positionInitializer,
+        particleLifetimeInitializer,
+        bodyInitializer,
+        particleVelocityInitializer,
+        particleSizeInitializer,
+      ])
+      .setPosition(parent.position)
+      .setRotation(parent.rotation);
+
+    if (scaleRate !== 1) {
+      nebulaEmitter.addBehaviour(scaleBehaviour);
     }
 
-    if (!particleTextureUrl) {
-      console.error('albedo_map is missing, the particle emitter will not work');
-      return particleEmitterObj ;
+    if (emitting) {
+      nebulaEmitter.emit();
     }
 
-    // Create the Particle Group.
-    // This is the container for the Particle Emitter.
-    // For more information, check http://squarefeet.github.io/ShaderParticleEngine/docs/api/SPE.Group.html
-    let particleGroup = new SPE.Group({
-      // TODO(german) SPE requires just a texture, leaving the SDF Material
-      // related information out.
-      // We might want to change the engine or write our if this proves to be
-      // an issue in the future.
-      texture: {
-        value: this.scene.textureLoader.load(particleTextureUrl),
-      },
-      transparent: true,
-      blending: THREE.NormalBlending,
-    });
-    particleGroup['name'] = emitterName;
+    nebulaSystem
+      .addEmitter(nebulaEmitter)
+      .emit({ onStart: () => {}, onUpdate: () => {}, onEnd: () => {}});
 
-    // Particle Emitter.
-    // For more information, check http://squarefeet.github.io/ShaderParticleEngine/docs/api/SPE.Emitter.html
-    var particleEmitter = new SPE.Emitter({
-      // How many particles this emitter will hold.
-      // The rate of particles emitted per second is roughly the particleCount/lifetime.
-      particleCount: rate * lifetime,
-
-      // Type of emitter. Box by default.
-      // TODO(german) Support Point, Sphere and Cylinder (No direct relation with SPE)
-      type: SPE.distributions.BOX,
-
-      // Duration of the particle emitter. Infinite if null.
-      duration: duration > 0? duration : null,
-
-      // Position of the emitter. The value is the current position, and spread is related to the size.
-      position: {
-        value: new THREE.Vector3(0, 0, 0),
-        spread: new THREE.Vector3().copy(size),
-      },
-
-      // Particle velocity. Value is the base, and uses spread to randomize each particle.
-      velocity: {
-        value: new THREE.Vector3(minVelocity, 0, 0),
-        spread: new THREE.Vector3(maxVelocity - minVelocity, 0, 0),
-      },
-
-      // Particle size at the start and finish of their lifetime.
-      // SPE interpolates these values.
-      size: {
-        value: [particleSize.x, particleSize.x + scaleRate * lifetime],
-      },
-
-      // Lifetime of the individual particles, in seconds.
-      maxAge: {
-        value: lifetime
-      },
-    });
-
-    // The emitter is disabled until the the color and opacity information is read.
-    particleEmitter.disable();
-
-    particleGroup.addEmitter(particleEmitter);
-
-
-    // Create a new THREE.Object to hold the particle emitter. This allows us
-    // to easily apply the particle emitter's position and orientation.
-    console.log(pose.orientation);
-    this.scene.setPose(particleEmitterObj, pose.position, pose.orientation);
-    particleEmitterObj.add(particleGroup.mesh);
-
-    // This is required by the rendering loop.
-    this.scene.addParticleGroup(particleGroup);
-
-    // Determine Color and Opacity information from the Color Range Image.
-    // Note: SPE supports 4 values of opacity and color in an array. The engine automatically interpolates between them.
-    // This means we cannot have all the colors from the image, instead, we pick only 4.
-    this.scene.textureLoader.load(colorRangeImageUrl, (texture) => {
-      // Load the Color Range Image and read the color information from its pixels.
-      // A canvas is required to do so.
-      const width: number = texture.image.width;
-      const height: number = texture.image.height;
-
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const context = canvas.getContext('2d');
-      context!.drawImage(texture.image, 0, 0);
-      const imageData = context!.getImageData(0, 0, width, height)!;
-
-      const colorImgData = [];
-      const opacityData = [];
-      for (let i = 0; i < width; i += Math.floor(width/3)) {
-        // The data array contains rgba values for each pixel.
-        const color = new THREE.Color(
-          imageData.data[i * 4 + 0] / 255,
-          imageData.data[i * 4 + 1] / 255,
-          imageData.data[i * 4 + 2] / 255
-        )
-        const opacity = imageData.data[i * 4 + 3] / 255;
-
-        colorImgData.push(color);
-        opacityData.push(opacity);
-      }
-
-      // Set the color and opacity of the particle emitter.
-      for (let i = 0; i < 4; i++) {
-        particleEmitter.color.value[i] = colorImgData[i];
-        particleEmitter.color.value = particleEmitter.color.value;
-
-        particleEmitter.opacity.value[i] = opacityData[i];
-        particleEmitter.opacity.value = particleEmitter.opacity.value;
-      }
-
-      // Finally, enable the emission.
-      if (emitting) {
-        particleEmitter.enable();
-      } else {
-        particleEmitter.disable();
-      }
-    });
-   */
     return particleEmitterObj;
   }
 
