@@ -325,6 +325,7 @@ export class SceneManager {
    */
   public connect(url: string, key?: string): void {
     this.transport.connect(url, key);
+      console.log('connect');
 
     this.statusSubscription = this.transport.getConnectionStatus().subscribe((response) => {
       if (response === 'error') {
@@ -345,9 +346,11 @@ export class SceneManager {
       // available.
       if (response === 'ready') {
         this.subscribeToTopics();
-        this.publisher = this.advertise(this.topicName, this.msgType);
-        console.log(`Advertised ${this.topicName} with msg type of
-          ${this.msgType}`);
+        /*if (this.topicName !== undefined && this.msgType !== undefined) {
+          this.publisher = this.advertise(this.topicName, this.msgType);
+          console.log(`Advertised ${this.topicName} with msg type of
+                      ${this.msgType}`);
+        }*/
       }
     });
 
@@ -358,7 +361,26 @@ export class SceneManager {
       }
 
       if ('sky' in sceneInfo && sceneInfo['sky']) {
-        this.scene.addSky();
+        // console.log(sceneInfo['sky']['header']['data']('cubemap_uri'));
+        console.log(sceneInfo['sky']['header']['data'][0]);
+        console.log(sceneInfo['sky']['header']['data'][0]['key']);
+        console.log(sceneInfo['sky']['header']['data'][0]['value']);
+
+        const sky = sceneInfo['sky'];
+
+        // Check to see if a cubemap has been specified in the header.
+        if (sky['header'] !== undefined &&
+            sky['header']['data'] !== undefined) {
+          const data = sky['header']['data'];
+          for (let i = 0; i < data.length; ++i) {
+            if (data[i]['key'] === 'cubemap_uri' &&
+                data[i]['value'] !== undefined) {
+              this.scene.addSky(data[i]['value'][0]);
+            }
+          }
+        } else {
+          this.scene.addSky();
+        }
       }
       this.sceneInfo = sceneInfo;
       this.startVisualization();

@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { getDescendants } from './Globals';
 import { ColladaLoader } from '../include/ColladaLoader';
 import { Color } from './Color';
+import { DDSLoader } from '../include/DDSLoader';
 import { EventEmitter2 } from 'eventemitter2';
 import { GzObjLoader } from './GzObjLoader';
 import { ModelUserData } from './ModelUserData';
@@ -679,18 +680,52 @@ export class Scene {
     this.COMvisual.add(mesh);
   }
 
-  public addSky(): void {
-    var cubeLoader = new THREE.CubeTextureLoader();
-    var cubeTexture = cubeLoader.load([
-      'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-negx.jpg',
-      'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-posx.jpg',
-      'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-posy.jpg',
-      'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-negy.jpg',
-      'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-negz.jpg',
-      'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-posz.jpg',
-    ]);
+  public addSky(cubemap: string | undefined): void {
+    if (cubemap === undefined) {
+      var cubeLoader = new THREE.CubeTextureLoader();
+      this.scene.background = cubeLoader.load([
+        'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-negx.jpg',
+        'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-posx.jpg',
+        'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-posy.jpg',
+        'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-negy.jpg',
+        'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-negz.jpg',
+        'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-posz.jpg',
+      ]);
+    } else {
+      console.log('Using DDS Loader');
+      var ddsLoader = new DDSLoader();
+      this.scene.background = ddsLoader.load(cubemap,
+        // OnLoad
+        ()=>{},
+        // OnProgress
+        ()=>{},
+        // OnError
+        (error: any) => {
+          if (this.findResourceCb) {
+            // Get the mesh from the websocket server.
+            this.findResourceCb(cubemap, (material: any, error?: string) => {
+              console.log('Got material for ' + cubemap);
+              if (error !== undefined) {
+                return;
+              }
+              console.log(material);
+                      var binary = '';
+                      var len = material.byteLength;
+                      for (var i = 0; i < len; i++) {
+                        binary += String.fromCharCode( material[ i ] );
+                      }
 
-    this.scene.background = cubeTexture;
+              console.log(binary);
+              const header = new Uint32Array( material.buffer, 0, 31);
+              console.log(header);
+              const texDatas = ddsLoader.parse(material.buffer, true);
+              console.log('TexDatas');
+              console.log(texDatas);
+            });
+          }
+        }
+      );
+    }
   }
 
   public initScene(): void {
