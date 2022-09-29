@@ -297,7 +297,7 @@ export class Transport {
 
     // Other messages should be sent when the connection status is connected or ready.
     if (connectionStatus === 'disconnected') {
-      console.error('Tyring to send a message and the websocket is disconnected.', msg);
+      console.error('Trying to send a message but the websocket is disconnected.', msg);
       return;
     }
 
