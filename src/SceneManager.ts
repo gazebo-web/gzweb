@@ -362,13 +362,14 @@ export class SceneManager {
         const sky = sceneInfo['sky'];
 
         // Check to see if a cubemap has been specified in the header.
-        if (sky['header'] !== undefined &&
-            sky['header']['data'] !== undefined) {
+        if ('header' in sky && sky['header'] !== null && sky['header'] !== undefined &&
+            'data' in sky['header'] && sky['header']['data'] !== null && sky['header']['data'] !== undefined) {
           const data = sky['header']['data'];
           for (let i = 0; i < data.length; ++i) {
             if (data[i]['key'] === 'cubemap_uri' &&
-                data[i]['value'] !== undefined) {
+                data[i]['value'] !== null && data[i]['value'] !== undefined) {
               this.scene.addSky(data[i]['value'][0]);
+              break;
             }
           }
         } else {
