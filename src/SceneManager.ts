@@ -415,9 +415,9 @@ export class SceneManager {
    *
    * @param topic The topic to advertise.
    */
-  public advertise(topic: string, msgTypeName: string): Publisher {
+  /*public advertise(topic: string, msgTypeName: string): Publisher {
     return this.transport.advertise(topic, msgTypeName);
-  }
+  }*/
 
   /**
    * Allows clients to subscribe to a custom topic.

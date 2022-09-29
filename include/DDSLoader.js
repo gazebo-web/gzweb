@@ -1,5 +1,11 @@
 import {
-  CompressedTextureLoader
+  CompressedTextureLoader,
+  RGBAFormat,
+  RGB_S3TC_DXT1_Format,
+  RGBA_S3TC_DXT3_Format,
+  RGBA_S3TC_DXT5_Format,
+  RGB_ETC1_Format,
+  CompressedPixelFormat
 } from 'three';
 
 class DDSLoader extends CompressedTextureLoader {
@@ -10,6 +16,7 @@ class DDSLoader extends CompressedTextureLoader {
 
  	parse( buffer, loadMipmaps ) {
  		const dds = {
+      isCubemap: false,
  			mipmaps: [],
  			width: 0,
  			height: 0,
@@ -45,6 +52,10 @@ class DDSLoader extends CompressedTextureLoader {
  		// const DDPF_RGB = 0x40;
  		// const DDPF_YUV = 0x200;
  		// const DDPF_LUMINANCE = 0x20000;
+
+    function uint8ArraytoInt32( value, offset ) {
+ 			return value[offset] + (value[offset+1] << 8) + (value[offset+2] << 16) + (value[offset+3] << 24);
+    }
 
  		function fourCCToInt32( value ) {
 
@@ -123,22 +134,146 @@ class DDSLoader extends CompressedTextureLoader {
  		// const off_caps4 = 30;
  		// Parse header
 
-    console.log('Bbb[' + buffer + ']');
- 		const header = new Uint32Array( buffer, 0, headerLengthInt );
+	const header = new Int32Array( buffer, 0, headerLengthInt );
+
+			if ( header[ off_magic ] !== DDS_MAGIC ) {
+
+				console.error( 'THREE.DDSLoader.parse: Invalid magic number in DDS header.' );
+				return dds;
+
+			}
+
+			let blockBytes;
+			const fourCC = header[ off_pfFourCC ];
+			let isRGBAUncompressed = false;
+
+			switch ( fourCC ) {
+
+				case FOURCC_DXT1:
+					blockBytes = 8;
+					dds.format = RGB_S3TC_DXT1_Format;
+					break;
+
+				case FOURCC_DXT3:
+					blockBytes = 16;
+					dds.format = RGBA_S3TC_DXT3_Format;
+					break;
+
+				case FOURCC_DXT5:
+					blockBytes = 16;
+					dds.format = RGBA_S3TC_DXT5_Format;
+					break;
+
+				case FOURCC_ETC1:
+					blockBytes = 8;
+					dds.format = RGB_ETC1_Format;
+					break;
+
+				default:
+					if ( header[ off_RGBBitCount ] === 32 && header[ off_RBitMask ] & 0xff0000 && header[ off_GBitMask ] & 0xff00 && header[ off_BBitMask ] & 0xff && header[ off_ABitMask ] & 0xff000000 ) {
+
+						isRGBAUncompressed = true;
+						blockBytes = 64;
+						dds.format = RGBAFormat;
+
+					} else {
+
+						console.error( 'THREE.DDSLoader.parse: Unsupported FourCC code ', int32ToFourCC( fourCC ) );
+						return dds;
+
+					}
+
+			}
+
+			dds.mipmapCount = 1;
+
+			if ( header[ off_flags ] & DDSD_MIPMAPCOUNT && loadMipmaps !== false ) {
+
+				dds.mipmapCount = Math.max( 1, header[ off_mipmapCount ] );
+
+			}
+
+			const caps2 = header[ off_caps2 ];
+			dds.isCubemap = caps2 & DDSCAPS2_CUBEMAP ? true : false;
+
+			if ( dds.isCubemap && ( ! ( caps2 & DDSCAPS2_CUBEMAP_POSITIVEX ) || ! ( caps2 & DDSCAPS2_CUBEMAP_NEGATIVEX ) || ! ( caps2 & DDSCAPS2_CUBEMAP_POSITIVEY ) || ! ( caps2 & DDSCAPS2_CUBEMAP_NEGATIVEY ) || ! ( caps2 & DDSCAPS2_CUBEMAP_POSITIVEZ ) || ! ( caps2 & DDSCAPS2_CUBEMAP_NEGATIVEZ ) ) ) {
+
+				console.error( 'THREE.DDSLoader.parse: Incomplete cubemap faces' );
+				return dds;
+
+			}
+
+			dds.width = header[ off_width ];
+			dds.height = header[ off_height ];
+			let dataOffset = header[ off_size ] + 4; // Extract mipmaps buffers
+
+			const faces = dds.isCubemap ? 6 : 1;
+
+			for ( let face = 0; face < faces; face ++ ) {
+
+				let width = dds.width;
+				let height = dds.height;
+
+				for ( let i = 0; i < dds.mipmapCount; i ++ ) {
+
+					let byteArray, dataLength;
+
+					if ( isRGBAUncompressed ) {
+
+						byteArray = loadARGBMip( buffer, dataOffset, width, height );
+						dataLength = byteArray.length;
+
+					} else {
+
+						dataLength = Math.max( 4, width ) / 4 * Math.max( 4, height ) / 4 * blockBytes;
+						byteArray = new Uint8Array( buffer, dataOffset, dataLength );
+
+					}
+
+					const mipmap = {
+						'data': byteArray,
+						'width': width,
+						'height': height
+					};
+					dds.mipmaps.push( mipmap );
+					dataOffset += dataLength;
+					width = Math.max( width >> 1, 1 );
+					height = Math.max( height >> 1, 1 );
+
+				}
+
+			}
+
+			return dds;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 		/*const header = new Uint8Array( buffer );
     console.log('Header', header);
-    console.log('Header off magic', header);
-    console.log(header[ off_magic ] );
-    console.log('True offmagic', DDS_MAGIC);
-
- 		if ( header[ off_magic ] !== DDS_MAGIC ) {
-
- 			console.error( 'THREE.DDSLoader.parse: Invalid magic number in DDS header.' );
- 			return dds;
-
+ 		if (uint8ArraytoInt32(header, off_magic) !== DDS_MAGIC ) {
+ 			console.error(
+        'THREE.DDSLoader.parse: Invalid magic number in DDS header.' );
+      return dds;
  		}
 
  		let blockBytes;
- 		const fourCC = header[ off_pfFourCC ];
+ 		const fourCC = uint8ArraytoInt32(header, off_pfFourCC);
  		let isRGBAUncompressed = false;
 
  		switch ( fourCC ) {
@@ -164,7 +299,11 @@ class DDSLoader extends CompressedTextureLoader {
  				break;
 
  			default:
- 				if ( header[ off_RGBBitCount ] === 32 && header[ off_RBitMask ] & 0xff0000 && header[ off_GBitMask ] & 0xff00 && header[ off_BBitMask ] & 0xff && header[ off_ABitMask ] & 0xff000000 ) {
+ 				if (uint8ArraytoInt32(header, off_RGBBitCount) === 32 &&
+            uint8ArraytoInt32(header, off_RBitMask) & 0xff0000 &&
+            uint8ArraytoInt32(header, off_GBitMask) & 0xff00 &&
+            uint8ArraytoInt32(header, off_BBitMask) & 0xff &&
+            uint8ArraytoInt32(header, off_ABitMask) & 0xff000000) {
 
  					isRGBAUncompressed = true;
  					blockBytes = 64;
@@ -181,13 +320,12 @@ class DDSLoader extends CompressedTextureLoader {
 
  		dds.mipmapCount = 1;
 
- 		if ( header[ off_flags ] & DDSD_MIPMAPCOUNT && loadMipmaps !== false ) {
-
- 			dds.mipmapCount = Math.max( 1, header[ off_mipmapCount ] );
-
+ 		if (uint8ArraytoInt32(header, off_flags) & DDSD_MIPMAPCOUNT &&
+        loadMipmaps !== false ) {
+ 			dds.mipmapCount = Math.max(1, uint8ArraytoInt32(header,off_mipmapCount));
  		}
 
- 		const caps2 = header[ off_caps2 ];
+ 		const caps2 = uint8ArraytoInt32(header, off_caps2);
  		dds.isCubemap = caps2 & DDSCAPS2_CUBEMAP ? true : false;
 
  		if ( dds.isCubemap && ( ! ( caps2 & DDSCAPS2_CUBEMAP_POSITIVEX ) || ! ( caps2 & DDSCAPS2_CUBEMAP_NEGATIVEX ) || ! ( caps2 & DDSCAPS2_CUBEMAP_POSITIVEY ) || ! ( caps2 & DDSCAPS2_CUBEMAP_NEGATIVEY ) || ! ( caps2 & DDSCAPS2_CUBEMAP_POSITIVEZ ) || ! ( caps2 & DDSCAPS2_CUBEMAP_NEGATIVEZ ) ) ) {
@@ -197,9 +335,11 @@ class DDSLoader extends CompressedTextureLoader {
 
  		}
 
- 		dds.width = header[ off_width ];
- 		dds.height = header[ off_height ];
- 		let dataOffset = header[ off_size ] + 4; // Extract mipmaps buffers
+ 		dds.width = uint8ArraytoInt32(header, off_width);
+ 		dds.height = uint8ArraytoInt32(header, off_height);
+
+    // Extract mipmaps buffers
+ 		let dataOffset = uint8ArraytoInt32(header, off_size) + 4;
 
  		const faces = dds.isCubemap ? 6 : 1;
 
@@ -236,6 +376,7 @@ class DDSLoader extends CompressedTextureLoader {
  			}
  		}
  		return dds;
+    */
  	}
 }
 export { DDSLoader };

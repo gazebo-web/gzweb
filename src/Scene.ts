@@ -707,28 +707,90 @@ export class Scene {
           if (this.findResourceCb) {
             // Get the mesh from the websocket server.
             this.findResourceCb(cubemap, (material: any, error?: string) => {
-              console.log('Got material for ' + cubemap);
               if (error !== undefined) {
                 return;
               }
-              console.log(material);
-                      var binary = '';
-                      var len = material.byteLength;
-                      for (var i = 0; i < len; i++) {
-                        binary += String.fromCharCode( material[ i ] );
-                      }
+              const texDatas = ddsLoader.parse(
+                material.buffer.slice(material.byteOffset), true);
+                console.log(texDatas);
 
-              console.log(binary);
-              const header = new Uint32Array( material.buffer, 0, 31);
-              console.log(header);
-              const texDatas = ddsLoader.parse(material.buffer, true);
-              console.log('TexDatas');
-              console.log(texDatas);
+                const images: any[] = [];
+                let texture: THREE.CompressedTexture;
+
+                if (texDatas['isCubemap']) {
+                  const faces = texDatas['mipmaps'].length / texDatas['mipmapCount'];
+
+                  for ( let f = 0; f < faces; f ++ ) {
+                    images[ f ] = { mipmaps: [] };
+                    for ( let i = 0; i < texDatas['mipmapCount']; i ++ ) {
+
+                      images[ f ].mipmaps.push( texDatas['mipmaps'][ f * texDatas['mipmapCount'] + i ] );
+                      images[ f ].format = texDatas['format'];
+                      images[ f ].width = texDatas['width'];
+                      images[ f ].height = texDatas['height'];
+                    }
+                  }
+                } else {
+                  /*texture.image.width = texDatas['width'];
+                  texture.image.height = texDatas['height'];
+                  texture.mipmaps = texDatas['mipmaps'];
+                 */
+                }
+                texture = new THREE.CompressedTexture(images,
+                  texDatas['width'],
+                  texDatas['height'],
+                  <unknown>(texDatas['format']) as THREE.CompressedPixelFormat);
+
+                if (texDatas['mipmapCount'] === 1) {
+                  texture.minFilter = THREE.LinearFilter;
+                }
+
+                texture.needsUpdate = true;
+
+/*                console.log(texDatas['mipmaps'][0]['data']);
+              const cubeMap = new THREE.CubeTexture(
+                this.toImage(texDatas['mipmaps'][0]['data']),
+                this.toImage(texDatas['mipmaps'][1]['data']),
+                this.toImage(texDatas['mipmaps'][2]['data']),
+                this.toImage(texDatas['mipmaps'][3]['data']),
+                this.toImage(texDatas['mipmaps'][4]['data']),
+                this.toImage(texDatas['mipmaps'][5]['data']));
+
+/*
+              const cubeMap = new THREE.CubeTexture(
+                this.toImage(texDatas.mipmaps[0].data),
+                this.toImage(texDatas.mipmaps[1].data),
+                this.toImage(texDatas.mipmaps[2].data),
+                this.toImage(texDatas.mipmaps[3].data),
+                this.toImage(texDatas.mipmaps[4].data),
+                this.toImage(texDatas.mipmaps[5].data));
+               */
+                console.log(texture);
+                this.scene.background = texture;
             });
           }
         }
       );
     }
+  }
+
+  public toImage(image: Uint8Array): any {
+
+    var imageElem = document.createElementNS(
+      'http://www.w3.org/1999/xhtml', 'img') as HTMLImageElement;
+
+      var isJPEG = false;//filename.search( /\.jpe?g($|\?)/i ) > 0 || filename.search( /^data\:image\/jpeg/ ) === 0;
+
+                      var binary = '';
+                      var len = image.byteLength;
+                      for (var i = 0; i < len; i++) {
+                        binary += String.fromCharCode( image[ i ] );
+                      }
+                      // Set the image source using base64 encoding
+                      imageElem.src = isJPEG ? "data:image/jpg;base64,": "data:image/png;base64,";
+                      imageElem.src += window.btoa(binary);
+                      return imageElem;
+
   }
 
   public initScene(): void {
