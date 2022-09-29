@@ -358,8 +358,24 @@ export class SceneManager {
       }
 
       if ('sky' in sceneInfo && sceneInfo['sky']) {
-        this.scene.addSky();
+
+        const sky = sceneInfo['sky'];
+
+        // Check to see if a cubemap has been specified in the header.
+        if (sky['header'] !== undefined &&
+            sky['header']['data'] !== undefined) {
+          const data = sky['header']['data'];
+          for (let i = 0; i < data.length; ++i) {
+            if (data[i]['key'] === 'cubemap_uri' &&
+                data[i]['value'] !== undefined) {
+              this.scene.addSky(data[i]['value'][0]);
+            }
+          }
+        } else {
+          this.scene.addSky();
+        }
       }
+
       this.sceneInfo = sceneInfo;
       this.startVisualization();
 
