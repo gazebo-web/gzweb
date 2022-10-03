@@ -2,7 +2,7 @@ import * as THREE from 'three';
 
 // @ts-ignore
 import NebulaSystem, { SpriteRenderer } from 'three-nebula';
-import { getDescendants } from './Globals';
+import { getDescendants, binaryToImage } from './Globals';
 import { ColladaLoader } from '../include/ColladaLoader';
 import { Color } from './Color';
 import { DDSLoader } from '../include/DDSLoader';
@@ -695,78 +695,97 @@ export class Scene {
         'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-posz.jpg',
       ]);
     } else {
-      console.log('Using DDS Loader');
-      var ddsLoader = new DDSLoader();
-      this.scene.background = ddsLoader.load(cubemap,
-        // OnLoad
+      let ddsLoader = new DDSLoader();
+      ddsLoader.load(cubemap,
+        // OnLoad callback that allows us to manipulate the texture.
+        (compressedTexture: THREE.CompressedTexture)=>{
+
+          const images: HTMLImageElement[] = [];
+          const rawImages: any[] = <any[]><unknown>compressedTexture.image; 
+
+          // Conver the binary data arrays to images
+          for (let i = 0; i < rawImages.length; i++) {
+            let image = rawImages[i]['mipmaps'][0];
+            let imageElem = binaryToImage(image['data'],
+                                          image['width'],
+                                          image['height']);
+
+            images.push(imageElem);
+          }
+
+          // Reorder the images to support ThreeJS coordinate system.
+          const reorderImages = [images[1], images[0],
+                                 images[2], images[3],
+                                 images[5], images[4]];
+                       
+          // Create the cube texture 
+          this.scene.background = new THREE.CubeTexture(reorderImages,
+                                                  compressedTexture.mapping,
+                                                  compressedTexture.wrapS,
+                                                  compressedTexture.wrapT,
+                                                  compressedTexture.magFilter,
+                                                  compressedTexture.minFilter,
+                                                  compressedTexture.format,
+                                                  compressedTexture.type,
+                                                  compressedTexture.anisotropy,
+                                                  compressedTexture.encoding);
+          this.scene.background.needsUpdate = true;
+        },
+
+        // OnProgress, do nothing
         ()=>{},
-        // OnProgress
-        ()=>{},
+
         // OnError
         (error: any) => {
           if (this.findResourceCb) {
+
             // Get the mesh from the websocket server.
             this.findResourceCb(cubemap, (material: any, error?: string) => {
               if (error !== undefined) {
                 return;
               }
+
+              // Parse the DDS data.
               const texDatas = ddsLoader.parse(
                 material.buffer.slice(material.byteOffset), true);
-                console.log(texDatas);
 
-                const images: any[] = [];
-                let texture: THREE.CompressedTexture;
+              const images: HTMLImageElement[] = [];
+              let texture: THREE.CubeTexture;
 
-                if (texDatas['isCubemap']) {
-                  const faces = texDatas['mipmaps'].length / texDatas['mipmapCount'];
+              // This `if` statement was taken from https://github.com/mrdoob/three.js/blob/master/src/loaders/CompressedTextureLoader.js#L83
+              if (texDatas['isCubemap']) {
+                const faces = texDatas['mipmaps'].length / texDatas['mipmapCount'];
+                for (let f = 0; f < faces; f++) {
+                  for (let i = 0; i < texDatas['mipmapCount']; i++) {
 
-                  for ( let f = 0; f < faces; f ++ ) {
-                    images[ f ] = { mipmaps: [] };
-                    for ( let i = 0; i < texDatas['mipmapCount']; i ++ ) {
-
-                      images[ f ].mipmaps.push( texDatas['mipmaps'][ f * texDatas['mipmapCount'] + i ] );
-                      images[ f ].format = texDatas['format'];
-                      images[ f ].width = texDatas['width'];
-                      images[ f ].height = texDatas['height'];
-                    }
+                    let data: Uint8Array =
+                      texDatas['mipmaps'][f * texDatas['mipmapCount'] + i]['data'];
+                    // Convert binary data to an image
+                    let imageElem = binaryToImage(data,
+                                                  texDatas['width'],
+                                                  texDatas['height']);
+                    images.push(imageElem);
                   }
-                } else {
-                  /*texture.image.width = texDatas['width'];
-                  texture.image.height = texDatas['height'];
-                  texture.mipmaps = texDatas['mipmaps'];
-                 */
                 }
-                texture = new THREE.CompressedTexture(images,
-                  texDatas['width'],
-                  texDatas['height'],
-                  <unknown>(texDatas['format']) as THREE.CompressedPixelFormat);
+              } else {
+                console.error('Texture is not a cubemap. Sky will not be set.');
+                return;
+              }
 
-                if (texDatas['mipmapCount'] === 1) {
-                  texture.minFilter = THREE.LinearFilter;
-                }
+              // Reorder the images to support ThreeJS coordinate system.
+              const reorderImages = [images[1], images[0],
+                                     images[2], images[3],
+                                     images[5], images[4]];
 
-                texture.needsUpdate = true;
+              this.scene.background = new THREE.CubeTexture(reorderImages);
+              this.scene.background.format =
+                <unknown>(texDatas['format']) as THREE.PixelFormat;
 
-/*                console.log(texDatas['mipmaps'][0]['data']);
-              const cubeMap = new THREE.CubeTexture(
-                this.toImage(texDatas['mipmaps'][0]['data']),
-                this.toImage(texDatas['mipmaps'][1]['data']),
-                this.toImage(texDatas['mipmaps'][2]['data']),
-                this.toImage(texDatas['mipmaps'][3]['data']),
-                this.toImage(texDatas['mipmaps'][4]['data']),
-                this.toImage(texDatas['mipmaps'][5]['data']));
+              if (texDatas['mipmapCount'] === 1) {
+                this.scene.background.minFilter = THREE.LinearFilter;
+              }
 
-/*
-              const cubeMap = new THREE.CubeTexture(
-                this.toImage(texDatas.mipmaps[0].data),
-                this.toImage(texDatas.mipmaps[1].data),
-                this.toImage(texDatas.mipmaps[2].data),
-                this.toImage(texDatas.mipmaps[3].data),
-                this.toImage(texDatas.mipmaps[4].data),
-                this.toImage(texDatas.mipmaps[5].data));
-               */
-                console.log(texture);
-                this.scene.background = texture;
+              this.scene.background.needsUpdate = true;
             });
           }
         }

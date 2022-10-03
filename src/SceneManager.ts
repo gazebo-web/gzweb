@@ -361,16 +361,11 @@ export class SceneManager {
       }
 
       if ('sky' in sceneInfo && sceneInfo['sky']) {
-        // console.log(sceneInfo['sky']['header']['data']('cubemap_uri'));
-        console.log(sceneInfo['sky']['header']['data'][0]);
-        console.log(sceneInfo['sky']['header']['data'][0]['key']);
-        console.log(sceneInfo['sky']['header']['data'][0]['value']);
-
         const sky = sceneInfo['sky'];
 
+        console.log(sky);
         // Check to see if a cubemap has been specified in the header.
-        if (sky['header'] !== undefined &&
-            sky['header']['data'] !== undefined) {
+        if ('header' in sky && sky['header'] && sky['header']['data']) {
           const data = sky['header']['data'];
           for (let i = 0; i < data.length; ++i) {
             if (data[i]['key'] === 'cubemap_uri' &&
