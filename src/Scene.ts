@@ -686,21 +686,21 @@ export class Scene {
     var cubeLoader = new THREE.CubeTextureLoader();
     if (cubemap === undefined) {
       this.scene.background = cubeLoader.load([
-        'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-negx.jpg',
-        'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-posx.jpg',
-        'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-posy.jpg',
-        'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-negy.jpg',
-        'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-negz.jpg',
-        'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-posz.jpg',
+        'https://fuel.gazebosim.org/1.0/Cole/models/skyboxgrey/tip/files/materials/textures/skybox-negx.jpg',
+        'https://fuel.gazebosim.org/1.0/Cole/models/skyboxgrey/tip/files/materials/textures/skybox-posx.jpg',
+        'https://fuel.gazebosim.org/1.0/Cole/models/skyboxgrey/tip/files/materials/textures/skybox-posy.jpg',
+        'https://fuel.gazebosim.org/1.0/Cole/models/skyboxgrey/tip/files/materials/textures/skybox-negy.jpg',
+        'https://fuel.gazebosim.org/1.0/Cole/models/skyboxgrey/tip/files/materials/textures/skybox-negz.jpg',
+        'https://fuel.gazebosim.org/1.0/Cole/models/skyboxgrey/tip/files/materials/textures/skybox-posz.jpg',
       ]);
     } else {
       this.scene.background = cubeLoader.load([
-        'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-red-negx.jpg',
-        'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-red-posx.jpg',
-        'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-red-posy.jpg',
-        'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-red-negy.jpg',
-        'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-red-negz.jpg',
-        'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-red-posz.jpg',
+        'https://fuel.gazebosim.org/1.0/Cole/models/skyboxred/tip/files/materials/textures/skybox-red-negx.jpg',
+        'https://fuel.gazebosim.org/1.0/Cole/models/skyboxred/tip/files/materials/textures/skybox-red-posx.jpg',
+        'https://fuel.gazebosim.org/1.0/Cole/models/skyboxred/tip/files/materials/textures/skybox-red-posy.jpg',
+        'https://fuel.gazebosim.org/1.0/Cole/models/skyboxred/tip/files/materials/textures/skybox-red-negy.jpg',
+        'https://fuel.gazebosim.org/1.0/Cole/models/skyboxred/tip/files/materials/textures/skybox-red-negz.jpg',
+        'https://fuel.gazebosim.org/1.0/Cole/models/skyboxred/tip/files/materials/textures/skybox-red-posz.jpg',
       ]);
     }
   }
