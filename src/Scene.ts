@@ -2964,6 +2964,17 @@ export class Scene {
   }
 
   /**
+   * Add Fog to the scene. See https://threejs.org/docs/index.html?q=fog#api/en/scenes/FogExp2
+   * @param color The color of the fog. This is a hex number.
+   * @param density Defines how fast the fog will grow dense. Default is 0.00025.
+   */
+  public setFog(color: number, density: number = 0.00025) {
+    const backgroundColor = new THREE.Color(color);
+    this.scene.background = backgroundColor;
+    this.scene.fog = new THREE.FogExp2(color, density);
+  }
+
+  /**
    * View Center Of Mass
    * Toggle: if there are COM visuals, hide, otherwise, show.
    * @param {} model
