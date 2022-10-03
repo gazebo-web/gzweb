@@ -245,7 +245,6 @@ export class Transport {
    * Get an asset from Gazebo
    */
   public getAsset(_uri: string, _cb: AssetCb) {
-    console.log('Getting asset['+_uri+']');
     let asset: Asset = {
       uri: _uri,
       cb: _cb

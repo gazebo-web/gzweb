@@ -325,7 +325,6 @@ export class SceneManager {
    */
   public connect(url: string, key?: string): void {
     this.transport.connect(url, key);
-      console.log('connect');
 
     this.statusSubscription = this.transport.getConnectionStatus().subscribe((response) => {
       if (response === 'error') {
@@ -346,11 +345,9 @@ export class SceneManager {
       // available.
       if (response === 'ready') {
         this.subscribeToTopics();
-        /*if (this.topicName !== undefined && this.msgType !== undefined) {
-          this.publisher = this.advertise(this.topicName, this.msgType);
-          console.log(`Advertised ${this.topicName} with msg type of
-                      ${this.msgType}`);
-        }*/
+        this.publisher = this.advertise(this.topicName, this.msgType);
+        console.log(`Advertised ${this.topicName} with msg type of
+                    ${this.msgType}`);
       }
     });
 
@@ -363,7 +360,6 @@ export class SceneManager {
       if ('sky' in sceneInfo && sceneInfo['sky']) {
         const sky = sceneInfo['sky'];
 
-        console.log(sky);
         // Check to see if a cubemap has been specified in the header.
         if ('header' in sky && sky['header'] && sky['header']['data']) {
           const data = sky['header']['data'];
@@ -410,9 +406,9 @@ export class SceneManager {
    *
    * @param topic The topic to advertise.
    */
-  /*public advertise(topic: string, msgTypeName: string): Publisher {
+  public advertise(topic: string, msgTypeName: string): Publisher {
     return this.transport.advertise(topic, msgTypeName);
-  }*/
+  }
 
   /**
    * Allows clients to subscribe to a custom topic.

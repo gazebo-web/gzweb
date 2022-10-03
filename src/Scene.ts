@@ -703,7 +703,7 @@ export class Scene {
           const images: HTMLImageElement[] = [];
           const rawImages: any[] = <any[]><unknown>compressedTexture.image; 
 
-          // Conver the binary data arrays to images
+          // Convert the binary data arrays to images
           for (let i = 0; i < rawImages.length; i++) {
             let image = rawImages[i]['mipmaps'][0];
             let imageElem = binaryToImage(image['data'],
@@ -791,25 +791,6 @@ export class Scene {
         }
       );
     }
-  }
-
-  public toImage(image: Uint8Array): any {
-
-    var imageElem = document.createElementNS(
-      'http://www.w3.org/1999/xhtml', 'img') as HTMLImageElement;
-
-      var isJPEG = false;//filename.search( /\.jpe?g($|\?)/i ) > 0 || filename.search( /^data\:image\/jpeg/ ) === 0;
-
-                      var binary = '';
-                      var len = image.byteLength;
-                      for (var i = 0; i < len; i++) {
-                        binary += String.fromCharCode( image[ i ] );
-                      }
-                      // Set the image source using base64 encoding
-                      imageElem.src = isJPEG ? "data:image/jpg;base64,": "data:image/png;base64,";
-                      imageElem.src += window.btoa(binary);
-                      return imageElem;
-
   }
 
   public initScene(): void {
