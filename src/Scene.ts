@@ -705,8 +705,8 @@ export class Scene {
 
           // Convert the binary data arrays to images
           for (let i = 0; i < rawImages.length; i++) {
-            let image = rawImages[i]['mipmaps'][0];
-            let imageElem = binaryToImage(image['data'],
+            const image = rawImages[i]['mipmaps'][0];
+            const imageElem = binaryToImage(image['data'],
                                           image['width'],
                                           image['height']);
 
