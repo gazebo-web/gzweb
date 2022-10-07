@@ -102,6 +102,7 @@ export class Scene {
   private nebulaRenderer: SpriteRenderer;
   private cameraMoveToClock: THREE.Clock;
   private colladaLoader: ColladaLoader;
+  private ddsLoader: DDSLoader;
   private stlLoader: STLLoader;
   private heightmap: any;
   private selectedEntity: any;
@@ -346,6 +347,7 @@ export class Scene {
     this.textureLoader.crossOrigin = '';
     this.colladaLoader = new ColladaLoader();
     this.stlLoader = new STLLoader();
+    this.ddsLoader = new DDSLoader();
 
     // Progress and Load events.
     const progressEvent = (url: string , items: number, total: number) => {
@@ -366,11 +368,13 @@ export class Scene {
       this.textureLoader.manager = wsLoadingManager;
       this.colladaLoader.manager = wsLoadingManager;
       this.stlLoader.manager = wsLoadingManager;
+      this.ddsLoader.manager = wsLoadingManager;
     }
 
     this.textureLoader.manager.onProgress = progressEvent;
     this.colladaLoader.manager.onProgress = progressEvent;
     this.stlLoader.manager.onProgress = progressEvent;
+    this.ddsLoader.manager.onProgress = progressEvent;
 
     this.textureLoader.manager.onLoad = loadEvent;
     this.colladaLoader.manager.onLoad = loadEvent;
@@ -695,8 +699,7 @@ export class Scene {
         'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-posz.jpg',
       ]);
     } else {
-      let ddsLoader = new DDSLoader();
-      ddsLoader.load(cubemap,
+      this.ddsLoader.load(cubemap,
         // OnLoad callback that allows us to manipulate the texture.
         (compressedTexture: THREE.CompressedTexture) => {
 
@@ -742,11 +745,14 @@ export class Scene {
             // Get the mesh from the websocket server.
             this.findResourceCb(cubemap, (material: any, error?: string) => {
               if (error !== undefined) {
+                // Mark the texture as error in the loading manager.
+                const manager = this.ddsLoader.manager as WsLoadingManager;
+                manager.markAsError(cubemap);
                 return;
               }
 
               // Parse the DDS data.
-              const texDatas = ddsLoader.parse(
+              const texDatas = this.ddsLoader.parse(
                 material.buffer.slice(material.byteOffset), true);
 
               const images: HTMLImageElement[] = [];
@@ -769,6 +775,9 @@ export class Scene {
                 }
               } else {
                 console.error('Texture is not a cubemap. Sky will not be set.');
+                // Mark the texture as error in the loading manager.
+                const manager = this.ddsLoader.manager as WsLoadingManager;
+                manager.markAsError(cubemap);
                 return;
               }
 
@@ -786,6 +795,10 @@ export class Scene {
               }
 
               this.scene.background.needsUpdate = true;
+
+              // Mark the texture as done in the loading manager.
+              const manager = this.ddsLoader.manager as WsLoadingManager;
+              manager.markAsDone(cubemap);
             });
           }
         }
