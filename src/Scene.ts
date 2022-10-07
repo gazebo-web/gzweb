@@ -683,7 +683,7 @@ export class Scene {
     this.COMvisual.add(mesh);
   }
 
-  public addSky(cubemap: string | undefined): void {
+  public addSky(cubemap?: string): void {
     if (cubemap === undefined) {
       var cubeLoader = new THREE.CubeTextureLoader();
       this.scene.background = cubeLoader.load([
