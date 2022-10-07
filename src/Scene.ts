@@ -698,7 +698,7 @@ export class Scene {
       let ddsLoader = new DDSLoader();
       ddsLoader.load(cubemap,
         // OnLoad callback that allows us to manipulate the texture.
-        (compressedTexture: THREE.CompressedTexture)=>{
+        (compressedTexture: THREE.CompressedTexture) => {
 
           const images: HTMLImageElement[] = [];
           const rawImages: any[] = <any[]><unknown>compressedTexture.image; 
