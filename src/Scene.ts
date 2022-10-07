@@ -685,7 +685,7 @@ export class Scene {
 
   public addSky(cubemap?: string): void {
     if (cubemap === undefined) {
-      var cubeLoader = new THREE.CubeTextureLoader();
+      const cubeLoader = new THREE.CubeTextureLoader();
       this.scene.background = cubeLoader.load([
         'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-negx.jpg',
         'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-posx.jpg',
