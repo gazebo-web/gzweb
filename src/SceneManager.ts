@@ -347,7 +347,7 @@ export class SceneManager {
         this.subscribeToTopics();
         this.publisher = this.advertise(this.topicName, this.msgType);
         console.log(`Advertised ${this.topicName} with msg type of
-          ${this.msgType}`);
+                    ${this.msgType}`);
       }
     });
 
@@ -358,7 +358,20 @@ export class SceneManager {
       }
 
       if ('sky' in sceneInfo && sceneInfo['sky']) {
-        this.scene.addSky();
+        const sky = sceneInfo['sky'];
+
+        // Check to see if a cubemap has been specified in the header.
+        if ('header' in sky && sky['header'] && sky['header']['data']) {
+          const data = sky['header']['data'];
+          for (let i = 0; i < data.length; ++i) {
+            if (data[i]['key'] === 'cubemap_uri' &&
+                data[i]['value'] !== undefined) {
+              this.scene.addSky(data[i]['value'][0]);
+            }
+          }
+        } else {
+          this.scene.addSky();
+        }
       }
       this.sceneInfo = sceneInfo;
       this.startVisualization();

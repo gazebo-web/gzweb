@@ -2,9 +2,10 @@ import * as THREE from 'three';
 
 // @ts-ignore
 import NebulaSystem, { SpriteRenderer } from 'three-nebula';
-import { getDescendants } from './Globals';
+import { getDescendants, binaryToImage } from './Globals';
 import { ColladaLoader } from '../include/ColladaLoader';
 import { Color } from './Color';
+import { DDSLoader } from '../include/DDSLoader';
 import { EventEmitter2 } from 'eventemitter2';
 import { GzObjLoader } from './GzObjLoader';
 import { ModelUserData } from './ModelUserData';
@@ -101,6 +102,7 @@ export class Scene {
   private nebulaRenderer: SpriteRenderer;
   private cameraMoveToClock: THREE.Clock;
   private colladaLoader: ColladaLoader;
+  private ddsLoader: DDSLoader;
   private stlLoader: STLLoader;
   private heightmap: any;
   private selectedEntity: any;
@@ -345,6 +347,7 @@ export class Scene {
     this.textureLoader.crossOrigin = '';
     this.colladaLoader = new ColladaLoader();
     this.stlLoader = new STLLoader();
+    this.ddsLoader = new DDSLoader();
 
     // Progress and Load events.
     const progressEvent = (url: string , items: number, total: number) => {
@@ -365,11 +368,13 @@ export class Scene {
       this.textureLoader.manager = wsLoadingManager;
       this.colladaLoader.manager = wsLoadingManager;
       this.stlLoader.manager = wsLoadingManager;
+      this.ddsLoader.manager = wsLoadingManager;
     }
 
     this.textureLoader.manager.onProgress = progressEvent;
     this.colladaLoader.manager.onProgress = progressEvent;
     this.stlLoader.manager.onProgress = progressEvent;
+    this.ddsLoader.manager.onProgress = progressEvent;
 
     this.textureLoader.manager.onLoad = loadEvent;
     this.colladaLoader.manager.onLoad = loadEvent;
@@ -682,18 +687,123 @@ export class Scene {
     this.COMvisual.add(mesh);
   }
 
-  public addSky(): void {
-    var cubeLoader = new THREE.CubeTextureLoader();
-    var cubeTexture = cubeLoader.load([
-      'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-negx.jpg',
-      'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-posx.jpg',
-      'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-posy.jpg',
-      'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-negy.jpg',
-      'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-negz.jpg',
-      'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-posz.jpg',
-    ]);
+  public addSky(cubemap?: string): void {
+    if (cubemap === undefined) {
+      const cubeLoader = new THREE.CubeTextureLoader();
+      this.scene.background = cubeLoader.load([
+        'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-negx.jpg',
+        'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-posx.jpg',
+        'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-posy.jpg',
+        'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-negy.jpg',
+        'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-negz.jpg',
+        'https://fuel.gazebosim.org/1.0/openrobotics/models/skybox/tip/files/materials/textures/skybox-posz.jpg',
+      ]);
+    } else {
+      this.ddsLoader.load(cubemap,
+        // OnLoad callback that allows us to manipulate the texture.
+        (compressedTexture: THREE.CompressedTexture) => {
 
-    this.scene.background = cubeTexture;
+          const images: HTMLImageElement[] = [];
+          const rawImages: any[] = <any[]><unknown>compressedTexture.image; 
+
+          // Convert the binary data arrays to images
+          for (let i = 0; i < rawImages.length; i++) {
+            const image = rawImages[i]['mipmaps'][0];
+            const imageElem = binaryToImage(image['data'],
+                                          image['width'],
+                                          image['height']);
+
+            images.push(imageElem);
+          }
+
+          // Reorder the images to support ThreeJS coordinate system.
+          const reorderImages = [images[1], images[0],
+                                 images[2], images[3],
+                                 images[5], images[4]];
+                       
+          // Create the cube texture 
+          this.scene.background = new THREE.CubeTexture(reorderImages,
+                                                  compressedTexture.mapping,
+                                                  compressedTexture.wrapS,
+                                                  compressedTexture.wrapT,
+                                                  compressedTexture.magFilter,
+                                                  compressedTexture.minFilter,
+                                                  compressedTexture.format,
+                                                  compressedTexture.type,
+                                                  compressedTexture.anisotropy,
+                                                  compressedTexture.encoding);
+          this.scene.background.needsUpdate = true;
+        },
+
+        // OnProgress, do nothing
+        ()=>{},
+
+        // OnError
+        (error: any) => {
+          if (this.findResourceCb) {
+
+            // Get the mesh from the websocket server.
+            this.findResourceCb(cubemap, (material: any, error?: string) => {
+              if (error !== undefined) {
+                // Mark the texture as error in the loading manager.
+                const manager = this.ddsLoader.manager as WsLoadingManager;
+                manager.markAsError(cubemap);
+                return;
+              }
+
+              // Parse the DDS data.
+              const texDatas = this.ddsLoader.parse(
+                material.buffer.slice(material.byteOffset), true);
+
+              const images: HTMLImageElement[] = [];
+              let texture: THREE.CubeTexture;
+
+              // This `if` statement was taken from https://github.com/mrdoob/three.js/blob/master/src/loaders/CompressedTextureLoader.js#L83
+              if (texDatas['isCubemap']) {
+                const faces = texDatas['mipmaps'].length / texDatas['mipmapCount'];
+                for (let f = 0; f < faces; f++) {
+                  for (let i = 0; i < texDatas['mipmapCount']; i++) {
+
+                    let data: Uint8Array =
+                      texDatas['mipmaps'][f * texDatas['mipmapCount'] + i]['data'];
+                    // Convert binary data to an image
+                    let imageElem = binaryToImage(data,
+                                                  texDatas['width'],
+                                                  texDatas['height']);
+                    images.push(imageElem);
+                  }
+                }
+              } else {
+                console.error('Texture is not a cubemap. Sky will not be set.');
+                // Mark the texture as error in the loading manager.
+                const manager = this.ddsLoader.manager as WsLoadingManager;
+                manager.markAsError(cubemap);
+                return;
+              }
+
+              // Reorder the images to support ThreeJS coordinate system.
+              const reorderImages = [images[1], images[0],
+                                     images[2], images[3],
+                                     images[5], images[4]];
+
+              this.scene.background = new THREE.CubeTexture(reorderImages);
+              this.scene.background.format =
+                <unknown>(texDatas['format']) as THREE.PixelFormat;
+
+              if (texDatas['mipmapCount'] === 1) {
+                this.scene.background.minFilter = THREE.LinearFilter;
+              }
+
+              this.scene.background.needsUpdate = true;
+
+              // Mark the texture as done in the loading manager.
+              const manager = this.ddsLoader.manager as WsLoadingManager;
+              manager.markAsDone(cubemap);
+            });
+          }
+        }
+      );
+    }
   }
 
   public initScene(): void {

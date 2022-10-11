@@ -33,3 +33,33 @@ export function binaryToBase64(buffer: Uint8Array): string {
   }
   return window.btoa(binary);
 };
+
+/**
+ * Convert a RGBA encoded uint8array to an image.
+ * @param {byte array} array - Binary byte array encoded as RGBA pixels.
+ * @param {number} width - Width of the image in pixels
+ * @param {number} height - Height of the image in pixels
+ */
+export function binaryToImage(array: Uint8Array, width: number, height: number): HTMLImageElement {
+
+  // Create the clamped data array
+  let imageArray = new Uint8ClampedArray(array.buffer);
+
+  // Create the image data
+  let imageData = new ImageData(imageArray, width, height);
+
+  // Create the canvas
+  let canvas = document.createElement('canvas');
+  let ctx = canvas.getContext('2d');
+  canvas.width = imageData.width;
+  canvas.height = imageData.height;
+
+  // Draw the image
+  ctx!.putImageData(imageData, 0, 0);
+
+  // Create the image, and grabe the URL of the canvas image
+  let imageElem = new Image();
+  imageElem.src = canvas.toDataURL();
+
+  return imageElem;
+}
