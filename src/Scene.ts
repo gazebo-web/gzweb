@@ -704,7 +704,7 @@ export class Scene {
         (compressedTexture: THREE.CompressedTexture) => {
 
           const images: HTMLImageElement[] = [];
-          const rawImages: any[] = <any[]><unknown>compressedTexture.image; 
+          const rawImages: any[] = <any[]><unknown>compressedTexture.image;
 
           // Convert the binary data arrays to images
           for (let i = 0; i < rawImages.length; i++) {
@@ -720,8 +720,8 @@ export class Scene {
           const reorderImages = [images[1], images[0],
                                  images[2], images[3],
                                  images[5], images[4]];
-                       
-          // Create the cube texture 
+
+          // Create the cube texture
           this.scene.background = new THREE.CubeTexture(reorderImages,
                                                   compressedTexture.mapping,
                                                   compressedTexture.wrapS,
@@ -803,6 +803,20 @@ export class Scene {
           }
         }
       );
+    }
+  }
+
+   /**
+    * Add Fog to the scene.
+    *
+    * @param color Color can be a hexadecimal integer (recommended) or a CSS-style string.
+    * @param density Defines how fast the fog will grow dense.
+    * @param changeBackground Whether or not change the scene's background color accordingly.
+    */
+  public addFog(color: number | string, density: number, changeBackground?: boolean) {
+    this.scene.fog = new THREE.FogExp2(color, density);
+    if (changeBackground === true) {
+      this.scene.background = new THREE.Color(color);
     }
   }
 
@@ -1738,91 +1752,52 @@ export class Scene {
     geometry.normalizeNormals();
     geometry.computeVertexNormals();
 
-    // Material - use shader if textures provided, otherwise use a generic phong
-    // material
-    let materials = [];
+    let material: THREE.MeshStandardMaterial | THREE.MeshPhongMaterial;
+
+    // NOTE: Texture might be an array of textures, that need to blend in between.
+    // For now, it only uses one texture.
     if (textures && textures.length > 0) {
-      let textureLoaded = [];
-      let repeats = [];
+      const texturesLoaded = [];
+      const normalsLoaded = [];
+
+      // Auxiliar method to configurate a texture's repeat and wrapping.
+      function configTexture(texture: THREE.Texture, repeat: THREE.Vector2) {
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        texture.repeat.copy(repeat);
+      }
+
       for (let t = 0; t < textures.length; ++t) {
-        const texUri = createFuelUri(textures[t].diffuse);
-        textureLoaded[t] = this.loadTexture(texUri);
-        textureLoaded[t].wrapS = THREE.RepeatWrapping;
-        textureLoaded[t].wrapT = THREE.RepeatWrapping;
-        repeats[t] = width/textures[t].size;
-      }
+        const diffuseUri = createFuelUri(textures[t].diffuse);
+        texturesLoaded[t] = this.loadTexture(diffuseUri);
+        configTexture(texturesLoaded[t], new THREE.Vector2(
+          width/textures[t].size, height/textures[t].size)
+        );
 
-      // for now, use fixed number of textures and blends
-      // so populate the remaining ones to make the fragment shader happy
-      for (let tt = textures.length; tt< 3; ++tt) {
-        textureLoaded[tt] = textureLoaded[tt-1];
-      }
-
-      for (let b = blends.length; b < 2; ++b) {
-        blends[b] = blends[b-1];
-      }
-
-      for (let rr = repeats.length; rr < 3; ++rr) {
-        repeats[rr] = repeats[rr-1];
-      }
-
-      // Use the same approach as gazebo scene, grab the first directional light
-      // and use it for shading the terrain
-      let lightDir = new THREE.Vector3(0, 0, -1);
-      let lightDiffuse = new THREE.Color(0xffffff);
-      let allObjects: THREE.Object3D[] = [];
-      getDescendants(this.scene, allObjects);
-      for (let l = 0; l < allObjects.length; ++l) {
-        if (allObjects[l] instanceof THREE.DirectionalLight) {
-          lightDir = (<THREE.DirectionalLight>allObjects[l]).target.position;
-          lightDiffuse = (<THREE.DirectionalLight>allObjects[l]).color;
-          break;
+        let normalUri;
+        if (textures[t].normal) {
+          normalUri = createFuelUri(textures[t].normal);
+          normalsLoaded[t] = this.loadTexture(normalUri);
+          configTexture(normalsLoaded[t], new THREE.Vector2(
+            width/textures[t].size, height/textures[t].size)
+          );
         }
       }
 
-      const options = {
-        uniforms: {
-          texture0: { type: 't', value: textureLoaded[0]},
-          texture1: { type: 't', value: textureLoaded[1]},
-          texture2: { type: 't', value: textureLoaded[2]},
-          repeat0: { type: 'f', value: repeats[0]},
-          repeat1: { type: 'f', value: repeats[1]},
-          repeat2: { type: 'f', value: repeats[2]},
-          minHeight1: { type: 'f', value: blends[0]?.min_height || 0},
-          fadeDist1: { type: 'f', value: blends[0]?.fade_dist || 0},
-          minHeight2: { type: 'f', value: blends[1]?.min_height || 0},
-          fadeDist2: { type: 'f', value: blends[1]?.fade_dist || 0},
-          ambient: { type: 'c', value: this.ambient.color},
-          lightDiffuse: { type: 'c', value: lightDiffuse},
-          lightDir: { type: 'v3', value: lightDir}
-        },
-        vertexShader: '',
-        fragmentShader: ''
-      };
-
-      if (this.shaders !== undefined) {
-        options.vertexShader = this.shaders.heightmapVS;
-        options.fragmentShader = this.shaders.heightmapFS;
-      } else {
-        console.warn('Warning: heightmap shaders not provided.');
+      const materialOptions: THREE.MeshStandardMaterialParameters = {}
+      if (texturesLoaded[0]) {
+        materialOptions.map = texturesLoaded[0];
+      }
+      if (normalsLoaded[0]) {
+        materialOptions.normalMap = normalsLoaded[0];
       }
 
-      materials.push(new THREE.ShaderMaterial(options));
-
-      // Create the shadow material
-      const shadowMaterial = new  THREE.ShadowMaterial();
-      shadowMaterial.opacity = 0.5;
-      materials.push(shadowMaterial);
-
-      // Use geometry groups to layer materials
-      geometry.clearGroups();
-      geometry.addGroup( 0, Infinity, 0 );
-      geometry.addGroup( 0, Infinity, 1 );
+      material = new THREE.MeshStandardMaterial(materialOptions);
     } else {
-      materials.push(new THREE.MeshPhongMaterial( { color: 0x555555 } ));
+      material = new THREE.MeshPhongMaterial( { color: 0x555555 } );
     }
 
-    const mesh = new THREE.Mesh(geometry, materials);
+    const mesh = new THREE.Mesh(geometry, material);
 
     mesh.receiveShadow = true;
     mesh.castShadow = false;
