@@ -348,9 +348,11 @@ export class SceneManager {
       // available.
       if (response === 'ready') {
         this.subscribeToTopics();
-        this.publisher = this.advertise(this.topicName, this.msgType);
-        console.log(`Advertised ${this.topicName} with msg type of
-                    ${this.msgType}`);
+        if (this.topicName) {
+          this.publisher = this.advertise(this.topicName, this.msgType);
+          console.log(`Advertised ${this.topicName} with msg type of
+                      ${this.msgType}`);
+        }
       }
     });
 
@@ -493,9 +495,8 @@ export class SceneManager {
     this.transport.subscribe(poseTopic);
 
     // Subscribe to the audio control topic.
-    if (typeof this.audioTopic  !== 'undefined') {
-      const audioTopic = new AudioTopic(this.audioTopic,
-                                        this.transport);
+    if (this.audioTopic) {
+      const audioTopic = new AudioTopic(this.audioTopic, this.transport);
     }
 
     // Subscribe to the 'scene/info' topic which sends scene changes.
