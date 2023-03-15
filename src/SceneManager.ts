@@ -8,42 +8,45 @@ import { map, Observable, Subscription } from 'rxjs';
 import { Topic } from './Topic';
 import { Transport } from './Transport';
 
-export class SceneManagerConfig {
-  /*
+/**
+ * Interface used to pass arguments to the SceneManager constructor.
+ */
+export interface SceneManagerConfig {
+  /**
    * ElementId is the id of the HTML element that will hold the rendering
    * context. If not specified, the id gz-scene will be used.
    */
-  public elementId: string = 'gz-scene';
+  elementId?: string;
 
-  /*
+  /**
    * A websocket url that points to a Gazebo server.
    */
-  public websocketUrl: string;
+  websocketUrl?: string;
 
-  /*
+  /**
    * An authentication key for the websocket server.
    */
-  public websocketKey: string;
+  websocketKey?: string;
 
-  /*
+  /**
    * The name of a an audio control topic, used to play audio files.
    */
-  public audioTopic: string;
+  audioTopic?: string;
 
-  /*
+  /**
    * Name of the topic to advertise.
    */
-  public topicName: string;
+  topicName?: string;
 
-  /*
+  /**
    * Message type of the topic to advertise.
    */
-  public msgType: string;
+  msgType?: string;
 
-  /*
+  /**
    * Message data of the topic to advertise.
    */
-  public msgData: any;
+  msgData?: any;
 }
 
 /**
@@ -164,23 +167,23 @@ export class SceneManager {
    *
    */
   constructor( config: SceneManagerConfig ) {
-    if (typeof config.elementId !== 'undefined') {
-      this.elementId = config.elementId;
-    }
+    this.elementId = config.elementId ?? 'gz-scene';
 
-    if (typeof config.audioTopic !== 'undefined') {
+    if (config.audioTopic) {
       this.audioTopic = config.audioTopic;
     }
 
-    if (typeof config.topicName !== 'undefined' &&
-        typeof config.msgType !== 'undefined' &&
-        typeof config.msgData !== 'undefined') {
+    if (
+      config.topicName &&
+      config.msgType &&
+      config.msgData
+    ) {
       this.topicName = config.topicName;
       this.msgType = config.msgType;
       this.msgData = config.msgData;
     }
 
-    if (typeof config.websocketUrl !== 'undefined') {
+    if (config.websocketUrl) {
       this.connect(config.websocketUrl, config.websocketKey);
     }
   }
@@ -345,9 +348,11 @@ export class SceneManager {
       // available.
       if (response === 'ready') {
         this.subscribeToTopics();
-        this.publisher = this.advertise(this.topicName, this.msgType);
-        console.log(`Advertised ${this.topicName} with msg type of
-                    ${this.msgType}`);
+        if (this.topicName) {
+          this.publisher = this.advertise(this.topicName, this.msgType);
+          console.log(`Advertised ${this.topicName} with msg type of
+                      ${this.msgType}`);
+        }
       }
     });
 
@@ -490,9 +495,8 @@ export class SceneManager {
     this.transport.subscribe(poseTopic);
 
     // Subscribe to the audio control topic.
-    if (typeof this.audioTopic  !== 'undefined') {
-      const audioTopic = new AudioTopic(this.audioTopic,
-                                        this.transport);
+    if (this.audioTopic) {
+      const audioTopic = new AudioTopic(this.audioTopic, this.transport);
     }
 
     // Subscribe to the 'scene/info' topic which sends scene changes.
