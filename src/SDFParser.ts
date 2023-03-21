@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-// Nate disabled import *  as SPE from '../include/SPE';
+import { EventEmitter2 } from 'eventemitter2';
 import { X2jOptions, XMLParser, XMLValidator } from 'fast-xml-parser';
 
 import { getDescendants } from './Globals';
@@ -11,7 +11,6 @@ import { Material } from './Material';
 import { PBRMaterial } from './PBRMaterial';
 import { Pose } from './Pose';
 import { Scene } from './Scene';
-import { EventEmitter2 } from 'eventemitter2';
 
 import System, {
   Body,
@@ -327,7 +326,7 @@ export class SDFParser {
    * and orientation (THREE.Quaternion) properties
    */
   public parsePose(poseInput: string | object): Pose {
-    let pose: Pose = new Pose();
+    const pose: Pose = new Pose();
 
     // Short circuit if poseInput is undefined
     if (poseInput === undefined) {
@@ -346,18 +345,20 @@ export class SDFParser {
       return pose;
     }
 
-    let poseStr: string = "";
-    // Note: The pose might have an empty frame attribute. This is a valid XML
-    // element though. In this case, the parser outputs
-    // {@frame: "frame", #text: "pose value"}
-    if (poseInput.hasOwnProperty('@frame')) {
-      if (poseInput['@frame'] !== '') {
+    let poseStr: string = '';
+    if (typeof poseInput === 'object') {
+      // Note: The pose might have an empty frame attribute. This is a valid XML
+      // element though. In this case, the parser outputs
+      // {@frame: "frame", #text: "pose value"}
+      if (poseInput.hasOwnProperty('@frame')) {
         console.warn('SDFParser does not support frame semantics.');
       }
       poseStr = poseInput['#text'];
+    } else {
+      poseStr = poseInput;
     }
 
-    var values = poseStr.trim().split(/\s+/);
+    const values = poseStr.trim().split(/\s+/);
 
     pose.position.x = parseFloat(values[0]);
     pose.position.y = parseFloat(values[1]);
