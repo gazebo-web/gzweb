@@ -29,8 +29,6 @@ import System, {
 
 import { Message } from 'protobufjs';
 
-// Nate disabled import * as xml2json from 'xml2json';
-
 class PendingMesh {
   public meshUri: string = '';
   public submesh: string = '';
@@ -40,12 +38,14 @@ class PendingMesh {
 }
 
 export class SDFParser {
-  private scene: Scene;
-
   // true for using URLs to load files.
   // false for using the files loaded in the memory.
-  private usingFilesUrls: boolean = false;
+  public usingFilesUrls: boolean = false;
 
+  // Flag to control the usage of PBR materials (enabled by default).
+  public enablePBR: boolean = true;
+
+  private scene: Scene;
   private SDF_VERSION: number = 1.5;
   private MATERIAL_ROOT: string = 'assets';
   private emitter: EventEmitter2 = new EventEmitter2({verboseMemoryLeak: true});
@@ -71,9 +71,6 @@ export class SDFParser {
 
   private mtls = {};
   private textures = {};
-
-  // Flag to control the usage of PBR materials (enabled by default).
-  private enablePBR: boolean = true;
 
   // Should contain model files URLs if not using gzweb model files hierarchy.
   private customUrls: string[] = [];

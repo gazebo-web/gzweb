@@ -71,6 +71,7 @@ export class Scene {
   public textureLoader: THREE.TextureLoader;
   public requestHeader: any;
   public scene: THREE.Scene;
+  public camera: THREE.PerspectiveCamera;
 
   private name: string;
   private emitter: EventEmitter2;
@@ -86,7 +87,6 @@ export class Scene {
   private firstPersonEntityEvent: string;
   private cameraMode: string;
   private sceneOrtho: THREE.Scene;
-  private camera: THREE.PerspectiveCamera;
   private cameraOrtho: THREE.OrthographicCamera;
   private cameraSlerpStart: THREE.Quaternion;
   private cameraSlerpEnd: THREE.Quaternion;
