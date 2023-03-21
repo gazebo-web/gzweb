@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 // Nate disabled import *  as SPE from '../include/SPE';
+import { X2jOptions, XMLParser, XMLValidator } from 'fast-xml-parser';
+
 import { getDescendants } from './Globals';
 import { FuelServer,
          createFuelUri } from './FuelServer';
@@ -76,7 +78,6 @@ export class SDFParser {
 
   // Should contain model files URLs if not using gzweb model files hierarchy.
   private customUrls: string[] = [];
-  private parseXML: any;
 
   // Used for communication with Fuel Servers.
   private fuelServer: FuelServer;
@@ -89,12 +90,6 @@ export class SDFParser {
   * @param {Scene} scene - the gz3d scene object
   **/
   constructor(scene: Scene) {
-
-    // set the xml parser function
-    this.parseXML = function(xmlStr: string) {
-      return (new window.DOMParser()).parseFromString(xmlStr, 'text/xml');
-    };
-
     this.scene = scene;
     this.scene.setSDFParser(this);
     this.scene.initScene();
@@ -1180,25 +1175,32 @@ export class SDFParser {
    * @returns {object} object - The parsed SDF object.
    */
   public parseSDF(sdf: any): any {
-    // Parse sdfXML
-    var sdfXML;
+    // SDF as a string.
+    let sdfString;
     if ((typeof sdf) === 'string') {
-      sdfXML = this.parseXML(sdf);
+      sdfString = sdf;
     } else {
-      sdfXML = sdf;
+      const serializer = new XMLSerializer();
+      sdfString = serializer.serializeToString(sdf);
     }
 
-    var sdfObj;
-    // Convert SDF XML to Json string and parse JSON string to object
-    // TODO: we need better xml 2 json object convertor
-    /*Nate disabled var sdfJson = xml2json.toJson(sdfXML);
-    var sdfObj = JSON.parse(sdfJson).sdf;
-    // it is easier to manipulate json object
+    const options: Partial<X2jOptions> = {
+      ignoreAttributes: false,
+      attributeNamePrefix: '@',
+      htmlEntities: true,
+    }
 
-    if (!sdfObj) {
-      console.error('Failed to parse SDF: ', sdfJson);
+    let sdfObj;
+    const parser = new XMLParser(options);
+    const validation = XMLValidator.validate(sdfString, options);
+
+    // Validator returns true or an error object.
+    if (validation === true) {
+      sdfObj = parser.parse(sdfString).sdf;
+    } else {
+      console.error('Failed to parse SDF: ', validation.err);
       return;
-    }*/
+    }
 
     return sdfObj;
   }
