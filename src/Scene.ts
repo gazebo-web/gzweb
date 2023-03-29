@@ -2074,9 +2074,9 @@ export class Scene {
                 minPos.y = Math.min(minPos.y, geomPosition.getY(i));
                 minPos.z = Math.min(minPos.z, geomPosition.getZ(i));
 
-                maxPos.x = Math.min(maxPos.x, geomPosition.getX(i));
-                maxPos.y = Math.min(maxPos.y, geomPosition.getY(i));
-                maxPos.z = Math.min(maxPos.z, geomPosition.getZ(i));
+                maxPos.x = Math.max(maxPos.x, geomPosition.getX(i));
+                maxPos.y = Math.max(maxPos.y, geomPosition.getY(i));
+                maxPos.z = Math.max(maxPos.z, geomPosition.getZ(i));
               }
 
               // Compute center position
