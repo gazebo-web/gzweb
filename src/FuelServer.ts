@@ -17,27 +17,29 @@ export const IGN_FUEL_HOST: string = 'fuel.ignitionrobotics.org';
  * @return The transformed URI, or the same URI if it couldn't be transformed.
  */
 export function createFuelUri(uri: string): string {
-  // Check to see if the modelName points to the Fuel server.
-  if (uri.indexOf('https://' + FUEL_HOST) !== 0 || uri.indexOf('https://' + IGN_FUEL_HOST) !== 0) {
-    // Check to see if the uri has the form similar to
-    // `/home/.../fuel.ignitionrobotics.org/...`
-    // If so, then we assume that the parts following
-    // `fuel.ignitionrobotics.org` can be directly mapped to a valid URL on
-    // Fuel server
-    if (uri.indexOf(FUEL_HOST) > 0 || uri.indexOf(IGN_FUEL_HOST) > 0) {
-      const uriArray = uri.split('/').filter(function(element) {
-        return element !== '';
-      });
-      if (uri.indexOf(FUEL_HOST) > 0) {
-        uriArray.splice(0, uriArray.indexOf(FUEL_HOST));
-      } else {
-        uriArray.splice(0, uriArray.indexOf(IGN_FUEL_HOST));
-      }
-      uriArray.splice(1, 0, FUEL_VERSION);
-      uriArray.splice(6, 0, 'files');
-      return 'https://' + uriArray.join('/');
-    }
+  // Check if it's already a Fuel URI.
+  console.log('CREATING FUEL URI FOR', uri);
+  if (uri.startsWith(`https://${FUEL_HOST}`) || uri.startsWith(`https://${IGN_FUEL_HOST}`)) {
+    return uri;
   }
+
+  // Check to see if the uri has the form similar to
+  // `/home/.../fuel.ignitionrobotics.org/...`
+  // If so, then we assume that the parts following
+  // `fuel.ignitionrobotics.org` can be directly mapped to a valid URL on
+  // Fuel server.
+  if (uri.indexOf(FUEL_HOST) > 0 || uri.indexOf(IGN_FUEL_HOST) > 0) {
+    const uriArray = uri.split('/').filter((element: string) => element !== '');
+    if (uri.indexOf(FUEL_HOST) > 0) {
+      uriArray.splice(0, uriArray.indexOf(FUEL_HOST));
+    } else {
+      uriArray.splice(0, uriArray.indexOf(IGN_FUEL_HOST));
+    }
+    uriArray.splice(1, 0, FUEL_VERSION);
+    uriArray.splice(6, 0, 'files');
+    return 'https://' + uriArray.join('/');
+  }
+
   return uri;
 }
 
