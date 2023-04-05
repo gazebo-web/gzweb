@@ -1003,8 +1003,8 @@ export class SDFParser {
               // a texture, we skip this step (but only if there is no
               // PBR materials involved).
               let isColladaWithTexture: boolean = ext === '.dae' &&
-                (<THREE.Mesh>allChildren[c]).material !== undefined &&
-                (<THREE.MeshBasicMaterial>(<THREE.Mesh>allChildren[c]).material).map !== undefined;
+                !!(<THREE.Mesh>allChildren[c]).material &&
+                !!(<THREE.MeshBasicMaterial>(<THREE.Mesh>allChildren[c]).material).map;
 
               if (!isColladaWithTexture || material.pbr) {
                 that.scene.setMaterial(allChildren[c] as THREE.Mesh, material);
