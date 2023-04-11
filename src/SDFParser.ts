@@ -483,7 +483,7 @@ export class SDFParser {
 
     // Material properties received via a protobuf message are formatted
     // differently from SDF. This will map protobuf format onto sdf.
-    if (srcMaterial.pbr) {
+    if (srcMaterial.pbr && this.enablePBR) {
       material.pbr = new PBRMaterial();
       if (srcMaterial.pbr.metal) {
         // Must be SDF with metal properties.
