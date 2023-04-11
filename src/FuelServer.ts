@@ -18,7 +18,6 @@ export const IGN_FUEL_HOST: string = 'fuel.ignitionrobotics.org';
  */
 export function createFuelUri(uri: string): string {
   // Check if it's already a Fuel URI.
-  console.log('CREATING FUEL URI FOR', uri);
   if (uri.startsWith(`https://${FUEL_HOST}`) || uri.startsWith(`https://${IGN_FUEL_HOST}`)) {
     return uri;
   }
