@@ -3,6 +3,7 @@ import { Shaders } from "./Shaders";
 import { SDFParser } from "./SDFParser";
 
 import { Object3D, Box3, Vector3 } from "three";
+import { BehaviorSubject } from "rxjs";
 
 /**
  * Interface used to pass parameters into the AssetViewer's constructor.
@@ -38,6 +39,13 @@ export interface AssetViewerConfig {
  * in this process.
  */
 export class AssetViewer {
+  /**
+   * Behavior subject used to communicate if a resource has been loaded or not.
+   * Note: This will be true when the Object3D is created, not when it's meshes and textures
+   * finish loading.
+   */
+  public resourceLoaded$: BehaviorSubject<boolean> = new BehaviorSubject(false);
+
   /**
    * ID of the HTML element that will hold the rendering context.
    */
@@ -175,6 +183,8 @@ export class AssetViewer {
         }
         this.scene?.add(obj);
         this.resetView();
+
+        this.resourceLoaded$.next(true);
       });
     }
   }
