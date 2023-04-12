@@ -62,6 +62,11 @@ export class AssetViewer {
   private sdfParser: SDFParser | undefined;
 
   /**
+   * The object being visualized.
+   */
+  private resource: Object3D | undefined;
+
+  /**
    * For animation purposes. The timestamp of the previous render in milliseconds.
    */
   private previousRenderTimestampMs: number = 0;
@@ -80,6 +85,11 @@ export class AssetViewer {
    * Whether or not the model should be scaled.
    */
   private shouldScaleModel: boolean = false;
+
+  /**
+   * Used to determine if the model is already scaled.
+   */
+  private isScaled: boolean = false;
 
   /**
    * Whether or not PBR materials should be used.
@@ -105,13 +115,8 @@ export class AssetViewer {
       this.scene.addModelLighting();
     }
 
-    if (config.scaleModel) {
-      this.shouldScaleModel = true;
-    }
-
-    if (config.enablePBR) {
-      this.shouldUsePBR = true;
-    }
+    this.shouldScaleModel = !!config.scaleModel;
+    this.shouldUsePBR = !!config.enablePBR;
 
     this.animate();
   }
@@ -178,11 +183,9 @@ export class AssetViewer {
     if (sdfFile) {
       this.sdfParser.loadSDF(sdfFile, (obj: Object3D) => {
         // Object has finished loading.
-        if (this.shouldScaleModel) {
-          this.scaleModel(obj);
-        }
+        this.resource = obj;
+
         this.scene?.add(obj);
-        this.resetView();
 
         this.resourceLoaded$.next(true);
       });
@@ -192,12 +195,14 @@ export class AssetViewer {
   /**
    * Auxiliar method to scale the model. We aim to have it's largest dimension
    * scaled to a power of 10 (scaling basis).
-   *
-   * @param obj The object to scale.
    */
-  private scaleModel(obj: Object3D): void {
+  public scaleModel(): void {
+    if (!this.resource) {
+      return;
+    }
+
     // Create a bounding box for the object and calculate its size and center.
-    const boundingBox = new Box3().setFromObject(obj);
+    const boundingBox = new Box3().setFromObject(this.resource);
     if (boundingBox.isEmpty()) {
       return;
     }
@@ -215,13 +220,17 @@ export class AssetViewer {
     const scale = this.scalingBasis / maxDimension;
 
     center.multiplyScalar(-scale);
-    obj.position.x = center.x;
-    obj.position.y = center.y;
-    obj.position.z = center.z;
+    this.resource.position.x = center.x;
+    this.resource.position.y = center.y;
+    this.resource.position.z = center.z;
 
-    obj.scale.x = scale;
-    obj.scale.y = scale;
-    obj.scale.z = scale;
+    this.resource.scale.x = scale;
+    this.resource.scale.y = scale;
+    this.resource.scale.z = scale;
+
+    // Re-center camera and avoid subsequent calls to this method in the animation loop.
+    this.isScaled = true;
+    this.resetView();
   }
 
   /**
@@ -249,6 +258,13 @@ export class AssetViewer {
   private animate(): void {
     if (!this.scene) {
       return;
+    }
+
+    // Scale the model on the animation loop.
+    // Loading meshes is an asynchronous process, so after loading the SDF file, its bounding box may be empty.
+    // This is done only once, after a mesh is loaded and the model's bounding box is not empty.
+    if (this.resource !== undefined && this.shouldScaleModel && !this.isScaled) {
+      this.scaleModel();
     }
 
     this.cancelAnimationFrame = requestAnimationFrame((timestampMs: number) => {
