@@ -29,6 +29,11 @@ export interface AssetViewerConfig {
    * Whether or not to use PBR materials.
    */
   enablePBR?: boolean;
+
+  /**
+   * An optional Fuel Server Bearer Token in case the resource is private.
+   */
+  token?: string;
 }
 
 /**
@@ -97,6 +102,11 @@ export class AssetViewer {
   private shouldUsePBR: boolean = false;
 
   /**
+   * Fuel Server Bearer Token used in case the resource is private.
+   */
+  private token: string | undefined;
+
+  /**
    * The HTML element that holds the scene.
    */
   private sceneElement: HTMLElement | undefined;
@@ -108,6 +118,7 @@ export class AssetViewer {
    */
   constructor(config: AssetViewerConfig) {
     this.elementId = config.elementId ?? 'gz-scene';
+    this.token = config.token;
 
     this.setupVisualization();
 
@@ -242,6 +253,14 @@ export class AssetViewer {
     });
 
     this.sdfParser = new SDFParser(this.scene);
+
+    if (this.token) {
+      const header = 'Authorization';
+      const value = `Bearer ${this.token}`;
+
+      this.scene.setRequestHeader(header, value);
+      this.sdfParser.setRequestHeader(header, value);
+    }
 
     if (window.document.getElementById(this.elementId)) {
       this.sceneElement = window.document.getElementById(this.elementId)!;
