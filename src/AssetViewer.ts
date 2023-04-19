@@ -16,9 +16,9 @@ export interface AssetViewerConfig {
   elementId?: string;
 
   /**
-   * Whether or not to add model lightning.
+   * Whether or not to add model lighting.
    */
-  addModelLightning?: boolean;
+  addModelLighting?: boolean;
 
   /**
    * Whether or not to scale the model into view.
@@ -122,7 +122,7 @@ export class AssetViewer {
 
     this.setupVisualization();
 
-    if (this.scene && config.addModelLightning) {
+    if (this.scene && config.addModelLighting) {
       this.scene.addModelLighting();
     }
 
