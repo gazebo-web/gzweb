@@ -23,9 +23,9 @@ export function createFuelUri(uri: string): string {
   }
 
   // Check to see if the uri has the form similar to
-  // `/home/.../fuel.ignitionrobotics.org/...`
+  // `/home/.../fuel.gazebosim.org/...`
   // If so, then we assume that the parts following
-  // `fuel.ignitionrobotics.org` can be directly mapped to a valid URL on
+  // `fuel.gazebosim.org` can be directly mapped to a valid URL on
   // Fuel server.
   if (uri.indexOf(FUEL_HOST) > 0 || uri.indexOf(IGN_FUEL_HOST) > 0) {
     const uriArray = uri.split('/').filter((element: string) => element !== '');

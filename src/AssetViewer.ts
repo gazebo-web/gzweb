@@ -40,7 +40,7 @@ export interface AssetViewerConfig {
  * The Asset Viewer class allows clients to render and view simulation resources, such as
  * models and worlds.
  *
- * This requires all of thhe resource's related URLs, and there is no websocket connection involved
+ * This requires all of the resource's related URLs, and there is no websocket connection involved
  * in this process.
  */
 export class AssetViewer {
@@ -204,7 +204,7 @@ export class AssetViewer {
   }
 
   /**
-   * Auxiliar method to scale the model. We aim to have it's largest dimension
+   * Auxiliary method to scale the model. We aim to have it's largest dimension
    * scaled to a power of 10 (scaling basis).
    */
   public scaleModel(): void {
