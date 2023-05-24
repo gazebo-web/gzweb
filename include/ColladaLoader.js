@@ -38,7 +38,7 @@ import {
 	Vector2,
 	Vector3,
 	VectorKeyframeTrack,
-	sRGBEncoding
+	LinearEncoding,
 } from 'three';
 import { TGALoader } from './TGALoader';
 
@@ -52,6 +52,8 @@ import { TGALoader } from './TGALoader';
  * previous versions of gzweb. Kept for backwards compatibility. If not used,
  * meshes that declare Z_UP have incorrect rotations, where we should have none.
  * The Y_UP prevents any further rotation from happening.
+ * - getTexture had an sRGB encoding. Changed to Linear encoding to maintain the
+ * behavior of previous versions.
  *
  * Diff of modification by Nate Koenig:
  *
@@ -1832,7 +1834,7 @@ class ColladaLoader extends Loader {
 
 					case 'diffuse':
 						if ( parameter.color ) material.color.fromArray( parameter.color );
-						if ( parameter.texture ) material.map = getTexture( parameter.texture, sRGBEncoding );
+						if ( parameter.texture ) material.map = getTexture( parameter.texture, LinearEncoding );
 						break;
 					case 'specular':
 						if ( parameter.color && material.specular ) material.specular.fromArray( parameter.color );
@@ -1842,23 +1844,25 @@ class ColladaLoader extends Loader {
 						if ( parameter.texture ) material.normalMap = getTexture( parameter.texture );
 						break;
 					case 'ambient':
-						if ( parameter.texture ) material.lightMap = getTexture( parameter.texture, sRGBEncoding );
+						if ( parameter.texture ) material.lightMap = getTexture( parameter.texture, LinearEncoding );
 						break;
 					case 'shininess':
 						if ( parameter.float && material.shininess ) material.shininess = parameter.float;
 						break;
 					case 'emission':
 						if ( parameter.color && material.emissive ) material.emissive.fromArray( parameter.color );
-						if ( parameter.texture ) material.emissiveMap = getTexture( parameter.texture, sRGBEncoding );
+						if ( parameter.texture ) material.emissiveMap = getTexture( parameter.texture, LinearEncoding );
 						break;
 
 				}
 
 			}
 
-			material.color.convertSRGBToLinear();
-			if ( material.specular ) material.specular.convertSRGBToLinear();
-			if ( material.emissive ) material.emissive.convertSRGBToLinear();
+			// Modified by German Mas.
+			// getTexture already uses Linear encoding. No need to convert.
+			// material.color.convertSRGBToLinear();
+			// if ( material.specular ) material.specular.convertSRGBToLinear();
+			// if ( material.emissive ) material.emissive.convertSRGBToLinear();
 
 			//
 
