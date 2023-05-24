@@ -1,5 +1,7 @@
 import * as THREE from 'three';
-// Nate disabled import *  as SPE from '../include/SPE';
+import { EventEmitter2 } from 'eventemitter2';
+import { X2jOptions, XMLParser, XMLValidator } from 'fast-xml-parser';
+
 import { getDescendants } from './Globals';
 import { FuelServer,
          createFuelUri } from './FuelServer';
@@ -9,7 +11,6 @@ import { Material } from './Material';
 import { PBRMaterial } from './PBRMaterial';
 import { Pose } from './Pose';
 import { Scene } from './Scene';
-import { EventEmitter2 } from 'eventemitter2';
 
 import System, {
   Body,
@@ -28,8 +29,6 @@ import System, {
 
 import { Message } from 'protobufjs';
 
-// Nate disabled import * as xml2json from 'xml2json';
-
 class PendingMesh {
   public meshUri: string = '';
   public submesh: string = '';
@@ -39,12 +38,14 @@ class PendingMesh {
 }
 
 export class SDFParser {
-  private scene: Scene;
-
   // true for using URLs to load files.
   // false for using the files loaded in the memory.
-  private usingFilesUrls: boolean = false;
+  public usingFilesUrls: boolean = false;
 
+  // Flag to control the usage of PBR materials (enabled by default).
+  public enablePBR: boolean = true;
+
+  private scene: Scene;
   private SDF_VERSION: number = 1.5;
   private MATERIAL_ROOT: string = 'assets';
   private emitter: EventEmitter2 = new EventEmitter2({verboseMemoryLeak: true});
@@ -71,12 +72,8 @@ export class SDFParser {
   private mtls = {};
   private textures = {};
 
-  // Flag to control the usage of PBR materials (enabled by default).
-  private enablePBR: boolean = true;
-
   // Should contain model files URLs if not using gzweb model files hierarchy.
   private customUrls: string[] = [];
-  private parseXML: any;
 
   // Used for communication with Fuel Servers.
   private fuelServer: FuelServer;
@@ -89,12 +86,6 @@ export class SDFParser {
   * @param {Scene} scene - the gz3d scene object
   **/
   constructor(scene: Scene) {
-
-    // set the xml parser function
-    this.parseXML = function(xmlStr: string) {
-      return (new window.DOMParser()).parseFromString(xmlStr, 'text/xml');
-    };
-
     this.scene = scene;
     this.scene.setSDFParser(this);
     this.scene.initScene();
@@ -332,7 +323,7 @@ export class SDFParser {
    * and orientation (THREE.Quaternion) properties
    */
   public parsePose(poseInput: string | object): Pose {
-    let pose: Pose = new Pose();
+    const pose: Pose = new Pose();
 
     // Short circuit if poseInput is undefined
     if (poseInput === undefined) {
@@ -351,18 +342,20 @@ export class SDFParser {
       return pose;
     }
 
-    let poseStr: string = "";
-    // Note: The pose might have an empty frame attribute. This is a valid XML
-    // element though. In this case, the parser outputs
-    // {@frame: "frame", #text: "pose value"}
-    if (poseInput.hasOwnProperty('@frame')) {
-      if (poseInput['@frame'] !== '') {
+    let poseStr: string = '';
+    if (typeof poseInput === 'object') {
+      // Note: The pose might have an empty frame attribute. This is a valid XML
+      // element though. In this case, the parser outputs
+      // {@frame: "frame", #text: "pose value"}
+      if (poseInput.hasOwnProperty('@frame')) {
         console.warn('SDFParser does not support frame semantics.');
       }
       poseStr = poseInput['#text'];
+    } else {
+      poseStr = poseInput;
     }
 
-    var values = poseStr.trim().split(/\s+/);
+    const values = poseStr.trim().split(/\s+/);
 
     pose.position.x = parseFloat(values[0]);
     pose.position.y = parseFloat(values[1]);
@@ -490,7 +483,7 @@ export class SDFParser {
 
     // Material properties received via a protobuf message are formatted
     // differently from SDF. This will map protobuf format onto sdf.
-    if (srcMaterial.pbr) {
+    if (srcMaterial.pbr && this.enablePBR) {
       material.pbr = new PBRMaterial();
       if (srcMaterial.pbr.metal) {
         // Must be SDF with metal properties.
@@ -1010,8 +1003,8 @@ export class SDFParser {
               // a texture, we skip this step (but only if there is no
               // PBR materials involved).
               let isColladaWithTexture: boolean = ext === '.dae' &&
-                (<THREE.Mesh>allChildren[c]).material !== undefined &&
-                (<THREE.MeshBasicMaterial>(<THREE.Mesh>allChildren[c]).material).map !== undefined;
+                !!(<THREE.Mesh>allChildren[c]).material &&
+                !!(<THREE.MeshBasicMaterial>(<THREE.Mesh>allChildren[c]).material).map;
 
               if (!isColladaWithTexture || material.pbr) {
                 that.scene.setMaterial(allChildren[c] as THREE.Mesh, material);
@@ -1180,25 +1173,32 @@ export class SDFParser {
    * @returns {object} object - The parsed SDF object.
    */
   public parseSDF(sdf: any): any {
-    // Parse sdfXML
-    var sdfXML;
+    // SDF as a string.
+    let sdfString;
     if ((typeof sdf) === 'string') {
-      sdfXML = this.parseXML(sdf);
+      sdfString = sdf;
     } else {
-      sdfXML = sdf;
+      const serializer = new XMLSerializer();
+      sdfString = serializer.serializeToString(sdf);
     }
 
-    var sdfObj;
-    // Convert SDF XML to Json string and parse JSON string to object
-    // TODO: we need better xml 2 json object convertor
-    /*Nate disabled var sdfJson = xml2json.toJson(sdfXML);
-    var sdfObj = JSON.parse(sdfJson).sdf;
-    // it is easier to manipulate json object
+    const options: Partial<X2jOptions> = {
+      ignoreAttributes: false,
+      attributeNamePrefix: '@',
+      htmlEntities: true,
+    }
 
-    if (!sdfObj) {
-      console.error('Failed to parse SDF: ', sdfJson);
+    let sdfObj;
+    const parser = new XMLParser(options);
+    const validation = XMLValidator.validate(sdfString, options);
+
+    // Validator returns true or an error object.
+    if (validation === true) {
+      sdfObj = parser.parse(sdfString).sdf;
+    } else {
+      console.error('Failed to parse SDF: ', validation.err);
       return;
-    }*/
+    }
 
     return sdfObj;
   }

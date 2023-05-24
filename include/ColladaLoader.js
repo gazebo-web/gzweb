@@ -46,6 +46,12 @@ import { TGALoader } from './TGALoader';
  * @author mrdoob / http://mrdoob.com/
  * @author Mugen87 / https://github.com/Mugen87
  *
+ * Modified by German Mas:
+ * - Restored the Up Axis rotation to its original state.
+ * - Hardcode the up axis to always return Y_UP. This change was made in
+ * previous versions of gzweb. Kept for backwards compatibility. If not used,
+ * meshes that declare Z_UP have incorrect rotations, where we should have none.
+ * The Y_UP prevents any further rotation from happening.
  *
  * Diff of modification by Nate Koenig:
  *
@@ -298,7 +304,9 @@ class ColladaLoader extends Loader {
 
 		function parseAssetUpAxis( xml ) {
 
-			return xml !== undefined ? xml.textContent : 'Y_UP';
+			// Modified by German Mas.
+			// Hardcode Y_UP in order to prevent unnecesary rotations on meshes.
+			return 'Y_UP';
 
 		}
 
@@ -4280,9 +4288,9 @@ class ColladaLoader extends Loader {
 		const scene = parseScene( getElementsByTagName( collada, 'scene' )[ 0 ] );
 		scene.animations = animations;
 
-		if ( asset.upAxis === 'Y_UP' ) {
+		if ( asset.upAxis === 'Z_UP' ) {
 
-			scene.quaternion.setFromEuler( new Euler( Math.PI / 2, 0, 0 ) );
+			scene.quaternion.setFromEuler( new Euler( - Math.PI / 2, 0, 0 ) );
 
 		}
 

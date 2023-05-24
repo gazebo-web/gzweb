@@ -16,7 +16,8 @@ let builds = [
       'protobufjs',
       'rxjs',
       'three',
-      'three-nebula'
+      'three-nebula',
+      'fast-xml-parser'
     ],
     output: [
       {
@@ -28,7 +29,8 @@ let builds = [
           protobufjs: 'protobufjs',
           rxjs: 'rxjs',
           three: 'THREE',
-          jszip: 'JSZip'
+          jszip: 'JSZip',
+          'fast-xml-parser': 'fast-xml-parser'
         }
       }
     ]
@@ -54,7 +56,8 @@ let builds = [
       'protobufjs',
       'rxjs',
       'three',
-      'three-nebula'
+      'three-nebula',
+      'fast-xml-parser'
     ],
     output: [
       {
@@ -67,7 +70,8 @@ let builds = [
           rxjs: 'rxjs',
           three: 'THREE',
           jszip: 'JSZip',
-          'three-nebula': 'three-nebula'
+          'three-nebula': 'three-nebula',
+          'fast-xml-parser': 'fast-xml-parser'
         }
       }
     ]
@@ -93,7 +97,8 @@ let builds = [
       'protobufjs',
       'rxjs',
       'three',
-      'three-nebula'
+      'three-nebula',
+      'fast-xml-parser'
     ],
     output: [
       {
@@ -106,7 +111,8 @@ let builds = [
           rxjs: 'rxjs',
           three: 'THREE',
           jszip: 'JSZip',
-          'three-nebula': 'three-nebula'
+          'three-nebula': 'three-nebula',
+          'fast-xml-parser': 'fast-xml-parser'
         }
       }
     ]
