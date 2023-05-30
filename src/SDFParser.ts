@@ -33,7 +33,7 @@ class PendingMesh {
   public meshUri: string = '';
   public submesh: string = '';
   public parent: THREE.Object3D;
-  public material: Material;
+  public material: Material | undefined;
   public centerSubmesh: boolean = false;
 }
 
@@ -203,7 +203,7 @@ export class SDFParser {
     let attConst: number = 0.0;
     let attLin: number = 0.0;
     let attQuad: number = 0.0;
-    let direction: THREE.Vector3 = new THREE.Vector3();
+    let direction: THREE.Vector3 | undefined;
     let innerAngle: number = 0.0;
     let outerAngle: number = 0.0;
     let falloff: number = 0.0;
@@ -418,12 +418,12 @@ export class SDFParser {
    * @returns {object} material - material object which has the followings:
    * texture, normalMap, ambient, diffuse, specular, opacity
    */
-  public createMaterial(srcMaterial: any): Material {
+  public createMaterial(srcMaterial: any): Material | undefined {
     var texture, mat;
     let material: Material = new Material();
 
     if (!srcMaterial) {
-      return material;
+      return undefined;
     }
 
     if (srcMaterial.ambient) {
@@ -979,7 +979,7 @@ export class SDFParser {
     }
 
     // Callback function when the mesh is ready.
-    function loadMesh(mesh: THREE.Mesh, material: Material,
+    function loadMesh(mesh: THREE.Mesh, material: Material | undefined,
                       parent: THREE.Object3D, ext: string) {
       if (!mesh) {
         console.error('Failed to load mesh.');
