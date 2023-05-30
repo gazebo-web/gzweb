@@ -163,10 +163,10 @@ export class SceneManager {
    * Constructor. If a url is specified, then then SceneManager will connect
    * to the specified websocket server. Otherwise, the `connect` function
    * should be called after construction.
-   * @param params The scene manager configuration options
+   * @param params Optional. The scene manager configuration options
    *
    */
-  constructor( config: SceneManagerConfig ) {
+  constructor( config: SceneManagerConfig = {}) {
     this.elementId = config.elementId ?? 'gz-scene';
 
     if (config.audioTopic) {
