@@ -47,6 +47,11 @@ export interface SceneManagerConfig {
    * Message data of the topic to advertise.
    */
   msgData?: any;
+
+  /**
+   * Whether or not lights in models are visible.
+   */
+  enableLights?: boolean;
 }
 
 /**
@@ -158,6 +163,10 @@ export class SceneManager {
    */
   private publisher: Publisher;
 
+  /*
+   * Whether or not lights in models are visible. Enabled by default.
+   */
+  private enableLights: boolean = true;
 
   /**
    * Constructor. If a url is specified, then then SceneManager will connect
@@ -185,6 +194,10 @@ export class SceneManager {
 
     if (config.websocketUrl) {
       this.connect(config.websocketUrl, config.websocketKey);
+    }
+
+    if (config.enableLights !== undefined) {
+      this.enableLights = config.enableLights;
     }
   }
 
@@ -383,7 +396,7 @@ export class SceneManager {
 
       sceneInfo['model'].forEach((model: any) => {
         const modelObj = this.sdfParser.spawnFromObj(
-          { model }, { enableLights: false });
+          { model }, { enableLights: this.enableLights });
 
         model['gz3dName'] = modelObj.name;
         this.models.push(model);
@@ -518,7 +531,7 @@ export class SceneManager {
           // update the models ID.
           if (foundIndex < 0) {
             const modelObj = this.sdfParser.spawnFromObj(
-              { model }, { enableLights: false });
+              { model }, { enableLights: this.enableLights });
             this.models.push(model);
             this.scene.add(modelObj);
           } else {
