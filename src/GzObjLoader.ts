@@ -91,7 +91,13 @@ export class GzObjLoader {
         function(_error: any) {
           // Use the find resource callback to get the mesh
           that.findResourceCb(that.uri, function(mesh: any) {
-            that.onObjLoaded(that.objLoader.parse(mesh));
+            var mesh_str = mesh;
+            
+            if (typeof mesh_str !== "string") {
+              mesh_str = new TextDecoder().decode(mesh);
+            }
+
+            that.onObjLoaded(that.objLoader.parse(mesh_str));
           });
         }
       );
