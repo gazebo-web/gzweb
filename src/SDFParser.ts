@@ -689,8 +689,8 @@ export class SDFParser {
    * @param {object} geom - SDF geometry object which determines the geometry
    *  of the object and can have following properties: box, cylinder, sphere,
    *  plane, mesh.
-   *  Note that in case of using custom Urls for the meshs, the URLS should be
-   *  added to the array cistomUrls to be used instead of the default Url.
+   *  Note that in case of using custom URLs for the meshes, the URLs should be
+   *  added to the array customUrls to be used instead of the default URL.
    * @param {object} mat - SDF material object which is going to be parsed
    * by createMaterial function
    * @param {object} parent - parent 3D object
