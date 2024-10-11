@@ -688,7 +688,7 @@ export class SDFParser {
    * object.
    * @param {object} geom - SDF geometry object which determines the geometry
    *  of the object and can have following properties: box, cylinder, sphere,
-   *  plane, mesh.
+   *  plane, mesh, capsule.
    *  Note that in case of using custom URLs for the meshes, the URLs should be
    *  added to the array customUrls to be used instead of the default URL.
    * @param {object} mat - SDF material object which is going to be parsed
@@ -722,6 +722,12 @@ export class SDFParser {
       var radius = parseFloat(geom.cylinder.radius);
       var length = parseFloat(geom.cylinder.length);
       obj = this.scene.createCylinder(radius, length);
+    }
+    else if (geom.capsule)
+    {
+      var radius = parseFloat(geom.capsule.radius);
+      var length = parseFloat(geom.capsule.length);
+      obj = this.scene.createCapsule(radius, length);
     }
     else if (geom.sphere)
     {
@@ -1865,7 +1871,12 @@ export class SDFParser {
     } else if (type === 'cylinder') {
       sdf = this.createCylinderSDF(translation, euler);
       modelObj = this.spawnFromSDF(sdf);
-    } else if (type === 'spotlight') {
+    } else if (type == 'capsule'){
+      sdf = this.createCapsuleSDF(translation, euler);
+      modelObj = this.spawnFromSDF(sdf);
+
+    } 
+    else if (type === 'spotlight') {
       modelObj = this.scene.createLight(2);
       this.scene.setPose(modelObj, translation, quaternion);
     } else if (type === 'directionallight') {
@@ -1901,9 +1912,9 @@ export class SDFParser {
   }
 
   /**
-   * Creates SDF string for simple shapes: box, cylinder, sphere.
+   * Creates SDF string for simple shapes: box, cylinder, sphere, capsule.
    * @param {string} type - type of the model which can be followings: box,
-   * sphere, cylinder
+   * sphere, cylinder, capsule
    * @param {THREE.Vector3} translation - denotes the x,y,z position
    * of the object
    * @param {THREE.Euler} euler - denotes the euler rotation of the object
@@ -1969,6 +1980,20 @@ export class SDFParser {
 
     return this.createSimpleShapeSDF('cylinder', translation, euler, geomSDF);
   }
+
+  /**
+   * Creates SDF string of capsule geometry element
+   * @param {THREE.Vector3} translation - the x,y,z position of
+   * the box object
+   * @param {THREE.Euler} euler - the euler rotation of the capsule object
+   * @returns {string} geomSDF - geometry SDF string of the capsule
+   */
+  public createCapsuleSDF(translation: THREE.Vector3, euler: THREE.Euler): string {
+    var geomSDF = '<capsule>' + '<radius>0.5</radius>' + '<length>1.0</length>'
+            + '</capsule>';
+    return this.createSimpleShapeSDF('capsule', translation, euler, geomSDF);
+  }
+
 
   /**
    * Set a request header for internal requests.

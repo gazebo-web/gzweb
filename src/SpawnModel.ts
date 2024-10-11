@@ -63,6 +63,8 @@ export class SpawnModel {
       meshLoaded(this.scene.createSphere(0.5), true);
     } else if (entity === 'cylinder') {
       meshLoaded(this.scene.createCylinder(0.5, 1.0), true);
+    }else if (entity === 'capsule') {
+      meshLoaded(this.scene.createCapsule(1, 1), true);
     } else if (entity === 'pointlight') {
       meshLoaded(this.scene.createLight(1), false);
     } else if (entity === 'spotlight') {
