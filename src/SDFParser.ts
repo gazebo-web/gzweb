@@ -735,6 +735,11 @@ export class SDFParser {
       var length = parseFloat(geom.cone.length);
       obj = this.scene.createCone(radius, length);
     }
+    else if (geom.ellipsoid)
+    {
+      var radii = this.parseSize(geom.ellipsoid.radii);
+      obj = this.scene.createEllipsoid(radii.x, radii.y, radii.z);
+    }
     else if (geom.sphere)
     {
       obj = this.scene.createSphere(parseFloat(geom.sphere.radius));
