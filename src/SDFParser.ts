@@ -729,6 +729,12 @@ export class SDFParser {
       var length = parseFloat(geom.capsule.length);
       obj = this.scene.createCapsule(radius, length);
     }
+    else if (geom.cone)
+    {
+      var radius = parseFloat(geom.cone.radius);
+      var length = parseFloat(geom.cone.length);
+      obj = this.scene.createCone(radius, length);
+    }
     else if (geom.sphere)
     {
       obj = this.scene.createSphere(parseFloat(geom.sphere.radius));
