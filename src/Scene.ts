@@ -1440,6 +1440,46 @@ export class Scene {
   }
 
   /**
+   * Create capsule
+   * @param {double} radius
+   * @param {double} length
+   * @returns {THREE.Mesh}
+   */
+  public createCapsule(radius: number, length: number): THREE.Mesh {
+    var geometry = new THREE.CapsuleGeometry(radius, length, 32, 16);
+    var mesh = new THREE.Mesh(geometry, this.simpleShapesMaterial);
+    mesh.rotation.x = Math.PI * 0.5;
+    return mesh;
+  }
+
+  /**
+   * Create cone
+   * @param {double} radius
+   * @param {double} length
+   * @returns {THREE.Mesh}
+   */
+  public createCone(radius: number, length: number): THREE.Mesh {
+    var geometry = new THREE.ConeGeometry(radius, length, 32);
+    var mesh = new THREE.Mesh(geometry, this.simpleShapesMaterial);
+    mesh.rotation.x = Math.PI * 0.5;
+    return mesh;
+  }
+
+  /**
+   * Create ellipsoid
+   * @param {double} radius
+   * @param {double} length
+   * @returns {THREE.Mesh}
+   */
+  public createEllipsoid(radius1: number, radius2: number, radius3: number): THREE.Mesh {
+    var geometry = new THREE.SphereGeometry(radius1, 32, 32);
+    geometry.scale(1, radius3/radius1, radius2/radius1);
+    var mesh = new THREE.Mesh(geometry, this.simpleShapesMaterial);
+    mesh.rotation.x = Math.PI * 0.5;
+    return mesh;
+  }
+
+  /**
    * Create box
    * @param {double} width
    * @param {double} height
