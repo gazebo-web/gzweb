@@ -2231,7 +2231,7 @@ export class Scene {
       function (error: any) {
         if (that.findResourceCb) {
           // Get the mesh from the websocket server.
-          that.findResourceCb(uri, (mesh: any, error?: string) => {
+          that.findResourceCb(uri, (rawmesh: any, error?: string) => {
             if (error !== undefined) {
               // Mark the mesh as error in the loading manager.
               const manager = that.stlLoader.manager as WsLoadingManager;
@@ -2239,7 +2239,9 @@ export class Scene {
               return;
             }
 
-            onLoad(that.stlLoader.parse(new TextDecoder().decode(mesh)));
+            let decoded = that.stlLoader.parse(rawmesh);
+            decoded.name = uri;
+            onLoad(decoded);
 
             // Mark the mesh as done in the loading manager.
             const manager = that.stlLoader.manager as WsLoadingManager;
