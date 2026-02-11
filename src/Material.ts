@@ -1,9 +1,9 @@
-import {Color} from './Color';
-import {PBRMaterial} from './PBRMaterial';
+import { Color } from "./Color";
+import { PBRMaterial } from "./PBRMaterial";
 
 export class Material {
-  public texture: string = '';
-  public normalMap: string = '';
+  public texture: string = "";
+  public normalMap: string = "";
   public ambient: Color | undefined;
   public diffuse: Color | undefined;
   public specular: Color | undefined;

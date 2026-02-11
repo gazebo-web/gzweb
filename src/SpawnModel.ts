@@ -1,33 +1,33 @@
-import * as THREE from 'three';
-import { getDescendants } from './Globals';
-import { Scene } from './Scene';
-import { SDFParser } from './SDFParser';
+import * as THREE from "three";
+import { getDescendants } from "./Globals";
+import { Scene } from "./Scene";
+import { SDFParser } from "./SDFParser";
 
 /**
  * Spawn a model into the scene
  * @constructor
  */
 export class SpawnModel {
-
-  public active: boolean = false; 
+  public active: boolean = false;
   public sdfParser: SDFParser;
   public scene: Scene;
   public domElement: HTMLElement | Document;
   public obj: THREE.Object3D;
   public callback: any;
-  public spawnedShapeMaterial:THREE.MeshPhongMaterial;
-  public plane:THREE.Plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+  public spawnedShapeMaterial: THREE.MeshPhongMaterial;
+  public plane: THREE.Plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
   public ray: THREE.Ray = new THREE.Ray();
   public snapDist: number | undefined = undefined;
 
-  constructor(scene: Scene, domElement: HTMLElement)
-  {
+  constructor(scene: Scene, domElement: HTMLElement) {
     this.scene = scene;
-    this.domElement = ( domElement !== undefined ) ? domElement : document;
- 
+    this.domElement = domElement !== undefined ? domElement : document;
+
     // Material for simple shapes being spawned (grey transparent)
-    this.spawnedShapeMaterial = new THREE.MeshPhongMaterial(
-        {color: 0xffffff, flatShading: false} );
+    this.spawnedShapeMaterial = new THREE.MeshPhongMaterial({
+      color: 0xffffff,
+      flatShading: false,
+    });
     this.spawnedShapeMaterial.transparent = true;
     this.spawnedShapeMaterial.opacity = 0.5;
   }
@@ -42,7 +42,7 @@ export class SpawnModel {
     if (this.active) {
       this.finish();
     }
-  
+
     this.callback = callback;
 
     let that = this;
@@ -54,33 +54,35 @@ export class SpawnModel {
       that.obj.name = that.generateUniqueName(entity);
       that.obj.add(mesh);
     }
-  
+
     this.obj = new THREE.Object3D();
-    if (entity === 'box') {
+    if (entity === "box") {
       meshLoaded(this.scene.createBox(1, 1, 1), true);
-    }
-    else if (entity === 'sphere') {
+    } else if (entity === "sphere") {
       meshLoaded(this.scene.createSphere(0.5), true);
-    } else if (entity === 'cylinder') {
+    } else if (entity === "cylinder") {
       meshLoaded(this.scene.createCylinder(0.5, 1.0), true);
-    }else if (entity === 'capsule') {
+    } else if (entity === "capsule") {
       meshLoaded(this.scene.createCapsule(1, 1), true);
-    } else if (entity === 'pointlight') {
+    } else if (entity === "pointlight") {
       meshLoaded(this.scene.createLight(1), false);
-    } else if (entity === 'spotlight') {
+    } else if (entity === "spotlight") {
       meshLoaded(this.scene.createLight(2), false);
-    } else if (entity === 'directionallight') {
+    } else if (entity === "directionallight") {
       meshLoaded(this.scene.createLight(3), false);
     } else {
       this.sdfParser.loadSDF(entity, meshLoaded);
       //TODO: add transparency to the object
     }
- 
+
     // temp model appears within current view
-    var pos = new THREE.Vector2(window.window.innerWidth/2, window.innerHeight/2);
+    var pos = new THREE.Vector2(
+      window.window.innerWidth / 2,
+      window.innerHeight / 2,
+    );
     var intersect = new THREE.Vector3();
     this.scene.getRayCastModel(pos, intersect);
-  
+
     this.obj.position.x = intersect.x;
     this.obj.position.y = intersect.y;
     this.obj.position.z += 0.5;
@@ -93,7 +95,7 @@ export class SpawnModel {
         (allObjects[l] as any).material.needsUpdate = true;
       }
     }
-  
+
     /*this.mouseDown = function(event) {that.onMouseDown(event);};
     this.mouseUp = function(event) {that.onMouseUp(event);};
     this.mouseMove = function(event) {that.onMouseMove(event);};
@@ -109,7 +111,7 @@ export class SpawnModel {
     this.domElement.addEventListener( 'touchmove', that.touchMove, false);
     this.domElement.addEventListener( 'touchend', that.touchEnd, false);
    */
-  
+
     this.active = true;
   }
 
@@ -119,13 +121,13 @@ export class SpawnModel {
    */
   public finish(): void {
     var that = this;
-  
+
     /*this.domElement.removeEventListener( 'mousedown', that.mouseDown, false);
     this.domElement.removeEventListener( 'mouseup', that.mouseUp, false);
     this.domElement.removeEventListener( 'mousemove', that.mouseMove, false);
     document.removeEventListener( 'keydown', that.keyDown, false);
    */
-  
+
     this.scene.remove(this.obj);
     this.active = false;
   }
@@ -266,10 +268,10 @@ export class SpawnModel {
   public generateUniqueName(entity: string): string {
     let i: number = 0;
     while (i < 1000) {
-      if (this.scene.getByName(entity+'_'+i)) {
+      if (this.scene.getByName(entity + "_" + i)) {
         ++i;
       } else {
-        return entity+'_'+i;
+        return entity + "_" + i;
       }
     }
     return entity;
