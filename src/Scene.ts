@@ -17,6 +17,7 @@ import { SDFParser } from './SDFParser';
 import { Shaders } from './Shaders';
 import { SpawnModel } from './SpawnModel';
 import { STLLoader } from '../include/STLLoader';
+import { GLTFLoader } from '../include/GLTFLoader';
 import { WsLoadingManager } from './WsLoadingManager';
 
 import * as JSZip from 'jszip';
@@ -66,7 +67,7 @@ export interface SceneConfig {
  * @constructor
  */
 export class Scene {
-  public meshes: Map<string, THREE.Mesh> = new Map<string,THREE.Mesh>();
+  public meshes: Map<string, THREE.Mesh> = new Map<string, THREE.Mesh>();
   public showCollisions: boolean = false;
   public textureLoader: THREE.TextureLoader;
   public requestHeader: any;
@@ -104,6 +105,7 @@ export class Scene {
   private colladaLoader: ColladaLoader;
   private ddsLoader: DDSLoader;
   private stlLoader: STLLoader;
+  private gltfLoader: GLTFLoader;
   private heightmap: any;
   private selectedEntity: any;
   private manipulationMode: string;
@@ -124,7 +126,7 @@ export class Scene {
   private currentFirstPersonLookAt = new THREE.Vector3();
 
   constructor(config: SceneConfig) {
-    this.emitter = new EventEmitter2({verboseMemoryLeak: true});
+    this.emitter = new EventEmitter2({ verboseMemoryLeak: true });
     this.shaders = config.shaders;
     if (config.findResourceCb) {
       this.findResourceCb = config.findResourceCb;
@@ -184,7 +186,7 @@ export class Scene {
      * Handle entity selection signal ('select_entity').
      * @param {string} entityName The name of the entity to select.
      */
-    this.emitter.on(this.selectEntityEvent, function(entityName) {
+    this.emitter.on(this.selectEntityEvent, function (entityName) {
       var object = that.scene.getObjectByName(entityName);
       if (object !== undefined && object !== null) {
         that.selectEntity(object);
@@ -196,7 +198,7 @@ export class Scene {
      * @param {string} entityName Name of the entity. Pass in null or an empty
      * string to stop following.
      */
-    this.emitter.on(this.followEntityEvent, function(entityName) {
+    this.emitter.on(this.followEntityEvent, function (entityName) {
 
       // Turn off following if `entity` is null.
       if (entityName === undefined || entityName === null) {
@@ -208,7 +210,7 @@ export class Scene {
 
       if (object !== undefined && object !== null) {
         // Set the object to track.
-        that.cameraTrackObject =  object;
+        that.cameraTrackObject = object;
 
         // Set the camera mode.
         that.cameraMode = that.followEntityEvent;
@@ -220,7 +222,7 @@ export class Scene {
      * @param {string} entityName Name of the entity. Pass in null or an empty
      * string to stop third-person following.
      */
-    this.emitter.on(this.thirdPersonFollowEntityEvent, function(entityName) {
+    this.emitter.on(this.thirdPersonFollowEntityEvent, function (entityName) {
 
       // Turn off following if `entity` is null.
       if (entityName === undefined || entityName === null) {
@@ -232,7 +234,7 @@ export class Scene {
 
       if (object !== undefined && object !== null) {
         // Set the object to track.
-        that.cameraTrackObject =  object;
+        that.cameraTrackObject = object;
 
         // Set the camera offset to the default one.
         that.currentThirdPersonCameraOffset.copy(that.defaultThirdPersonCameraOffset);
@@ -247,7 +249,7 @@ export class Scene {
      * @param {string} entityName Name of the entity. Pass in null or an empty
      * string to stop first-person following.
      */
-    this.emitter.on(this.firstPersonEntityEvent, function(entityName) {
+    this.emitter.on(this.firstPersonEntityEvent, function (entityName) {
 
       // Turn off following if `entity` is null.
       if (entityName === undefined || entityName === null) {
@@ -259,7 +261,7 @@ export class Scene {
 
       if (object !== undefined && object !== null) {
         // Set the object to track.
-        that.cameraTrackObject =  object;
+        that.cameraTrackObject = object;
 
         // Set the camera mode.
         that.cameraMode = that.firstPersonEntityEvent;
@@ -270,7 +272,7 @@ export class Scene {
      * Handle move to entity signal ('move_to_entity').
      * @param {string} entityName: Name of the entity.
      */
-    this.emitter.on(this.moveToEntityEvent, function(entityName) {
+    this.emitter.on(this.moveToEntityEvent, function (entityName) {
       var obj = that.scene.getObjectByName(entityName);
       if (obj === undefined || obj === null) {
         return;
@@ -301,8 +303,8 @@ export class Scene {
       // Compute an offset such that the object's bounding box will fix in the
       // view. I've padded this out a bit by multiplying `max` by 0.75 instead
       // of 0.5
-      var offset = (max * 0.75) / Math.tan((that.camera.fov * Math.PI/180.0) / 2.0);
-      var endPos = dir.clone().multiplyScalar(dist-offset);
+      var offset = (max * 0.75) / Math.tan((that.camera.fov * Math.PI / 180.0) / 2.0);
+      var endPos = dir.clone().multiplyScalar(dist - offset);
       endPos.add(startPos);
 
       // Make sure that the end position is above the object so that the
@@ -329,6 +331,7 @@ export class Scene {
    * Initialize scene
    */
   public init(): void {
+
     THREE.Object3D.DefaultUp.set(0, 0, 1)
     this.name = 'default';
     this.scene = new THREE.Scene();
@@ -347,10 +350,11 @@ export class Scene {
     this.textureLoader.crossOrigin = '';
     this.colladaLoader = new ColladaLoader();
     this.stlLoader = new STLLoader();
+    this.gltfLoader = new GLTFLoader();
     this.ddsLoader = new DDSLoader();
 
     // Progress and Load events.
-    const progressEvent = (url: string , items: number, total: number) => {
+    const progressEvent = (url: string, items: number, total: number) => {
       this.emitter.emit('load_progress', url, items, total);
     };
 
@@ -368,19 +372,22 @@ export class Scene {
       this.textureLoader.manager = wsLoadingManager;
       this.colladaLoader.manager = wsLoadingManager;
       this.stlLoader.manager = wsLoadingManager;
+      this.gltfLoader.manager = wsLoadingManager;
       this.ddsLoader.manager = wsLoadingManager;
     }
 
     this.textureLoader.manager.onProgress = progressEvent;
     this.colladaLoader.manager.onProgress = progressEvent;
     this.stlLoader.manager.onProgress = progressEvent;
+    this.gltfLoader.manager.onProgress = progressEvent;
     this.ddsLoader.manager.onProgress = progressEvent;
 
     this.textureLoader.manager.onLoad = loadEvent;
     this.colladaLoader.manager.onLoad = loadEvent;
     this.stlLoader.manager.onLoad = loadEvent;
+    this.gltfLoader.manager.onLoad = loadEvent;
 
-    this.renderer = new THREE.WebGLRenderer({antialias: true});
+    this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setPixelRatio(window.devicePixelRatio);
     this.renderer.setClearColor(this.backgroundColor);
     this.renderer.autoClear = false;
@@ -390,7 +397,7 @@ export class Scene {
 
     // Add a default ambient value. This is equivalent to
     // {r: 0.1, g: 0.1, b: 0.1}.
-    this.ambient = new THREE.AmbientLight( 0x191919 );
+    this.ambient = new THREE.AmbientLight(0x191919);
     this.scene.add(this.ambient);
 
     // camera
@@ -444,19 +451,19 @@ export class Scene {
     this.spawnModel = new SpawnModel(this, this.getDomElement());
 
     this.simpleShapesMaterial = new THREE.MeshPhongMaterial(
-        {color:0xffffff, flatShading: false} );
+      { color: 0xffffff, flatShading: false });
 
     var that = this;
 
     // Only capture events inside the webgl div element.
-    this.getDomElement().addEventListener( 'mouseup',
-        function(event: MouseEvent) {that.onPointerUp(event);}, false );
+    this.getDomElement().addEventListener('mouseup',
+      function (event: MouseEvent) { that.onPointerUp(event); }, false);
 
-    this.getDomElement().addEventListener( 'mousedown',
-        function(event: MouseEvent) {that.onPointerDown(event);}, false );
+    this.getDomElement().addEventListener('mousedown',
+      function (event: MouseEvent) { that.onPointerDown(event); }, false);
 
-    this.getDomElement().addEventListener( 'wheel',
-        function(event: MouseEvent) {that.onMouseScroll(event);}, false );
+    this.getDomElement().addEventListener('wheel',
+      function (event: MouseEvent) { that.onMouseScroll(event); }, false);
 
     /*this.getDomElement().addEventListener( 'touchstart',
         function(event: TouchEvent) {that.onPointerDown(event);}, false );
@@ -475,11 +482,11 @@ export class Scene {
     this.ray = new THREE.Raycaster();
 
     this.controls = new OrbitControls(this.camera,
-        this.getDomElement());
+      this.getDomElement());
     this.controls.mouseButtons = {
-      LEFT: THREE.MOUSE.PAN,
-      MIDDLE: THREE.MOUSE.ROTATE,
-      RIGHT: THREE.MOUSE.DOLLY
+      LEFT: THREE.MOUSE.ROTATE,
+      MIDDLE: THREE.MOUSE.DOLLY,
+      RIGHT: THREE.MOUSE.PAN
     };
     // an animation loop is required with damping
     this.controls.enableDamping = false;
@@ -487,16 +494,16 @@ export class Scene {
 
     // Bounding Box
     var indices = new Uint16Array(
-        [ 0, 1, 1, 2, 2, 3, 3, 0,
-          4, 5, 5, 6, 6, 7, 7, 4,
-          0, 4, 1, 5, 2, 6, 3, 7 ] );
+      [0, 1, 1, 2, 2, 3, 3, 0,
+        4, 5, 5, 6, 6, 7, 7, 4,
+        0, 4, 1, 5, 2, 6, 3, 7]);
     var positions = new Float32Array(8 * 3);
     var boxGeometry = new THREE.BufferGeometry();
-    boxGeometry.setIndex(new THREE.BufferAttribute( indices, 1 ));
-    boxGeometry.setAttribute( 'position',
-        new THREE.BufferAttribute(positions, 3));
+    boxGeometry.setIndex(new THREE.BufferAttribute(indices, 1));
+    boxGeometry.setAttribute('position',
+      new THREE.BufferAttribute(positions, 3));
     this.boundingBox = new THREE.LineSegments(boxGeometry,
-        new THREE.LineBasicMaterial({color: 0xffffff}));
+      new THREE.LineBasicMaterial({ color: 0xffffff }));
 
     this.boundingBox.visible = false;
 
@@ -510,45 +517,45 @@ export class Scene {
 
     geometry = new THREE.CylinderGeometry(0.01, 0.01, 0.3, 10, 1, false);
 
-    material = new THREE.MeshBasicMaterial({color: new THREE.Color(0xff0000)});
+    material = new THREE.MeshBasicMaterial({ color: new THREE.Color(0xff0000) });
     mesh = new THREE.Mesh(geometry, material);
     mesh.position.x = 0.15;
-    mesh.rotation.z = -Math.PI/2;
+    mesh.rotation.z = -Math.PI / 2;
     mesh.name = 'JOINT_VISUAL';
     XYZaxes.add(mesh);
 
-    material = new THREE.MeshBasicMaterial({color: new THREE.Color(0x00ff00)});
+    material = new THREE.MeshBasicMaterial({ color: new THREE.Color(0x00ff00) });
     mesh = new THREE.Mesh(geometry, material);
     mesh.position.y = 0.15;
     mesh.name = 'JOINT_VISUAL';
     XYZaxes.add(mesh);
 
-    material = new THREE.MeshBasicMaterial({color: new THREE.Color(0x0000ff)});
+    material = new THREE.MeshBasicMaterial({ color: new THREE.Color(0x0000ff) });
     mesh = new THREE.Mesh(geometry, material);
     mesh.position.z = 0.15;
-    mesh.rotation.x = Math.PI/2;
+    mesh.rotation.x = Math.PI / 2;
     mesh.name = 'JOINT_VISUAL';
     XYZaxes.add(mesh);
 
     geometry = new THREE.CylinderGeometry(0, 0.03, 0.1, 10, 1, true);
 
-    material = new THREE.MeshBasicMaterial({color: new THREE.Color(0xff0000)});
+    material = new THREE.MeshBasicMaterial({ color: new THREE.Color(0xff0000) });
     mesh = new THREE.Mesh(geometry, material);
     mesh.position.x = 0.3;
-    mesh.rotation.z = -Math.PI/2;
+    mesh.rotation.z = -Math.PI / 2;
     mesh.name = 'JOINT_VISUAL';
     XYZaxes.add(mesh);
 
-    material = new THREE.MeshBasicMaterial({color: new THREE.Color(0x00ff00)});
+    material = new THREE.MeshBasicMaterial({ color: new THREE.Color(0x00ff00) });
     mesh = new THREE.Mesh(geometry, material);
     mesh.position.y = 0.3;
     mesh.name = 'JOINT_VISUAL';
     XYZaxes.add(mesh);
 
-    material = new THREE.MeshBasicMaterial({color: new THREE.Color(0x0000ff)});
+    material = new THREE.MeshBasicMaterial({ color: new THREE.Color(0x0000ff) });
     mesh = new THREE.Mesh(geometry, material);
     mesh.position.z = 0.3;
-    mesh.rotation.x = Math.PI/2;
+    mesh.rotation.x = Math.PI / 2;
     mesh.name = 'JOINT_VISUAL';
     XYZaxes.add(mesh);
 
@@ -561,11 +568,11 @@ export class Scene {
 
     var mainAxisLen = 0.3;
     geometry = new THREE.CylinderGeometry(0.015, 0.015, mainAxisLen, 36, 1,
-        false);
+      false);
 
     mesh = new THREE.Mesh(geometry, material);
     mesh.position.z = mainAxisLen * 0.5;
-    mesh.rotation.x = Math.PI/2;
+    mesh.rotation.x = Math.PI / 2;
     mesh.name = 'JOINT_VISUAL';
     mainAxis.add(mesh);
 
@@ -573,7 +580,7 @@ export class Scene {
 
     mesh = new THREE.Mesh(geometry, material);
     mesh.position.z = mainAxisLen;
-    mesh.rotation.x = Math.PI/2;
+    mesh.rotation.x = Math.PI / 2;
     mesh.name = 'JOINT_VISUAL';
     mainAxis.add(mesh);
 
@@ -581,7 +588,7 @@ export class Scene {
 
     var rotAxis = new THREE.Object3D();
 
-    geometry = new THREE.TorusGeometry(0.04, 0.006, 10, 36, Math.PI * 3/2);
+    geometry = new THREE.TorusGeometry(0.04, 0.006, 10, 36, Math.PI * 3 / 2);
 
     mesh = new THREE.Mesh(geometry, material);
     mesh.position.z = mainAxisLen;
@@ -593,7 +600,7 @@ export class Scene {
     mesh = new THREE.Mesh(geometry, material);
     mesh.position.y = -0.04;
     mesh.position.z = mainAxisLen;
-    mesh.rotation.z = Math.PI/2;
+    mesh.rotation.z = Math.PI / 2;
     mesh.name = 'JOINT_VISUAL';
     rotAxis.add(mesh);
 
@@ -607,7 +614,7 @@ export class Scene {
     mesh.position.x = 0.03;
     mesh.position.y = 0.03;
     mesh.position.z = mainAxisLen * 0.5;
-    mesh.rotation.x = Math.PI/2;
+    mesh.rotation.x = Math.PI / 2;
     mesh.name = 'JOINT_VISUAL';
     transAxis.add(mesh);
 
@@ -617,7 +624,7 @@ export class Scene {
     mesh.position.x = 0.03;
     mesh.position.y = 0.03;
     mesh.position.z = mainAxisLen * 0.5 + 0.05;
-    mesh.rotation.x = -Math.PI/2;
+    mesh.rotation.x = -Math.PI / 2;
     mesh.name = 'JOINT_VISUAL';
     transAxis.add(mesh);
 
@@ -625,7 +632,7 @@ export class Scene {
     mesh.position.x = 0.03;
     mesh.position.y = 0.03;
     mesh.position.z = mainAxisLen * 0.5 - 0.05;
-    mesh.rotation.x = Math.PI/2;
+    mesh.rotation.x = Math.PI / 2;
     mesh.name = 'JOINT_VISUAL';
     transAxis.add(mesh);
 
@@ -636,21 +643,21 @@ export class Scene {
     mesh = new THREE.Mesh(geometry, material);
     mesh.position.x = -0.04;
     mesh.position.z = mainAxisLen - 0.11;
-    mesh.rotation.z = -Math.PI/4;
-    mesh.rotation.x = -Math.PI/10;
+    mesh.rotation.z = -Math.PI / 4;
+    mesh.rotation.x = -Math.PI / 10;
     mesh.name = 'JOINT_VISUAL';
     screwAxis.add(mesh);
 
     var radius = 0.04;
     var length = 0.02;
     var curve = new THREE.CatmullRomCurve3(
-        [new THREE.Vector3(radius, 0, 0*length),
-        new THREE.Vector3(0, radius, 1*length),
-        new THREE.Vector3(-radius, 0, 2*length),
-        new THREE.Vector3(0, -radius, 3*length),
-        new THREE.Vector3(radius, 0, 4*length),
-        new THREE.Vector3(0, radius, 5*length),
-        new THREE.Vector3(-radius, 0, 6*length)]);
+      [new THREE.Vector3(radius, 0, 0 * length),
+      new THREE.Vector3(0, radius, 1 * length),
+      new THREE.Vector3(-radius, 0, 2 * length),
+      new THREE.Vector3(0, -radius, 3 * length),
+      new THREE.Vector3(radius, 0, 4 * length),
+      new THREE.Vector3(0, radius, 5 * length),
+      new THREE.Vector3(-radius, 0, 6 * length)]);
     geometry = new THREE.TubeGeometry(curve, 36, 0.01, 10, false);
 
     mesh = new THREE.Mesh(geometry, material);
@@ -683,7 +690,7 @@ export class Scene {
       'texture':'assets/media/materials/textures/com.png'});
       */
     mesh.name = 'COM_VISUAL';
-    mesh.rotation.z = -Math.PI/2;
+    mesh.rotation.z = -Math.PI / 2;
     this.COMvisual.add(mesh);
   }
 
@@ -710,33 +717,33 @@ export class Scene {
           for (let i = 0; i < rawImages.length; i++) {
             const image = rawImages[i]['mipmaps'][0];
             const imageElem = binaryToImage(image['data'],
-                                          image['width'],
-                                          image['height']);
+              image['width'],
+              image['height']);
 
             images.push(imageElem);
           }
 
           // Reorder the images to support ThreeJS coordinate system.
           const reorderImages = [images[1], images[0],
-                                 images[2], images[3],
-                                 images[5], images[4]];
+          images[2], images[3],
+          images[5], images[4]];
 
           // Create the cube texture
           this.scene.background = new THREE.CubeTexture(reorderImages,
-                                                  compressedTexture.mapping,
-                                                  compressedTexture.wrapS,
-                                                  compressedTexture.wrapT,
-                                                  compressedTexture.magFilter,
-                                                  compressedTexture.minFilter,
-                                                  compressedTexture.format,
-                                                  compressedTexture.type,
-                                                  compressedTexture.anisotropy,
-                                                  compressedTexture.encoding);
+            compressedTexture.mapping,
+            compressedTexture.wrapS,
+            compressedTexture.wrapT,
+            compressedTexture.magFilter,
+            compressedTexture.minFilter,
+            compressedTexture.format,
+            compressedTexture.type,
+            compressedTexture.anisotropy,
+            compressedTexture.encoding);
           this.scene.background.needsUpdate = true;
         },
 
         // OnProgress, do nothing
-        ()=>{},
+        () => { },
 
         // OnError
         (error: any) => {
@@ -768,8 +775,8 @@ export class Scene {
                       texDatas['mipmaps'][f * texDatas['mipmapCount'] + i]['data'];
                     // Convert binary data to an image
                     let imageElem = binaryToImage(data,
-                                                  texDatas['width'],
-                                                  texDatas['height']);
+                      texDatas['width'],
+                      texDatas['height']);
                     images.push(imageElem);
                   }
                 }
@@ -783,8 +790,8 @@ export class Scene {
 
               // Reorder the images to support ThreeJS coordinate system.
               const reorderImages = [images[1], images[0],
-                                     images[2], images[3],
-                                     images[5], images[4]];
+              images[2], images[3],
+              images[5], images[4]];
 
               this.scene.background = new THREE.CubeTexture(reorderImages);
               this.scene.background.format =
@@ -806,13 +813,13 @@ export class Scene {
     }
   }
 
-   /**
-    * Add Fog to the scene.
-    *
-    * @param color Color can be a hexadecimal integer (recommended) or a CSS-style string.
-    * @param density Defines how fast the fog will grow dense.
-    * @param changeBackground Whether or not change the scene's background color accordingly.
-    */
+  /**
+   * Add Fog to the scene.
+   *
+   * @param color Color can be a hexadecimal integer (recommended) or a CSS-style string.
+   * @param density Defines how fast the fog will grow dense.
+   * @param changeBackground Whether or not change the scene's background color accordingly.
+   */
   public addFog(color: number | string, density: number, changeBackground?: boolean) {
     this.scene.fog = new THREE.FogExp2(color, density);
     if (changeBackground === true) {
@@ -833,12 +840,12 @@ export class Scene {
    * @param {} event - mousedown or touchdown events
    */
   public onPointerDown(event: MouseEvent): void {
+
     event.preventDefault();
 
     this.mousePointerDown = true;
 
-    if (this.spawnModel.active)
-    {
+    if (this.spawnModel.active) {
       return;
     }
 
@@ -864,19 +871,17 @@ export class Scene {
     }
     else
     {*/
-      pos = new THREE.Vector2(
-            event.clientX, event.clientY);
-      if (event.which !== 1)
-      {
-        mainPointer = false;
-      }
+    pos = new THREE.Vector2(
+      event.clientX, event.clientY);
+    if (event.which !== 1) {
+      mainPointer = false;
+    }
     //}
 
     var intersect = new THREE.Vector3();
     var model = this.getRayCastModel(pos, intersect);
 
-    if (intersect)
-    {
+    if (intersect) {
       this.controls.target = intersect;
     }
 
@@ -888,11 +893,9 @@ export class Scene {
 
     // Manipulation modes
     // Model found
-    if (model)
-    {
+    if (model) {
       // Do nothing to the floor plane
-      if (model.name === 'plane')
-      {
+      if (model.name === 'plane') {
         // this.timeDown = new Date().getTime();
       }
       /*else if (this.modelManipulator.pickerNames.indexOf(model.name) >= 0)
@@ -900,10 +903,8 @@ export class Scene {
         // Do not attach manipulator to itself
       }*/
       // Attach manipulator to model
-      else if (model.name !== '')
-      {
-        if (mainPointer && model.parent === this.scene)
-        {
+      else if (model.name !== '') {
+        if (mainPointer && model.parent === this.scene) {
           //this.selectEntity(model);
         }
       }
@@ -914,14 +915,12 @@ export class Scene {
         this.modelManipulator.object.updateMatrixWorld();
       }*/
       // Sky
-      else
-      {
+      else {
         // this.timeDown = new Date().getTime();
       }
     }
     // Plane from below, for example
-    else
-    {
+    else {
       // this.timeDown = new Date().getTime();
     }
   }
@@ -969,6 +968,7 @@ export class Scene {
   public onMouseScroll(event: MouseEvent): void {
     event.preventDefault();
 
+    /*
     const pos: THREE.Vector2 = new THREE.Vector2(event.clientX, event.clientY);
 
     let intersect: THREE.Vector3 = new THREE.Vector3();
@@ -977,6 +977,7 @@ export class Scene {
     if (intersect) {
       this.controls.target = intersect;
     }
+    */
   }
 
   /**
@@ -1064,15 +1065,13 @@ export class Scene {
 
     let allObjects: THREE.Object3D[] = [];
     getDescendants(this.scene, allObjects);
-    let objects: any [] = this.ray.intersectObjects(allObjects);
+    let objects: any[] = this.ray.intersectObjects(allObjects);
 
     let model: THREE.Object3D = new THREE.Object3D();
     var point;
-    if (objects.length > 0)
-    {
+    if (objects.length > 0) {
       modelsloop:
-      for (var i = 0; i < objects.length; ++i)
-      {
+      for (var i = 0; i < objects.length; ++i) {
         model = objects[i].object;
         if (model.name.indexOf('_lightHelper') >= 0) {
           model = model.parent!;
@@ -1088,15 +1087,13 @@ export class Scene {
         }*/
 
         if (model.name === 'grid' || model.name === 'boundingBox' ||
-            model.name === 'JOINT_VISUAL' || model.name === 'INERTIA_VISUAL'
-          || model.name === 'COM_VISUAL')
-        {
+          model.name === 'JOINT_VISUAL' || model.name === 'INERTIA_VISUAL'
+          || model.name === 'COM_VISUAL') {
           point = objects[i].point;
           continue;
         }
 
-        while (model.parent !== this.scene)
-        {
+        while (model.parent !== this.scene) {
           // Select current mode's handle
           /*if (model.parent.parent === this.modelManipulator.gizmo &&
               ((this.manipulationMode === 'translate' &&
@@ -1125,15 +1122,13 @@ export class Scene {
             break;
           }
         }*/
-        else if (model.name !== '')
-        {
+        else if (model.name !== '') {
           point = objects[i].point;
           break;
         }
       }
     }
-    if (point)
-    {
+    if (point) {
       intersect.x = point.x;
       intersect.y = point.y;
       intersect.z = point.z;
@@ -1270,8 +1265,7 @@ export class Scene {
     this.renderer.render(this.scene, this.camera);
 
     this.renderer.clearDepth();
-    if (this.sceneOrtho && this.cameraOrtho)
-    {
+    if (this.sceneOrtho && this.cameraOrtho) {
       this.renderer.render(this.sceneOrtho, this.cameraOrtho);
     }
   }
@@ -1285,8 +1279,7 @@ export class Scene {
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
 
-    if (this.cameraOrtho)
-    {
+    if (this.cameraOrtho) {
       this.cameraOrtho.left = -width / 2;
       this.cameraOrtho.right = width / 2;
       this.cameraOrtho.top = height / 2;
@@ -1313,8 +1306,7 @@ export class Scene {
    * Remove object from the scene
    * @param {THREE.Object3D} model
    */
-  public remove(model: THREE.Object3D): void
-  {
+  public remove(model: THREE.Object3D): void {
     this.scene.remove(model);
   }
 
@@ -1344,7 +1336,7 @@ export class Scene {
    * @param {} orientation
    */
   public updatePose(model: THREE.Object3D, position: THREE.Vector3,
-                    orientation: THREE.Quaternion): void {
+    orientation: THREE.Quaternion): void {
     /*if (this.modelManipulator && this.modelManipulator.object &&
         this.modelManipulator.hovered)
     {
@@ -1361,8 +1353,7 @@ export class Scene {
    * @param {} orientation
    */
   public setPose(model: THREE.Object3D, position: THREE.Vector3,
-                 orientation: THREE.Quaternion): void
-  {
+    orientation: THREE.Quaternion): void {
     model.position.x = position.x;
     model.position.y = position.y;
     model.position.z = position.z;
@@ -1373,8 +1364,7 @@ export class Scene {
   }
 
   public removeAll(): void {
-    while(this.scene.children.length > 0)
-    {
+    while (this.scene.children.length > 0) {
       this.scene.remove(this.scene.children[0]);
     }
   }
@@ -1386,8 +1376,8 @@ export class Scene {
    * @param {double} height
    * @returns {THREE.Mesh}
    */
-  public createPlane = function(normal: THREE.Vector3, width: number,
-                                height:number): THREE.Mesh {
+  public createPlane = function (normal: THREE.Vector3, width: number,
+    height: number): THREE.Mesh {
     // Create plane where width is along the x-axis and
     // and height along y-axi
     let geometry: THREE.PlaneGeometry =
@@ -1397,7 +1387,7 @@ export class Scene {
     // the plane is created on XY plane
     let up: THREE.Vector3 = new THREE.Vector3(0, 0, 1);
 
-    let material:THREE.MeshPhongMaterial = new THREE.MeshPhongMaterial();
+    let material: THREE.MeshPhongMaterial = new THREE.MeshPhongMaterial();
     let mesh: THREE.Mesh = new THREE.Mesh(geometry, material);
 
     // Make sure the normal is normalized.
@@ -1433,7 +1423,7 @@ export class Scene {
    */
   public createCylinder(radius: number, length: number): THREE.Mesh {
     var geometry = new THREE.CylinderGeometry(radius, radius, length, 32, 1,
-        false);
+      false);
     var mesh = new THREE.Mesh(geometry, this.simpleShapesMaterial);
     mesh.rotation.x = Math.PI * 0.5;
     return mesh;
@@ -1473,7 +1463,7 @@ export class Scene {
    */
   public createEllipsoid(radius1: number, radius2: number, radius3: number): THREE.Mesh {
     var geometry = new THREE.SphereGeometry(radius1, 32, 32);
-    geometry.scale(1, radius3/radius1, radius2/radius1);
+    geometry.scale(1, radius3 / radius1, radius2 / radius1);
     var mesh = new THREE.Mesh(geometry, this.simpleShapesMaterial);
     mesh.rotation.x = Math.PI * 0.5;
     return mesh;
@@ -1561,11 +1551,10 @@ export class Scene {
     name?: string, direction?: THREE.Vector3,
     specular?: Color, attenuation_constant?: number,
     attenuation_linear?: number, attenuation_quadratic?: number,
-    inner_angle?: number, outer_angle?: number, falloff?: number): THREE.Object3D
-  {
+    inner_angle?: number, outer_angle?: number, falloff?: number): THREE.Object3D {
     let obj: THREE.Object3D = new THREE.Object3D();
 
-    if (typeof(diffuse) === 'undefined') {
+    if (typeof (diffuse) === 'undefined') {
       diffuse = new Color();
       diffuse.r = 1;
       diffuse.g = 1;
@@ -1582,13 +1571,13 @@ export class Scene {
 
     if (type === 1) {
       lightObj = this.createPointLight(obj, diffuse, intensity,
-          distance, cast_shadows);
+        distance, cast_shadows);
     } else if (type === 2) {
       lightObj = this.createSpotLight(obj, diffuse, intensity,
-          distance, cast_shadows, inner_angle, outer_angle, falloff, direction);
+        distance, cast_shadows, inner_angle, outer_angle, falloff, direction);
     } else if (type === 3) {
       lightObj = this.createDirectionalLight(obj, diffuse, intensity,
-          cast_shadows, direction);
+        cast_shadows, direction);
     } else {
       console.error('Unknown light type', type);
       return obj;
@@ -1614,9 +1603,9 @@ export class Scene {
    * @returns {Object.<THREE.Light, THREE.Mesh>}
    */
   public createPointLight(obj: THREE.Object3D, color: THREE.Color,
-                          intensity?: number, distance?: number,
-                          cast_shadows?: boolean): THREE.Light {
-    if (typeof(intensity) === 'undefined') {
+    intensity?: number, distance?: number,
+    cast_shadows?: boolean): THREE.Light {
+    if (typeof (intensity) === 'undefined') {
       intensity = 0.5;
     }
 
@@ -1642,20 +1631,20 @@ export class Scene {
    * @returns {Object.<THREE.Light, THREE.Mesh>}
    */
   public createSpotLight(obj: THREE.Object3D, color: THREE.Color,
-                         intensity?: number, distance?: number,
-                         cast_shadows?: boolean, inner_angle?: number,
-                         outer_angle?: number, falloff?: number,
-                        direction?: THREE.Vector3): THREE.Light {
-    if (typeof(intensity) === 'undefined') {
+    intensity?: number, distance?: number,
+    cast_shadows?: boolean, inner_angle?: number,
+    outer_angle?: number, falloff?: number,
+    direction?: THREE.Vector3): THREE.Light {
+    if (typeof (intensity) === 'undefined') {
       intensity = 1;
     }
-    if (typeof(distance) === 'undefined') {
+    if (typeof (distance) === 'undefined') {
       distance = 20;
     }
 
     let lightObj: THREE.SpotLight =
       new THREE.SpotLight(color, intensity, distance);
-    lightObj.position.set(0,0,0);
+    lightObj.position.set(0, 0, 0);
 
     if (inner_angle !== null && outer_angle !== null) {
       lightObj.angle = outer_angle!;
@@ -1674,9 +1663,9 @@ export class Scene {
     // Set the target
     let dir: THREE.Vector3 = new THREE.Vector3(0, 0, -1);
     if (direction) {
-        dir.x = direction!.x;
-        dir.y = direction!.y;
-        dir.z = direction!.z;
+      dir.x = direction!.x;
+      dir.y = direction!.y;
+      dir.z = direction!.z;
     }
     let targetObj: THREE.Object3D = new THREE.Object3D();
     lightObj.add(targetObj);
@@ -1697,11 +1686,10 @@ export class Scene {
    * @returns {Object.<THREE.Light, THREE.Mesh>}
    */
   public createDirectionalLight(obj: THREE.Object3D, color: THREE.Color,
-                                intensity?: number,
-                                cast_shadows?: boolean,
-                                direction?: THREE.Vector3): THREE.Light
-  {
-    if (typeof(intensity) === 'undefined') {
+    intensity?: number,
+    cast_shadows?: boolean,
+    direction?: THREE.Vector3): THREE.Light {
+    if (typeof (intensity) === 'undefined') {
       intensity = 1;
     }
 
@@ -1714,7 +1702,7 @@ export class Scene {
     lightObj.shadow.camera.right = 100;
     lightObj.shadow.camera.top = 100;
     lightObj.shadow.bias = 0.0001;
-    lightObj.position.set(0,0,0);
+    lightObj.position.set(0, 0, 0);
 
     if (cast_shadows) {
       lightObj.castShadow = cast_shadows;
@@ -1723,9 +1711,9 @@ export class Scene {
     // Set the target
     let dir: THREE.Vector3 = new THREE.Vector3(0, 0, -1);
     if (direction) {
-        dir.x = direction.x;
-        dir.y = direction.y;
-        dir.z = direction.z;
+      dir.x = direction.x;
+      dir.y = direction.y;
+      dir.z = direction.z;
     }
     let targetObj: THREE.Object3D = new THREE.Object3D();
     lightObj.add(targetObj);
@@ -1750,8 +1738,8 @@ export class Scene {
    * @param {} parent
    */
   public loadHeightmap(heights: Float32Array, width: number, height: number,
-      segmentWidth: number, segmentHeight: number, origin: THREE.Vector3,
-      textures: any[], blends: any[], parent: THREE.Object3D): void {
+    segmentWidth: number, segmentHeight: number, origin: THREE.Vector3,
+    textures: any[], blends: any[], parent: THREE.Object3D): void {
     if (this.heightmap) {
       console.error('Only one heightmap can be loaded at a time');
       return;
@@ -1782,8 +1770,8 @@ export class Scene {
     let row: number = (segmentHeight - 1) * scale;
     for (let r = 0; r < row; ++r) {
       for (let c = 0; c < col; ++c) {
-        let index: number = (r * col * 1/(scale*scale)) + (c * (1/scale));
-        posAttribute.setZ(r*col + c, heights[index]);
+        let index: number = (r * col * 1 / (scale * scale)) + (c * (1 / scale));
+        posAttribute.setZ(r * col + c, heights[index]);
       }
     }
     posAttribute.needsUpdate = true;
@@ -1811,7 +1799,7 @@ export class Scene {
         const diffuseUri = createFuelUri(textures[t].diffuse);
         texturesLoaded[t] = this.loadTexture(diffuseUri);
         configTexture(texturesLoaded[t], new THREE.Vector2(
-          width/textures[t].size, height/textures[t].size)
+          width / textures[t].size, height / textures[t].size)
         );
 
         let normalUri;
@@ -1819,7 +1807,7 @@ export class Scene {
           normalUri = createFuelUri(textures[t].normal);
           normalsLoaded[t] = this.loadTexture(normalUri);
           configTexture(normalsLoaded[t], new THREE.Vector2(
-            width/textures[t].size, height/textures[t].size)
+            width / textures[t].size, height / textures[t].size)
           );
         }
       }
@@ -1834,7 +1822,7 @@ export class Scene {
 
       material = new THREE.MeshStandardMaterial(materialOptions);
     } else {
-      material = new THREE.MeshPhongMaterial( { color: 0x555555 } );
+      material = new THREE.MeshPhongMaterial({ color: 0x555555 });
     }
 
     const mesh = new THREE.Mesh(geometry, material);
@@ -1873,8 +1861,7 @@ export class Scene {
 
     // Check if the mesh has already been loaded.
     // Use it in that case.
-    if (this.meshes.has(uri))
-    {
+    if (this.meshes.has(uri)) {
       let mesh: THREE.Mesh = this.meshes.get(uri)!.clone();
       if (submesh && this.useSubMesh(mesh, submesh, centerSubmesh)) {
         onLoad(mesh);
@@ -1893,6 +1880,10 @@ export class Scene {
     }
     else if (uriFile.substr(-4).toLowerCase() === '.stl') {
       return this.loadSTL(uri, submesh, centerSubmesh, onLoad, onError);
+    }
+    else if (uriFile.substr(-4).toLowerCase() === '.glb' ||
+      uriFile.substr(-5).toLowerCase() === '.gltf') {
+      return this.loadGLTF(uri, submesh, centerSubmesh, onLoad, onError);
     }
     else if (uriFile.substr(-5).toLowerCase() === '.urdf') {
       console.error('Attempting to load URDF file, but it\'s not supported.');
@@ -1925,13 +1916,12 @@ export class Scene {
    * mesh, [obj, mtl] in case of object mesh, all as strings
    */
   public loadMeshFromString(uri: string, submesh: string,
-                            centerSubmesh: boolean, onLoad: any,
-                            onError: any, files: string[]): void {
+    centerSubmesh: boolean, onLoad: any,
+    onError: any, files: string[]): void {
     var uriPath = uri.substring(0, uri.lastIndexOf('/'));
     var uriFile = uri.substring(uri.lastIndexOf('/') + 1);
 
-    if (this.meshes.has(uri))
-    {
+    if (this.meshes.has(uri)) {
       let mesh: THREE.Mesh = this.meshes.get(uri)!.clone();
       if (submesh && this.useSubMesh(mesh, submesh, centerSubmesh)) {
         onLoad(mesh);
@@ -1942,8 +1932,7 @@ export class Scene {
     }
 
     // load mesh
-    if (uriFile.substr(-4).toLowerCase() === '.dae')
-    {
+    if (uriFile.substr(-4).toLowerCase() === '.dae') {
       // loadCollada just accepts one file, which is the dae file as string
       if (files.length < 1 || !files[0]) {
         console.error('Missing DAE file');
@@ -1951,8 +1940,7 @@ export class Scene {
       }
       this.loadCollada(uri, submesh, centerSubmesh, onLoad, onError, files[0]);
     }
-    else if (uriFile.substr(-4).toLowerCase() === '.obj')
-    {
+    else if (uriFile.substr(-4).toLowerCase() === '.obj') {
       if (files.length < 2 || !files[0] || !files[1]) {
         console.error('Missing either OBJ or MTL file');
         return;
@@ -1975,8 +1963,7 @@ export class Scene {
    * be made.
    */
   public loadCollada(uri: string, submesh: string, centerSubmesh: boolean,
-    onLoad: any, onError: any, filestring?: string): void
-  {
+    onLoad: any, onError: any, filestring?: string): void {
     let dae: THREE.Mesh;
     var mesh = null;
     var that = this;
@@ -2016,11 +2003,11 @@ export class Scene {
     if (!filestring) {
       this.colladaLoader.load(uri,
         // onLoad callback
-        function(collada: any) {
+        function (collada: any) {
           meshReady(collada);
         },
         // onProgress callback
-        function(progress: any) {
+        function (progress: any) {
         },
         // onError callback
         (error: any) => {
@@ -2058,7 +2045,7 @@ export class Scene {
     getDescendants(dae, allChildren);
     for (let i = 0; i < allChildren.length; ++i) {
       if (allChildren[1] && allChildren[i] instanceof THREE.Light &&
-          allChildren[i].parent) {
+        allChildren[i].parent) {
         allChildren[i].parent!.remove(allChildren[i]);
       }
     }
@@ -2072,7 +2059,7 @@ export class Scene {
    * @returns {THREE.Mesh} mesh
    */
   public useSubMesh(mesh: THREE.Object3D, submesh: string,
-                    centerSubmesh: boolean): THREE.Mesh | THREE.Group | null {
+    centerSubmesh: boolean): THREE.Mesh | THREE.Group | null {
 
     if (!submesh) {
       return null;
@@ -2090,7 +2077,7 @@ export class Scene {
     // Checks if the given submesh is the one we look for. If it's a Group, look for it within its children.
     // It returns the submesh, if found.
     function lookForSubmesh(obj: THREE.Mesh | THREE.Group,
-                            parent: THREE.Object3D): [boolean, THREE.Mesh | THREE.Group] {
+      parent: THREE.Object3D): [boolean, THREE.Mesh | THREE.Group] {
 
       if (obj instanceof THREE.Mesh) {
         // Check if the mesh has the correct name and has geometry.
@@ -2149,7 +2136,7 @@ export class Scene {
       } else {
         for (let i: number = 0; i < obj.children.length; i++) {
           if (obj.children[i] instanceof THREE.Mesh ||
-              obj.children[i] instanceof THREE.Group) {
+            obj.children[i] instanceof THREE.Group) {
             const [found, result] = lookForSubmesh(obj.children[i] as any, obj);
             if (found) {
               // This keeps the Group (obj), and modifies it's children to
@@ -2167,7 +2154,7 @@ export class Scene {
     // Look for the submesh in the children of the mesh.
     for (var i = 0; i < mesh.children.length; i++) {
       if (mesh.children[i] instanceof THREE.Mesh ||
-          mesh.children[i] instanceof THREE.Group) {
+        mesh.children[i] instanceof THREE.Group) {
         const [found, result] = lookForSubmesh(mesh.children[i] as any, mesh);
         if (found) {
           return result;
@@ -2188,10 +2175,9 @@ export class Scene {
    * @param {function} onError
    */
   public loadOBJ(uri: string, submesh: string, centerSubmesh: boolean,
-                 onLoad: any, onError: any, files?: string[]): void
-  {
+    onLoad: any, onError: any, files?: string[]): void {
     let objLoader = new GzObjLoader(this, uri, submesh, centerSubmesh,
-                                  this.findResourceCb, onLoad, onError, files);
+      this.findResourceCb, onLoad, onError, files);
     objLoader.load();
   }
 
@@ -2204,13 +2190,12 @@ export class Scene {
    * @param {function} onLoad
    */
   public loadSTL(uri: string, submesh: string, centerSubmesh: boolean,
-                 onLoad: any, onError: any): void
-  {
+    onLoad: any, onError: any): void {
     var mesh = null;
     var that = this;
     this.stlLoader.load(uri,
       // onLoad
-      function(geometry: THREE.BufferGeometry) {
+      function (geometry: THREE.BufferGeometry) {
         mesh = new THREE.Mesh(geometry);
         mesh.castShadow = true;
         mesh.receiveShadow = true;
@@ -2251,20 +2236,77 @@ export class Scene {
   }
 
   /**
+   * Load GLTF/GLB file
+   * @param {string} uri
+   * @param {} submesh
+   * @param {} centerSubmesh
+   * @param {function} onLoad - Callback when the mesh is loaded.
+   * @param {function} onError - Callback when an error occurs.
+   */
+  public loadGLTF(uri: string, submesh: string, centerSubmesh: boolean,
+    onLoad: any, onError: any): void {
+    let that = this;
+    this.gltfLoader.load(uri,
+      // onLoad callback
+      function (gltf: any) {
+        let mesh = gltf.scene;
+        mesh.name = uri;
+        if (submesh && that.useSubMesh(mesh, submesh, centerSubmesh)) {
+          onLoad(mesh);
+        } else if (!submesh) {
+          onLoad(mesh);
+        }
+      },
+      // onProgress callback
+      function (progress: any) {
+      },
+      // onError callback
+      (error: any) => {
+        if (this.findResourceCb) {
+          // Get the mesh from the websocket server.
+          this.findResourceCb(uri, (data: any, error?: string) => {
+            if (error !== undefined) {
+              // Mark the mesh as error in the loading manager.
+              const manager = this.gltfLoader.manager as WsLoadingManager;
+              manager.markAsError(uri);
+              return;
+            }
+
+            // Parse the GLTF data
+            this.gltfLoader.parse(data, uri, (gltf: any) => {
+              let mesh = gltf.scene;
+              mesh.name = uri;
+              if (submesh && that.useSubMesh(mesh, submesh, centerSubmesh)) {
+                onLoad(mesh);
+              } else if (!submesh) {
+                onLoad(mesh);
+              }
+
+              // Mark the mesh as done in the loading manager.
+              const manager = this.gltfLoader.manager as WsLoadingManager;
+              manager.markAsDone(uri);
+            }, (error: any) => {
+              console.error('Error parsing GLTF from websocket', error);
+              const manager = this.gltfLoader.manager as WsLoadingManager;
+              manager.markAsError(uri);
+            });
+          });
+        }
+      });
+  }
+
+  /**
    * Set material for an object
    * @param {} obj
    * @param {} material
    */
-  public setMaterial(obj: THREE.Mesh, material: any): void
-  {
+  public setMaterial(obj: THREE.Mesh, material: any): void {
     var scope = this;
 
 
 
-    if (obj)
-    {
-      if (material)
-      {
+    if (obj) {
+      if (material) {
 
 
         // If the material has a PBR tag, use a MeshStandardMaterial,
@@ -2310,7 +2352,7 @@ export class Scene {
             maps.push(metalnessMap);
           }
 
-          maps.forEach(function(map) {
+          maps.forEach(function (map) {
             map.wrapS = map.wrapT = THREE.RepeatWrapping;
             map.repeat.x = 1.0;
             map.repeat.y = 1.0;
@@ -2327,8 +2369,7 @@ export class Scene {
             (obj.material as any).specular.copy(specular);
           }
 
-          if (material.texture)
-          {
+          if (material.texture) {
             let texture = this.loadTexture(material.texture);
             texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
             texture.repeat.x = 1.0;
@@ -2353,29 +2394,25 @@ export class Scene {
 
         var ambient = material.ambient;
         var diffuse = material.diffuse;
-        if (diffuse)
-        {
+        if (diffuse) {
           // threejs removed ambient from phong and lambert materials so
           // aproximate the resulting color by mixing ambient and diffuse
           var dc = [];
           dc[0] = diffuse.r;
           dc[1] = diffuse.g;
           dc[2] = diffuse.b;
-          if (ambient)
-          {
+          if (ambient) {
             var a = 0.4;
             var d = 0.6;
-            dc[0] = ambient.r*a + diffuse.r*d;
-            dc[1] = ambient.g*a + diffuse.g*d;
-            dc[2] = ambient.b*a + diffuse.b*d;
+            dc[0] = ambient.r * a + diffuse.r * d;
+            dc[1] = ambient.g * a + diffuse.g * d;
+            dc[2] = ambient.b * a + diffuse.b * d;
           }
           (obj.material as any).color.setRGB(dc[0], dc[1], dc[2]);
         }
         var opacity = material.opacity;
-        if (opacity)
-        {
-          if (opacity < 1)
-          {
+        if (opacity) {
+          if (opacity < 1) {
             obj.material.transparent = true;
             obj.material.opacity = opacity;
           }
@@ -2391,16 +2428,14 @@ export class Scene {
   public setManipulationMode(mode: string): void {
     this.manipulationMode = mode;
 
-    if (mode === 'view')
-    {
+    if (mode === 'view') {
       /*if (this.modelManipulator.object)
       {
         this.emitter.emit('entityChanged', this.modelManipulator.object);
       }*/
       this.selectEntity(null);
     }
-    else
-    {
+    else {
       // Toggle manipulaion space (world / local)
       /*if (this.modelManipulator.mode === this.manipulationMode)
       {
@@ -2411,8 +2446,7 @@ export class Scene {
       this.modelManipulator.setMode(this.modelManipulator.mode);
      */
       // model was selected during view mode
-      if (this.selectedEntity)
-      {
+      if (this.selectedEntity) {
         this.selectEntity(this.selectedEntity);
       }
     }
@@ -2423,24 +2457,19 @@ export class Scene {
    * @param {boolean} show
    */
   public showCollision(show: boolean): void {
-    if (show === this.showCollisions)
-    {
+    if (show === this.showCollisions) {
       return;
     }
 
     let allObjects: THREE.Object3D[] = [];
     getDescendants(this.scene, allObjects);
-    for (let i = 0; i < allObjects.length; ++i)
-    {
+    for (let i = 0; i < allObjects.length; ++i) {
       if (allObjects[i] instanceof THREE.Object3D &&
-          allObjects[i].name.indexOf('COLLISION_VISUAL') >=0)
-      {
+        allObjects[i].name.indexOf('COLLISION_VISUAL') >= 0) {
         let allChildren: THREE.Object3D[] = [];
         getDescendants(allObjects[i], allChildren);
-        for (var j =0; j < allChildren.length; ++j)
-        {
-          if (allChildren[j] instanceof THREE.Mesh)
-          {
+        for (var j = 0; j < allChildren.length; ++j) {
+          if (allChildren[j] instanceof THREE.Mesh) {
             allChildren[j].visible = show;
           }
         }
@@ -2474,8 +2503,7 @@ export class Scene {
    * all lights that are children of the provided entity.
    * @param {string} Name of a THREE.Object3D.
    */
-  public toggleLights(entityName: string): void
-  {
+  public toggleLights(entityName: string): void {
     // Turn off following if `entity` is null.
     if (entityName === undefined || entityName === null) {
       return;
@@ -2488,7 +2516,7 @@ export class Scene {
       }
 
       if (obj.userData.hasOwnProperty('type') &&
-          obj.userData.type === 'light') {
+        obj.userData.type === 'light') {
         obj.visible = !obj.visible;
       }
     }
@@ -2503,8 +2531,7 @@ export class Scene {
   /**
    * Reset view
    */
-  public resetView(): void
-  {
+  public resetView(): void {
     this.camera.position.copy(this.defaultCameraPosition);
     this.camera.up = new THREE.Vector3(0, 0, 1);
     this.camera.lookAt(this.defaultCameraLookAt);
@@ -2516,13 +2543,12 @@ export class Scene {
    *
    * @param {string} filename - The filename of the screenshot. PNG extension is appended to it.
    */
-  public saveScreenshot(filename: string): void
-  {
+  public saveScreenshot(filename: string): void {
     // An explicit call to render is required. Otherwise the obtained image will be black.
     // See https://threejsfundamentals.org/threejs/lessons/threejs-tips.html, "Taking A Screenshot of the Canvas"
     this.render(0);
 
-    this.getDomElement().toBlob(function(blob: any) {
+    this.getDomElement().toBlob(function (blob: any) {
       let url = URL.createObjectURL(blob);
       let linkElement = document.createElement('a');
       linkElement.href = url;
@@ -2547,7 +2573,7 @@ export class Scene {
     // This allows us to download all the images when they are ready.
     function getCanvasBlob(canvas: HTMLCanvasElement) {
       return new Promise((resolve, reject) => {
-        canvas.toBlob(function(blob: Blob | null) {
+        canvas.toBlob(function (blob: Blob | null) {
           resolve(blob);
         });
       });
@@ -2563,7 +2589,7 @@ export class Scene {
     lightTarget.position.copy(center);
     this.scene.add(lightTarget);
 
-    const light = new THREE.DirectionalLight( 0xffffff, 1.0 );
+    const light = new THREE.DirectionalLight(0xffffff, 1.0);
     light.name = 'thumbnails_light';
     this.scene.add(light);
     light.target = lightTarget;
@@ -2578,7 +2604,7 @@ export class Scene {
     light.position.copy(this.camera.position);
     this.render(0);
     const perspective = getCanvasBlob(canvas);
-    perspective.then(function(blob) {
+    perspective.then(function (blob) {
       zip.file('thumbnails/1.png', <Blob>(blob));
     });
     promises.push(perspective);
@@ -2590,7 +2616,7 @@ export class Scene {
     light.position.copy(this.camera.position);
     this.render(0);
     const top = getCanvasBlob(canvas);
-    top.then(function(blob) {
+    top.then(function (blob) {
       zip.file('thumbnails/2.png', <Blob>(blob));
     });
     promises.push(top);
@@ -2602,7 +2628,7 @@ export class Scene {
     light.position.copy(this.camera.position);
     this.render(0);
     const front = getCanvasBlob(canvas);
-    front.then(function(blob) {
+    front.then(function (blob) {
       zip.file('thumbnails/3.png', <Blob>(blob));
     });
     promises.push(front);
@@ -2614,7 +2640,7 @@ export class Scene {
     light.position.copy(this.camera.position);
     this.render(0);
     const side = getCanvasBlob(canvas);
-    side.then(function(blob) {
+    side.then(function (blob) {
       zip.file('thumbnails/4.png', <Blob>(blob));
     });
     promises.push(side);
@@ -2627,13 +2653,13 @@ export class Scene {
     light.position.add(new THREE.Vector3(-2000, 0, 0));
     this.render(0);
     const back = getCanvasBlob(canvas);
-    back.then(function(blob) {
+    back.then(function (blob) {
       zip.file('thumbnails/5.png', <Blob>(blob));
     });
     promises.push(back);
 
     Promise.all(promises).then(() => {
-      zip.generateAsync({type: 'blob'}).then(function(content: any) {
+      zip.generateAsync({ type: 'blob' }).then(function (content: any) {
         const url = URL.createObjectURL(content);
         const linkElement = document.createElement('a');
         linkElement.href = url;
@@ -2684,16 +2710,14 @@ export class Scene {
     box.min.x = box.min.y = box.min.z = + Infinity;
     box.max.x = box.max.y = box.max.z = - Infinity;
     var v = new THREE.Vector3();
-    object.updateMatrixWorld( true );
+    object.updateMatrixWorld(true);
 
-    object.traverse( function (node: THREE.Object3D) {
+    object.traverse(function (node: THREE.Object3D) {
       let i, l;
-      if (node instanceof THREE.Mesh)
-      {
+      if (node instanceof THREE.Mesh) {
         let geometry = (node as THREE.Mesh).geometry;
 
-        if (node.name !== 'INERTIA_VISUAL' && node.name !== 'COM_VISUAL')
-        {
+        if (node.name !== 'INERTIA_VISUAL' && node.name !== 'COM_VISUAL') {
           if (geometry.isBufferGeometry) {
             let attribute = geometry.getAttribute('position');
 
@@ -2715,8 +2739,8 @@ export class Scene {
     });
 
     function expandByPoint(point: THREE.Vector3) {
-      box.min.min( point );
-      box.max.max( point );
+      box.min.min(point);
+      box.max.max(point);
     }
   }
 
@@ -2778,8 +2802,7 @@ export class Scene {
    * Hide bounding box
    */
   public hideBoundingBox(): void {
-    if(this.boundingBox.parent)
-    {
+    if (this.boundingBox.parent) {
       this.boundingBox.parent.remove(this.boundingBox);
     }
     this.boundingBox.visible = false;
@@ -2794,9 +2817,8 @@ export class Scene {
     var pos = new THREE.Vector2(event.clientX, event.clientY);
     var model = this.getRayCastModel(pos, new THREE.Vector3());
 
-    if(model && model.name !== '' && model.name !== 'plane'/* &&
-        this.modelManipulator.pickerNames.indexOf(model.name) === -1*/)
-    {
+    if (model && model.name !== '' && model.name !== 'plane'/* &&
+        this.modelManipulator.pickerNames.indexOf(model.name) === -1*/) {
       callback(model);
     }
   }
@@ -2813,10 +2835,8 @@ export class Scene {
     }
 
     var showWireframe = (viewAs === 'wireframe');
-    function materialViewAs(material: THREE.Material)
-    {
-      if (materials.indexOf(material.id) === -1)
-      {
+    function materialViewAs(material: THREE.Material) {
+      if (materials.indexOf(material.id) === -1) {
         materials.push(material.id);
         if (viewAs === 'transparent') {
           if (material.opacity) {
@@ -2830,7 +2850,7 @@ export class Scene {
         }
         else {
           material.opacity = (material as any).originalOpacity ?
-              (material as any).originalOpacity : 1.0;
+            (material as any).originalOpacity : 1.0;
           if (material.opacity >= 1.0) {
             material.transparent = false;
           }
@@ -2844,17 +2864,15 @@ export class Scene {
     let descendants: THREE.Object3D[] = [];
     let materials: number[] = [];
     getDescendants(model, descendants);
-    for (var i = 0; i < descendants.length; ++i)
-    {
+    for (var i = 0; i < descendants.length; ++i) {
       if ((descendants[i] as any).material &&
-          descendants[i].name.indexOf('boundingBox') === -1 &&
-          descendants[i].name.indexOf('COLLISION_VISUAL') === -1 &&
-          !this.getParentByPartialName(descendants[i], 'COLLISION_VISUAL') &&
-          descendants[i].name.indexOf('wireframe') === -1 &&
-          descendants[i].name.indexOf('JOINT_VISUAL') === -1 &&
-          descendants[i].name.indexOf('COM_VISUAL') === -1 &&
-          descendants[i].name.indexOf('INERTIA_VISUAL') === -1)
-      {
+        descendants[i].name.indexOf('boundingBox') === -1 &&
+        descendants[i].name.indexOf('COLLISION_VISUAL') === -1 &&
+        !this.getParentByPartialName(descendants[i], 'COLLISION_VISUAL') &&
+        descendants[i].name.indexOf('wireframe') === -1 &&
+        descendants[i].name.indexOf('JOINT_VISUAL') === -1 &&
+        descendants[i].name.indexOf('COM_VISUAL') === -1 &&
+        descendants[i].name.indexOf('INERTIA_VISUAL') === -1) {
         if (Array.isArray((descendants[i] as any).material)) {
           for (var k = 0; k < (descendants[i] as any).material.length; ++k) {
             materialViewAs((descendants[i] as any).material[k]);
@@ -2891,20 +2909,16 @@ export class Scene {
    * Select entity
    * @param {} object
    */
-  public selectEntity(object: THREE.Object3D | null): void
-  {
-    if (object)
-    {
-      if (object !== this.selectedEntity)
-      {
+  public selectEntity(object: THREE.Object3D | null): void {
+    if (object) {
+      if (object !== this.selectedEntity) {
         this.showBoundingBox(object);
         this.selectedEntity = object;
       }
       this.attachManipulator(object, this.manipulationMode);
       this.emitter.emit('setTreeSelected', object.name);
     }
-    else
-    {
+    else {
       /*if (this.modelManipulator.object)
       {
         this.modelManipulator.detach();
@@ -2922,34 +2936,27 @@ export class Scene {
    * @param {} model
    */
   public viewJoints(model: any): void {
-    if (model.joint === undefined || model.joint.length === 0)
-    {
+    if (model.joint === undefined || model.joint.length === 0) {
       return;
     }
 
     var child;
 
     // Visuals already exist
-    if (model.jointVisuals)
-    {
+    if (model.jointVisuals) {
       // Hide = remove from parent
       if (model.jointVisuals[0].parent !== undefined &&
-        model.jointVisuals[0].parent !== null)
-      {
-        for (var v = 0; v < model.jointVisuals.length; ++v)
-        {
+        model.jointVisuals[0].parent !== null) {
+        for (var v = 0; v < model.jointVisuals.length; ++v) {
           model.jointVisuals[v].parent.remove(model.jointVisuals[v]);
         }
       }
       // Show: attach to parent
-      else
-      {
-        for (var s = 0; s < model.joint.length; ++s)
-        {
+      else {
+        for (var s = 0; s < model.joint.length; ++s) {
           child = model.getObjectByName(model.joint[s].child);
 
-          if (!child)
-          {
+          if (!child) {
             continue;
           }
 
@@ -2958,15 +2965,12 @@ export class Scene {
       }
     }
     // Create visuals
-    else
-    {
+    else {
       model.jointVisuals = [];
-      for (var j = 0; j < model.joint.length; ++j)
-      {
+      for (var j = 0; j < model.joint.length; ++j) {
         child = model.getObjectByName(model.joint[j].child);
 
-        if (!child)
-        {
+        if (!child) {
           continue;
         }
 
@@ -2977,71 +2981,60 @@ export class Scene {
         jointVisual.scale.set(0.7, 0.7, 0.7);
 
         this.setPose(jointVisual, model.joint[j].pose.position,
-            model.joint[j].pose.orientation);
+          model.joint[j].pose.orientation);
 
         var mainAxis = null;
         if (model.joint[j].type !== JointTypes.BALL &&
-            model.joint[j].type !== JointTypes.FIXED)
-        {
+          model.joint[j].type !== JointTypes.FIXED) {
           mainAxis = this.jointAxis['mainAxis'].clone();
           jointVisual.add(mainAxis);
         }
 
         var secondAxis = null;
         if (model.joint[j].type === JointTypes.REVOLUTE2 ||
-            model.joint[j].type === JointTypes.UNIVERSAL)
-        {
+          model.joint[j].type === JointTypes.UNIVERSAL) {
           secondAxis = this.jointAxis['mainAxis'].clone();
           jointVisual.add(secondAxis);
         }
 
         if (model.joint[j].type === JointTypes.REVOLUTE ||
-            model.joint[j].type === JointTypes.GEARBOX)
-        {
+          model.joint[j].type === JointTypes.GEARBOX) {
           mainAxis.add(this.jointAxis['rotAxis'].clone());
         }
         else if (model.joint[j].type === JointTypes.REVOLUTE2 ||
-                 model.joint[j].type === JointTypes.UNIVERSAL)
-        {
+          model.joint[j].type === JointTypes.UNIVERSAL) {
           mainAxis.add(this.jointAxis['rotAxis'].clone());
           secondAxis.add(this.jointAxis['rotAxis'].clone());
         }
-        else if (model.joint[j].type === JointTypes.BALL)
-        {
+        else if (model.joint[j].type === JointTypes.BALL) {
           jointVisual.add(this.jointAxis['ballVisual'].clone());
         }
-        else if (model.joint[j].type === JointTypes.PRISMATIC)
-        {
+        else if (model.joint[j].type === JointTypes.PRISMATIC) {
           mainAxis.add(this.jointAxis['transAxis'].clone());
         }
-        else if (model.joint[j].type === JointTypes.SCREW)
-        {
+        else if (model.joint[j].type === JointTypes.SCREW) {
           mainAxis.add(this.jointAxis['screwAxis'].clone());
         }
 
         var direction, tempMatrix, rotMatrix;
-        if (mainAxis)
-        {
+        if (mainAxis) {
           // main axis expressed w.r.t. parent model or joint frame
-          if (!model.joint[j].axis1)
-          {
-            console.error('no joint axis ' +  model.joint[j].type + 'vs '
+          if (!model.joint[j].axis1) {
+            console.error('no joint axis ' + model.joint[j].type + 'vs '
               + JointTypes.FIXED);
           }
-          if (model.joint[j].axis1.use_parent_model_frame === undefined)
-          {
+          if (model.joint[j].axis1.use_parent_model_frame === undefined) {
             model.joint[j].axis1.use_parent_model_frame = true;
           }
 
           direction = new THREE.Vector3(
-              model.joint[j].axis1.xyz.x,
-              model.joint[j].axis1.xyz.y,
-              model.joint[j].axis1.xyz.z);
+            model.joint[j].axis1.xyz.x,
+            model.joint[j].axis1.xyz.y,
+            model.joint[j].axis1.xyz.z);
           direction.normalize();
 
           tempMatrix = new THREE.Matrix4();
-          if (model.joint[j].axis1.use_parent_model_frame)
-          {
+          if (model.joint[j].axis1.use_parent_model_frame) {
             tempMatrix.extractRotation(jointVisual.matrix);
             tempMatrix.getInverse(tempMatrix);
             direction.applyMatrix4(tempMatrix);
@@ -3055,22 +3048,19 @@ export class Scene {
           mainAxis.quaternion.setFromRotationMatrix(rotMatrix);
         }
 
-        if (secondAxis)
-        {
-          if (model.joint[j].axis2.use_parent_model_frame === undefined)
-          {
+        if (secondAxis) {
+          if (model.joint[j].axis2.use_parent_model_frame === undefined) {
             model.joint[j].axis2.use_parent_model_frame = true;
           }
 
           direction = new THREE.Vector3(
-              model.joint[j].axis2.xyz.x,
-              model.joint[j].axis2.xyz.y,
-              model.joint[j].axis2.xyz.z);
+            model.joint[j].axis2.xyz.x,
+            model.joint[j].axis2.xyz.y,
+            model.joint[j].axis2.xyz.z);
           direction.normalize();
 
           tempMatrix = new THREE.Matrix4();
-          if (model.joint[j].axis2.use_parent_model_frame)
-          {
+          if (model.joint[j].axis2.use_parent_model_frame) {
             tempMatrix.extractRotation(jointVisual.matrix);
             tempMatrix.getInverse(tempMatrix);
             direction.applyMatrix4(tempMatrix);
@@ -3079,7 +3069,7 @@ export class Scene {
             direction.applyMatrix4(tempMatrix);
           }
 
-          secondAxis.position =  direction.multiplyScalar(0.3);
+          secondAxis.position = direction.multiplyScalar(0.3);
           rotMatrix = new THREE.Matrix4();
           rotMatrix.lookAt(direction, new THREE.Vector3(0, 0, 0), secondAxis.up);
           secondAxis.quaternion.setFromRotationMatrix(rotMatrix);
@@ -3669,7 +3659,7 @@ export class Scene {
       // Name
       '__model_light2__',
       // Direction
-      new THREE.Vector3(-0.707, 0.707,  0),
+      new THREE.Vector3(-0.707, 0.707, 0),
       // Specular
       new Color(0.8, 0.8, 0.8, 1.0));
     this.add(light4);
@@ -3686,7 +3676,7 @@ export class Scene {
     getDescendants(this.scene, objects);
 
     var that = this;
-    objects.forEach(function(obj: THREE.Object3D) {
+    objects.forEach(function (obj: THREE.Object3D) {
       that.scene.remove(obj);
 
       // Dispose geometries.
@@ -3703,8 +3693,8 @@ export class Scene {
 
         // Materials can have different texture maps, depending on their type.
         // We check each property of the Material and dispose them if they are Textures.
-        (obj as any).material.forEach(function(material: any) {
-          Object.keys(material).forEach(function(property: any) {
+        (obj as any).material.forEach(function (material: any) {
+          Object.keys(material).forEach(function (property: any) {
             if (material[property] instanceof THREE.Texture) {
               material[property].dispose();
             }
@@ -3747,7 +3737,7 @@ export class Scene {
     // custom headers.
     // See https://github.com/mrdoob/three.js/issues/10439
     if (this.requestHeader) {
-      this.textureLoader.load = function(url, onLoad, onProgress, onError) {
+      this.textureLoader.load = function (url, onLoad, onProgress, onError) {
         var fileLoader = new THREE.FileLoader();
         fileLoader.setResponseType('blob');
         fileLoader.setRequestHeader(this.requestHeader);
@@ -3759,7 +3749,7 @@ export class Scene {
         // Once the image is loaded, we need to revoke the ObjectURL.
         image.onload = function () {
           image.onload = null;
-          URL.revokeObjectURL( image.src );
+          URL.revokeObjectURL(image.src);
           texture.image = image;
           texture.needsUpdate = true;
 
@@ -3773,7 +3763,7 @@ export class Scene {
         // Once the image is loaded, we need to revoke the ObjectURL.
         fileLoader.load(
           url,
-          function(blob: any) {
+          function (blob: any) {
             image.src = URL.createObjectURL(blob);
           },
           onProgress,
@@ -3818,9 +3808,9 @@ export class Scene {
     this.nebulaRenderer = renderer;
   }
 
- /**
-  * Print out the scene graph with position of each node.
-  */
+  /**
+   * Print out the scene graph with position of each node.
+   */
   public printScene(): void {
     const printGraph = (obj: THREE.Object3D): void => {
       console.group(
@@ -3832,7 +3822,7 @@ export class Scene {
     printGraph(this.scene);
   }
 
-  public loadTexture(url: string, onLoad?: any, onProgress?:any): THREE.Texture {
+  public loadTexture(url: string, onLoad?: any, onProgress?: any): THREE.Texture {
     // Return the cached texture if it exists.
     if (this.textureCache.has(url)) {
       return this.textureCache.get(url)!;
@@ -3853,7 +3843,7 @@ export class Scene {
           let imageElem: HTMLImageElement = <HTMLImageElement>(
             document.createElementNS('http://www.w3.org/1999/xhtml', 'img'));
 
-          const isJPEG = map.search( /\.jpe?g($|\?)/i ) > 0 || map.search( /^data\:image\/jpeg/ ) === 0;
+          const isJPEG = map.search(/\.jpe?g($|\?)/i) > 0 || map.search(/^data\:image\/jpeg/) === 0;
 
           let binary = '';
           const len = image.byteLength;
@@ -3884,7 +3874,7 @@ export class Scene {
       (_error) => {
         let scopeTexture = result;
         fallbackLoader(url, scopeTexture);
-    });
+      });
 
     // Cache the texture so that we don't try to load it multiple times.
     this.textureCache.set(url, result);
