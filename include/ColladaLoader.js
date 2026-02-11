@@ -29,12 +29,13 @@ import {
 	Quaternion,
 	QuaternionKeyframeTrack,
 	RepeatWrapping,
-  RGBAFormat,
+  	RGBAFormat,
 	Scene,
 	Skeleton,
 	SkinnedMesh,
 	SpotLight,
 	TextureLoader,
+	Texture,
 	Vector2,
 	Vector3,
 	VectorKeyframeTrack,
@@ -4186,11 +4187,11 @@ class ColladaLoader extends Loader {
 		// See https://github.com/mrdoob/three.js/issues/10439
 		if (scope.requestHeader && Object.keys(scope.requestHeader).length > 0) {
 			textureLoader.load = function(url, onLoad, onProgress, onError) {
-				var fileLoader = new THREE.FileLoader(scope.manager);
+				var fileLoader = new FileLoader(scope.manager);
 				fileLoader.setPath(this.path).setCrossOrigin(scope.crossOrigin);
 				fileLoader.setResponseType('blob');
 				fileLoader.setRequestHeader(scope.requestHeader);
-				var texture = new THREE.Texture();
+				var texture = new Texture();
 				var image = document.createElementNS( 'http://www.w3.org/1999/xhtml', 'img' );
 
 				// Once the image is loaded, we need to revoke the ObjectURL.
