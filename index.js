@@ -1,1 +1,1 @@
-module.exports = require('./dist/gzweb.js');
+module.exports = require("./dist/gzweb.js");

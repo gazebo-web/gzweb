@@ -10,15 +10,14 @@ let onAxisCb: any = null;
  * object and an axis object. This function is called when a joystick axis is moved.
  */
 export class Gamepad {
-
   constructor(onButton: any, onAxis: any) {
     onButtonCb = onButton;
     onAxisCb = onAxis;
 
     // Listen for gamepad connections.
-    window.addEventListener('gamepadconnected', handleGamepadConnect);
+    window.addEventListener("gamepadconnected", handleGamepadConnect);
     // Listen for gamepad disconnections.
-    window.addEventListener('gamepaddisconnected', handleGamepadDisconnect);
+    window.addEventListener("gamepaddisconnected", handleGamepadDisconnect);
 
     // Start the main processing event loop
     requestAnimationFrame(updateGamepads);
@@ -46,7 +45,7 @@ function updateGamepads() {
         // current state of the controller by looking at the prevButtons.
         controller.prevButtons[b] = button.pressed;
 
-        onButtonCb(controller, {'index': b, 'pressed': button.pressed});
+        onButtonCb(controller, { index: b, pressed: button.pressed });
       }
     }
 
@@ -56,7 +55,7 @@ function updateGamepads() {
       if (controller.prevAxes[i] !== axis) {
         // Note that we update the axis *before* we call the user callback.
         controller.prevAxes[i] = axis;
-        onAxisCb(controller, {'index': i, 'axis': axis});
+        onAxisCb(controller, { index: i, axis: axis });
       }
     }
   }
@@ -81,11 +80,11 @@ function scanGamepads(): void {
 function addGamepad(gamepad: any): void {
   if (gamepad) {
     if (!(gamepad.index in controllers)) {
-      console.log('Adding gamepad', gamepad.id);
+      console.log("Adding gamepad", gamepad.id);
       controllers[gamepad.index] = {
         gamepad: gamepad,
         prevButtons: new Array(gamepad.buttons.length),
-        prevAxes: new Array(gamepad.axes.length)
+        prevAxes: new Array(gamepad.axes.length),
       };
 
       // Set button initial state

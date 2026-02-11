@@ -54,7 +54,7 @@ export class AssetViewer {
   /**
    * ID of the HTML element that will hold the rendering context.
    */
-  private elementId: string = 'gz-scene';
+  private elementId: string = "gz-scene";
 
   /**
    * The Gzweb Scene.
@@ -117,7 +117,7 @@ export class AssetViewer {
    * @param config The Asset Viewer configuration options.
    */
   constructor(config: AssetViewerConfig) {
-    this.elementId = config.elementId ?? 'gz-scene';
+    this.elementId = config.elementId ?? "gz-scene";
     this.token = config.token;
 
     this.setupVisualization();
@@ -152,22 +152,25 @@ export class AssetViewer {
    */
   public resize(): void {
     if (this.scene && this.sceneElement) {
-      this.scene.setSize(this.sceneElement.clientWidth, this.sceneElement.clientHeight);
+      this.scene.setSize(
+        this.sceneElement.clientWidth,
+        this.sceneElement.clientHeight,
+      );
     }
   }
 
   /**
    * Position the camera to start visualizing the asset.
-  */
+   */
   public resetView() {
     const camera = this.scene?.camera;
     if (camera) {
       camera.position.x = this.scalingBasis * 1.1;
       camera.position.y = -this.scalingBasis * 1.4;
       camera.position.z = this.scalingBasis * 0.6;
-      camera.rotation.x = 67 * Math.PI / 180;
-      camera.rotation.y = 33 * Math.PI / 180;
-      camera.rotation.z = 12 * Math.PI / 180;
+      camera.rotation.x = (67 * Math.PI) / 180;
+      camera.rotation.y = (33 * Math.PI) / 180;
+      camera.rotation.z = (12 * Math.PI) / 180;
     }
   }
 
@@ -227,7 +230,10 @@ export class AssetViewer {
     // Translate and rescale.
     // The scaling basis is calculated using the maximum dimension. Allows us to scale large models.
     // It is a power of 10.
-    this.scalingBasis = Math.pow(10, Math.trunc(maxDimension).toString().length - 1);
+    this.scalingBasis = Math.pow(
+      10,
+      Math.trunc(maxDimension).toString().length - 1,
+    );
     const scale = this.scalingBasis / maxDimension;
 
     center.multiplyScalar(-scale);
@@ -255,7 +261,7 @@ export class AssetViewer {
     this.sdfParser = new SDFParser(this.scene);
 
     if (this.token) {
-      const header = 'Authorization';
+      const header = "Authorization";
       const value = `Bearer ${this.token}`;
 
       this.scene.setRequestHeader(header, value);
@@ -267,7 +273,10 @@ export class AssetViewer {
       this.sceneElement.appendChild(this.scene.getDomElement());
       this.resize();
     } else {
-      console.error('Unable to find HTML element with an id of', this.elementId);
+      console.error(
+        "Unable to find HTML element with an id of",
+        this.elementId,
+      );
     }
   }
 
@@ -282,7 +291,11 @@ export class AssetViewer {
     // Scale the model on the animation loop.
     // Loading meshes is an asynchronous process, so after loading the SDF file, its bounding box may be empty.
     // This is done only once, after a mesh is loaded and the model's bounding box is not empty.
-    if (this.resource !== undefined && this.shouldScaleModel && !this.isScaled) {
+    if (
+      this.resource !== undefined &&
+      this.shouldScaleModel &&
+      !this.isScaled
+    ) {
       this.scaleModel();
     }
 

@@ -10,7 +10,7 @@
     "allowSyntheticDefaultImports": true,
     "strict": true,
     "skipLibCheck": true,
-    "outDir":"./tsc-out",
+    "outDir": "./tsc-out",
     "lib": ["dom", "es2015"]
   },
   "include": ["./src/*"]

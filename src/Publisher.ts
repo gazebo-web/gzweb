@@ -1,4 +1,4 @@
-import { Message, Type } from 'protobufjs';
+import { Message, Type } from "protobufjs";
 
 /**
  * A Publisher is used to allow clients to publish messages to a particular topic.
@@ -37,7 +37,7 @@ export class Publisher {
     topic: string,
     msgTypeName: string,
     def: Type,
-    pub: (topic: string, msgTypeName: string, msg: string) => void
+    pub: (topic: string, msgTypeName: string, msg: string) => void,
   ) {
     this.topic = topic;
     this.msgTypeName = msgTypeName;

@@ -1,4 +1,4 @@
-import {Object3D} from 'three';
+import { Object3D } from "three";
 
 /**
  * Given a ThreeJS Object, return all its children as an array.
@@ -9,7 +9,10 @@ import {Object3D} from 'three';
  * @param array Optional. An array that will store all the children.
  * @returns An array of the children of the given ThreeJS Object (can be dismissed if the array argument is used).
  */
-export function getDescendants(obj: Object3D, array: Object3D[] = []): Object3D[] {
+export function getDescendants(
+  obj: Object3D,
+  array: Object3D[] = [],
+): Object3D[] {
   obj.traverse((child) => {
     // Note: This function is called on the obj as well.
     // Since we just need its children, we filter the original object.
@@ -18,7 +21,7 @@ export function getDescendants(obj: Object3D, array: Object3D[] = []): Object3D[
     }
   });
   return array;
-};
+}
 
 /**
  * Convert a binary byte array to a base64 string.
@@ -26,13 +29,13 @@ export function getDescendants(obj: Object3D, array: Object3D[] = []): Object3D[
  * @return Base64 encoded string.
  **/
 export function binaryToBase64(buffer: Uint8Array): string {
-  var binary = '';
+  var binary = "";
   var len = buffer.byteLength;
   for (var i = 0; i < len; i++) {
     binary += String.fromCharCode(buffer[i]);
   }
   return window.btoa(binary);
-};
+}
 
 /**
  * Convert a RGBA encoded uint8array to an image.
@@ -40,8 +43,11 @@ export function binaryToBase64(buffer: Uint8Array): string {
  * @param {number} width - Width of the image in pixels
  * @param {number} height - Height of the image in pixels
  */
-export function binaryToImage(array: Uint8Array, width: number, height: number): HTMLImageElement {
-
+export function binaryToImage(
+  array: Uint8Array,
+  width: number,
+  height: number,
+): HTMLImageElement {
   // Create the clamped data array
   let imageArray = new Uint8ClampedArray(array.buffer);
 
@@ -49,8 +55,8 @@ export function binaryToImage(array: Uint8Array, width: number, height: number):
   let imageData = new ImageData(imageArray, width, height);
 
   // Create the canvas
-  let canvas = document.createElement('canvas');
-  let ctx = canvas.getContext('2d');
+  let canvas = document.createElement("canvas");
+  let ctx = canvas.getContext("2d");
   canvas.width = imageData.width;
   canvas.height = imageData.height;
 
