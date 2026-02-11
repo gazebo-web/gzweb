@@ -17,6 +17,7 @@ import { SDFParser } from "./SDFParser";
 import { Shaders } from "./Shaders";
 import { SpawnModel } from "./SpawnModel";
 import { STLLoader } from "../include/STLLoader";
+import { GLTFLoader } from "../include/GLTFLoader";
 import { WsLoadingManager } from "./WsLoadingManager";
 
 import * as JSZip from "jszip";
@@ -104,6 +105,7 @@ export class Scene {
   private colladaLoader: ColladaLoader;
   private ddsLoader: DDSLoader;
   private stlLoader: STLLoader;
+  private gltfLoader: GLTFLoader;
   private heightmap: any;
   private selectedEntity: any;
   private manipulationMode: string;
@@ -351,6 +353,7 @@ export class Scene {
     this.textureLoader.crossOrigin = "";
     this.colladaLoader = new ColladaLoader();
     this.stlLoader = new STLLoader();
+    this.gltfLoader = new GLTFLoader();
     this.ddsLoader = new DDSLoader();
 
     // Progress and Load events.
@@ -372,17 +375,20 @@ export class Scene {
       this.textureLoader.manager = wsLoadingManager;
       this.colladaLoader.manager = wsLoadingManager;
       this.stlLoader.manager = wsLoadingManager;
+      this.gltfLoader.manager = wsLoadingManager;
       this.ddsLoader.manager = wsLoadingManager;
     }
 
     this.textureLoader.manager.onProgress = progressEvent;
     this.colladaLoader.manager.onProgress = progressEvent;
     this.stlLoader.manager.onProgress = progressEvent;
+    this.gltfLoader.manager.onProgress = progressEvent;
     this.ddsLoader.manager.onProgress = progressEvent;
 
     this.textureLoader.manager.onLoad = loadEvent;
     this.colladaLoader.manager.onLoad = loadEvent;
     this.stlLoader.manager.onLoad = loadEvent;
+    this.gltfLoader.manager.onLoad = loadEvent;
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setPixelRatio(window.devicePixelRatio);
@@ -497,9 +503,9 @@ export class Scene {
 
     this.controls = new OrbitControls(this.camera, this.getDomElement());
     this.controls.mouseButtons = {
-      LEFT: THREE.MOUSE.PAN,
-      MIDDLE: THREE.MOUSE.ROTATE,
-      RIGHT: THREE.MOUSE.DOLLY,
+      LEFT: THREE.MOUSE.ROTATE,
+      MIDDLE: THREE.MOUSE.DOLLY,
+      RIGHT: THREE.MOUSE.PAN,
     };
     // an animation loop is required with damping
     this.controls.enableDamping = false;
@@ -1178,13 +1184,6 @@ export class Scene {
         if (model.name.indexOf("COLLISION_VISUAL") >= 0) {
           continue;
         } else if (model.name !== "") {
-          /*if (this.modelManipulator.hovered)
-        {
-          if (model === this.modelManipulator.gizmo)
-          {
-            break;
-          }
-        }*/
           point = objects[i].point;
           break;
         }
@@ -2053,6 +2052,11 @@ export class Scene {
       return this.loadOBJ(uri, submesh, centerSubmesh, onLoad, onError);
     } else if (uriFile.substr(-4).toLowerCase() === ".stl") {
       return this.loadSTL(uri, submesh, centerSubmesh, onLoad, onError);
+    } else if (
+      uriFile.substr(-4).toLowerCase() === ".glb" ||
+      uriFile.substr(-5).toLowerCase() === ".gltf"
+    ) {
+      return this.loadGLTF(uri, submesh, centerSubmesh, onLoad, onError);
     } else if (uriFile.substr(-5).toLowerCase() === ".urdf") {
       console.error("Attempting to load URDF file, but it's not supported.");
     }
@@ -2436,6 +2440,77 @@ export class Scene {
             // Mark the mesh as done in the loading manager.
             const manager = that.stlLoader.manager as WsLoadingManager;
             manager.markAsDone(uri);
+          });
+        }
+      },
+    );
+  }
+
+  /**
+   * Load GLTF/GLB file
+   * @param {string} uri
+   * @param {} submesh
+   * @param {} centerSubmesh
+   * @param {function} onLoad - Callback when the mesh is loaded.
+   * @param {function} onError - Callback when an error occurs.
+   */
+  public loadGLTF(
+    uri: string,
+    submesh: string,
+    centerSubmesh: boolean,
+    onLoad: any,
+    onError: any,
+  ): void {
+    let that = this;
+    this.gltfLoader.load(
+      uri,
+      // onLoad callback
+      function (gltf: any) {
+        let mesh = gltf.scene;
+        mesh.name = uri;
+        if (submesh && that.useSubMesh(mesh, submesh, centerSubmesh)) {
+          onLoad(mesh);
+        } else if (!submesh) {
+          onLoad(mesh);
+        }
+      },
+      // onProgress callback
+      function (progress: any) {},
+      // onError callback
+      (error: any) => {
+        if (this.findResourceCb) {
+          // Get the mesh from the websocket server.
+          this.findResourceCb(uri, (data: any, error?: string) => {
+            if (error !== undefined) {
+              // Mark the mesh as error in the loading manager.
+              const manager = this.gltfLoader.manager as WsLoadingManager;
+              manager.markAsError(uri);
+              return;
+            }
+
+            // Parse the GLTF data
+            this.gltfLoader.parse(
+              data,
+              uri,
+              (gltf: any) => {
+                let mesh = gltf.scene;
+                mesh.name = uri;
+                if (submesh && that.useSubMesh(mesh, submesh, centerSubmesh)) {
+                  onLoad(mesh);
+                } else if (!submesh) {
+                  onLoad(mesh);
+                }
+
+                // Mark the mesh as done in the loading manager.
+                const manager = this.gltfLoader.manager as WsLoadingManager;
+                manager.markAsDone(uri);
+              },
+              (error: any) => {
+                console.error("Error parsing GLTF from websocket", error);
+                const manager = this.gltfLoader.manager as WsLoadingManager;
+                manager.markAsError(uri);
+              },
+            );
           });
         }
       },
