@@ -17,14 +17,14 @@ Then, you can see The `AssetViewer` class if you want to render static models or
 ## Setup
 
 You need the following:
-- Node version 18.
-- NPM version 8.
+- Node version 24.
+- NPM version 11.
 
 You can use [NVM](https://github.com/nvm-sh/nvm) to switch between versions easily. With it, you can then do:
 
 ```
-nvm install 18
-nvm use 18
+nvm install 24
+nvm use 24
 node -v && npm -v # Your versions will be correct.
 ```
 
