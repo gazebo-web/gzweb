@@ -407,7 +407,7 @@ export class Transport {
       const str = new TextDecoder("utf-8").decode(
         fileReader.result as BufferSource,
       );
-      const frameParts = str.split(",");
+      const frameParts = str.split(",", 4);
       const msgType = this.root.lookup(frameParts[2]) as Type;
       const buffer = new Uint8Array(fileReader.result as ArrayBuffer);
 

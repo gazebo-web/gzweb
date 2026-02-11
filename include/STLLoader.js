@@ -5,6 +5,7 @@ import {
   Float32BufferAttribute,
   Loader,
   LoaderUtils,
+  Mesh,
   Vector3,
 } from "three";
 
@@ -95,7 +96,7 @@ class STLLoader extends Loader {
 
   parse(data) {
     function isBinary(data) {
-      const reader = new DataView(data);
+      const reader = new DataView(data.buffer, data.byteOffset);
       const face_size = (32 / 8) * 3 + (32 / 8) * 3 * 3 + 16 / 8;
       const n_faces = reader.getUint32(80, true);
       const expect = 80 + 32 / 8 + n_faces * face_size;
@@ -138,7 +139,7 @@ class STLLoader extends Loader {
     }
 
     function parseBinary(data) {
-      const reader = new DataView(data);
+      const reader = new DataView(data.buffer, data.byteOffset);
       const faces = reader.getUint32(80, true);
 
       let r,
@@ -348,9 +349,9 @@ class STLLoader extends Loader {
 
     const binData = ensureBinary(data);
 
-    return isBinary(binData)
-      ? parseBinary(binData)
-      : parseASCII(ensureString(data));
+    return new Mesh(
+      isBinary(binData) ? parseBinary(binData) : parseASCII(ensureString(data)),
+    );
   }
 }
 
