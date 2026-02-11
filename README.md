@@ -17,14 +17,15 @@ Then, you can see The `AssetViewer` class if you want to render static models or
 ## Setup
 
 You need the following:
-- Node version 18.
-- NPM version 8.
+
+- Node version 24.
+- NPM version 11.
 
 You can use [NVM](https://github.com/nvm-sh/nvm) to switch between versions easily. With it, you can then do:
 
 ```
-nvm install 18
-nvm use 18
+nvm install 24
+nvm use 24
 node -v && npm -v # Your versions will be correct.
 ```
 
@@ -55,16 +56,18 @@ npm run build
 If you are working on changes on `gzweb` and want to try them in an application, then you can setup a `link` using these steps.
 
 1. In the root of the `gzweb` sources run
-    ```
-    npm link
-    ```
+
+   ```
+   npm link
+   ```
 
 2. This should create a symlink to the `gzweb` folder in the global node path, which can be found using `npm root -g`.
 
 3. Connect the downstream application to the `gzweb` symlink using
-    ```
-    npm link gzweb
-    ```
+
+   ```
+   npm link gzweb
+   ```
 
 4. In the downstream application's `node_modules` directory you should see a corresponding symlink to `gzweb`.
 

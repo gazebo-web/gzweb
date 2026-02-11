@@ -1,12 +1,12 @@
-import * as THREE from 'three';
-import { AudioTopic } from './AudioTopic';
-import { Publisher } from './Publisher';
-import { Scene } from './Scene';
-import { SDFParser } from './SDFParser';
-import { Shaders } from './Shaders';
-import { map, Observable, Subscription } from 'rxjs';
-import { Topic } from './Topic';
-import { Transport } from './Transport';
+import * as THREE from "three";
+import { AudioTopic } from "./AudioTopic";
+import { Publisher } from "./Publisher";
+import { Scene } from "./Scene";
+import { SDFParser } from "./SDFParser";
+import { Shaders } from "./Shaders";
+import { map, Observable, Subscription } from "rxjs";
+import { Topic } from "./Topic";
+import { Transport } from "./Transport";
 
 /**
  * Interface used to pass arguments to the SceneManager constructor.
@@ -81,7 +81,7 @@ export class SceneManager {
   /**
    * Connection status from the Websocket.
    */
-  private connectionStatus: string = 'disconnected';
+  private connectionStatus: string = "disconnected";
 
   /**
    * Scene Information updates.
@@ -136,7 +136,7 @@ export class SceneManager {
   /**
    * Name of the HTML element that will hold the rendering scene.
    */
-  private elementId: string = 'gz-scene';
+  private elementId: string = "gz-scene";
 
   /**
    * Name of an audio topic, which can be used to playback audio files.
@@ -156,7 +156,7 @@ export class SceneManager {
   /*
    * Message data of the topic to advertise.
    */
-  private msgData: any
+  private msgData: any;
 
   /*
    * Publisher object to publish to a topic
@@ -175,18 +175,14 @@ export class SceneManager {
    * @param params Optional. The scene manager configuration options
    *
    */
-  constructor( config: SceneManagerConfig = {}) {
-    this.elementId = config.elementId ?? 'gz-scene';
+  constructor(config: SceneManagerConfig = {}) {
+    this.elementId = config.elementId ?? "gz-scene";
 
     if (config.audioTopic) {
       this.audioTopic = config.audioTopic;
     }
 
-    if (
-      config.topicName &&
-      config.msgType &&
-      config.msgData
-    ) {
+    if (config.topicName && config.msgType && config.msgData) {
       this.topicName = config.topicName;
       this.msgType = config.msgType;
       this.msgData = config.msgData;
@@ -233,9 +229,9 @@ export class SceneManager {
    * @returns An Observable of a boolean: Whether the connection status is ready or not.
    */
   public getConnectionStatusAsObservable(): Observable<boolean> {
-    return this.transport.getConnectionStatus().pipe(
-      map((status) => status === 'ready'),
-    );
+    return this.transport
+      .getConnectionStatus()
+      .pipe(map((status) => status === "ready"));
   }
 
   /**
@@ -243,8 +239,10 @@ export class SceneManager {
    */
   public resize(): void {
     if (this.scene) {
-      this.scene.setSize(this.sceneElement.clientWidth,
-                         this.sceneElement.clientHeight);
+      this.scene.setSize(
+        this.sceneElement.clientWidth,
+        this.sceneElement.clientHeight,
+      );
     }
   }
 
@@ -262,31 +260,31 @@ export class SceneManager {
 
   public follow(entityName: string): void {
     if (this.scene) {
-      this.scene.emitter.emit('follow_entity', entityName);
+      this.scene.emitter.emit("follow_entity", entityName);
     }
   }
 
   public thirdPersonFollow(entityName: string): void {
     if (this.scene) {
-      this.scene.emitter.emit('third_person_follow_entity', entityName);
+      this.scene.emitter.emit("third_person_follow_entity", entityName);
     }
   }
 
   public firstPerson(entityName: string): void {
     if (this.scene) {
-      this.scene.emitter.emit('first_person_entity', entityName);
+      this.scene.emitter.emit("first_person_entity", entityName);
     }
   }
 
   public moveTo(entityName: string): void {
     if (this.scene) {
-      this.scene.emitter.emit('move_to_entity', entityName);
+      this.scene.emitter.emit("move_to_entity", entityName);
     }
   }
 
   public select(entityName: string): void {
     if (this.scene) {
-      this.scene.emitter.emit('select_entity', entityName);
+      this.scene.emitter.emit("select_entity", entityName);
     }
   }
 
@@ -313,13 +311,16 @@ export class SceneManager {
    */
   public disconnect(): void {
     // Remove the canvas. Helpful to disconnect and connect several times.
-    if (this.sceneElement?.childElementCount > 0 && this.scene.scene.renderer?.domElement) {
+    if (
+      this.sceneElement?.childElementCount > 0 &&
+      this.scene.scene.renderer?.domElement
+    ) {
       this.sceneElement.removeChild(this.scene.scene.renderer.domElement);
     }
 
     this.transport.disconnect();
     this.sceneInfo = {};
-    this.connectionStatus = 'disconnected';
+    this.connectionStatus = "disconnected";
 
     // Unsubscribe from observables.
     if (this.sceneInfoSubscription) {
@@ -342,81 +343,92 @@ export class SceneManager {
   public connect(url: string, key?: string): void {
     this.transport.connect(url, key);
 
-    this.statusSubscription = this.transport.getConnectionStatus().subscribe((response) => {
-      if (response === 'error') {
-        // TODO: Return an error so the caller can open a snackbar
-        console.log('Connection failed. Please contact an administrator.');
-        // this.snackBar.open('Connection failed. Please contact an administrator.', 'Got it');
-      }
-
-      this.connectionStatus = response;
-
-      // We can start setting up the visualization after we are Connected.
-      // We still don't have scene and world information at this step.
-      if (response === 'connected') {
-        this.setupVisualization();
-      }
-
-      // Once the status is ready, we have the world and scene information
-      // available.
-      if (response === 'ready') {
-        this.subscribeToTopics();
-        if (this.topicName) {
-          this.publisher = this.advertise(this.topicName, this.msgType);
-          console.log(`Advertised ${this.topicName} with msg type of
-                      ${this.msgType}`);
+    this.statusSubscription = this.transport
+      .getConnectionStatus()
+      .subscribe((response) => {
+        if (response === "error") {
+          // TODO: Return an error so the caller can open a snackbar
+          console.log("Connection failed. Please contact an administrator.");
+          // this.snackBar.open('Connection failed. Please contact an administrator.', 'Got it');
         }
-      }
-    });
+
+        this.connectionStatus = response;
+
+        // We can start setting up the visualization after we are Connected.
+        // We still don't have scene and world information at this step.
+        if (response === "connected") {
+          this.setupVisualization();
+        }
+
+        // Once the status is ready, we have the world and scene information
+        // available.
+        if (response === "ready") {
+          this.subscribeToTopics();
+          if (this.topicName) {
+            this.publisher = this.advertise(this.topicName, this.msgType);
+            console.log(`Advertised ${this.topicName} with msg type of
+                      ${this.msgType}`);
+          }
+        }
+      });
 
     // Scene information.
-    this.sceneInfoSubscription = this.transport.sceneInfo$.subscribe((sceneInfo) => {
-      if (!sceneInfo) {
-        return;
-      }
-
-      if ('sky' in sceneInfo && sceneInfo['sky']) {
-        const sky = sceneInfo['sky'];
-
-        // Check to see if a cubemap has been specified in the header.
-        if ('header' in sky && sky['header'] && sky['header']['data']) {
-          const data = sky['header']['data'];
-          for (let i = 0; i < data.length; ++i) {
-            if (data[i]['key'] === 'cubemap_uri' &&
-                data[i]['value'] !== undefined) {
-              this.scene.addSky(data[i]['value'][0]);
-            }
-          }
-        } else {
-          this.scene.addSky();
+    this.sceneInfoSubscription = this.transport.sceneInfo$.subscribe(
+      (sceneInfo) => {
+        if (!sceneInfo) {
+          return;
         }
-      }
-      this.sceneInfo = sceneInfo;
-      this.startVisualization();
 
-      sceneInfo['model'].forEach((model: any) => {
-        const modelObj = this.sdfParser.spawnFromObj(
-          { model }, { enableLights: this.enableLights });
+        if ("sky" in sceneInfo && sceneInfo["sky"]) {
+          const sky = sceneInfo["sky"];
 
-        model['gz3dName'] = modelObj.name;
-        this.models.push(model);
-        this.scene.add(modelObj);
-      });
+          // Check to see if a cubemap has been specified in the header.
+          if ("header" in sky && sky["header"] && sky["header"]["data"]) {
+            const data = sky["header"]["data"];
+            for (let i = 0; i < data.length; ++i) {
+              if (
+                data[i]["key"] === "cubemap_uri" &&
+                data[i]["value"] !== undefined
+              ) {
+                this.scene.addSky(data[i]["value"][0]);
+              }
+            }
+          } else {
+            this.scene.addSky();
+          }
+        }
+        this.sceneInfo = sceneInfo;
+        this.startVisualization();
 
-      sceneInfo['light'].forEach((light: any) => {
-        const lightObj = this.sdfParser.spawnLight(light);
-        this.scene.add(lightObj);
-      });
+        sceneInfo["model"].forEach((model: any) => {
+          const modelObj = this.sdfParser.spawnFromObj(
+            { model },
+            { enableLights: this.enableLights },
+          );
 
-      // Set the ambient color, if present
-      if (sceneInfo['ambient'] !== undefined &&
-          sceneInfo['ambient'] !== null) {
-        this.scene.ambient.color = new THREE.Color(
-          sceneInfo['ambient']['r'],
-          sceneInfo['ambient']['g'],
-          sceneInfo['ambient']['b']);
-      }
-    });
+          model["gz3dName"] = modelObj.name;
+          this.models.push(model);
+          this.scene.add(modelObj);
+        });
+
+        sceneInfo["light"].forEach((light: any) => {
+          const lightObj = this.sdfParser.spawnLight(light);
+          this.scene.add(lightObj);
+        });
+
+        // Set the ambient color, if present
+        if (
+          sceneInfo["ambient"] !== undefined &&
+          sceneInfo["ambient"] !== null
+        ) {
+          this.scene.ambient.color = new THREE.Color(
+            sceneInfo["ambient"]["r"],
+            sceneInfo["ambient"]["g"],
+            sceneInfo["ambient"]["b"],
+          );
+        }
+      },
+    );
   }
 
   /**
@@ -452,8 +464,8 @@ export class SceneManager {
   public play(): void {
     this.transport.requestService(
       `/world/${this.transport.getWorld()}/control`,
-      'ignition.msgs.WorldControl',
-      {pause: false}
+      "ignition.msgs.WorldControl",
+      { pause: false },
     );
   }
 
@@ -463,8 +475,8 @@ export class SceneManager {
   public pause(): void {
     this.transport.requestService(
       `/world/${this.transport.getWorld()}/control`,
-      'ignition.msgs.WorldControl',
-      {pause: true}
+      "ignition.msgs.WorldControl",
+      { pause: true },
     );
   }
 
@@ -473,9 +485,9 @@ export class SceneManager {
    */
   public stop(): void {
     this.transport.requestService(
-      '/server_control',
-      'ignition.msgs.ServerControl',
-      {stop: true}
+      "/server_control",
+      "ignition.msgs.ServerControl",
+      { stop: true },
     );
   }
 
@@ -491,8 +503,8 @@ export class SceneManager {
     const poseTopic = new Topic(
       `/world/${this.transport.getWorld()}/dynamic_pose/info`,
       (msg) => {
-        msg['pose'].forEach((pose: any) => {
-          let entityName = pose['name'];
+        msg["pose"].forEach((pose: any) => {
+          let entityName = pose["name"];
           // Objects created by Gz3D have an unique name, which is the
           // name plus the id.
           const entity = this.scene.getByName(entityName);
@@ -500,10 +512,14 @@ export class SceneManager {
           if (entity) {
             this.scene.setPose(entity, pose.position, pose.orientation);
           } else {
-            console.warn('Unable to find entity with name ', entityName, entity);
+            console.warn(
+              "Unable to find entity with name ",
+              entityName,
+              entity,
+            );
           }
         });
-      }
+      },
     );
     this.transport.subscribe(poseTopic);
 
@@ -521,26 +537,27 @@ export class SceneManager {
         }
 
         // Process each model in the scene.
-        sceneInfo['model'].forEach((model: any) => {
-
+        sceneInfo["model"].forEach((model: any) => {
           // Check to see if the model already exists in the scene. This
           // could happen when a simulation level is loaded multiple times.
-          let foundIndex = this.getModelIndex(model['name']);
+          let foundIndex = this.getModelIndex(model["name"]);
 
           // If the model was not found, then add the new model. Otherwise
           // update the models ID.
           if (foundIndex < 0) {
             const modelObj = this.sdfParser.spawnFromObj(
-              { model }, { enableLights: this.enableLights });
+              { model },
+              { enableLights: this.enableLights },
+            );
             this.models.push(model);
             this.scene.add(modelObj);
           } else {
             // Make sure to update the exisiting models so that future pose
             // messages can update the model.
-            this.models[foundIndex]['id'] = model['id'];
+            this.models[foundIndex]["id"] = model["id"];
           }
         });
-      }
+      },
     );
     this.transport.subscribe(sceneTopic);
   }
@@ -554,9 +571,9 @@ export class SceneManager {
       // Simulation enforces unique names between models. The ID
       // of a model may change. This occurs when levels are loaded,
       // unloaded, and then reloaded.
-      if (this.models[i]['name'] === name) {
-          foundIndex = i;
-          break;
+      if (this.models[i]["name"] === name) {
+        foundIndex = i;
+        break;
       }
     }
     return foundIndex;
@@ -583,12 +600,17 @@ export class SceneManager {
     if (window.document.getElementById(this.elementId)) {
       this.sceneElement = window.document.getElementById(this.elementId)!;
     } else {
-      console.error('Unable to find HTML element with an id of',
-                    this.elementId);
+      console.error(
+        "Unable to find HTML element with an id of",
+        this.elementId,
+      );
     }
     this.sceneElement.appendChild(this.scene.renderer.domElement);
 
-    this.scene.setSize(this.sceneElement.clientWidth, this.sceneElement.clientHeight);
+    this.scene.setSize(
+      this.sceneElement.clientWidth,
+      this.sceneElement.clientHeight,
+    );
   }
 
   /**

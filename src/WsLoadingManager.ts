@@ -12,11 +12,12 @@ import { LoadingManager } from "three";
  * For more information, see https://threejs.org/docs/#api/en/loaders/managers/LoadingManager
  */
 export class WsLoadingManager extends LoadingManager {
-
   /**
    * Callback used when the first item starts loading.
    */
-  public onStart: ((url: string, loaded: number, total: number) => void) | undefined;
+  public onStart:
+    | ((url: string, loaded: number, total: number) => void)
+    | undefined;
 
   /**
    * LoadingManager method.
@@ -69,7 +70,7 @@ export class WsLoadingManager extends LoadingManager {
   constructor(
     onLoad?: () => void,
     onProgress?: (url: string, loaded: number, total: number) => void,
-    onError?: (url: string) => void
+    onError?: (url: string) => void,
   ) {
     super(onLoad, onProgress, onError);
 
@@ -165,7 +166,9 @@ export class WsLoadingManager extends LoadingManager {
    * @param url The URL of the resource.
    */
   private filterAndEnd(url: string): void {
-    this.errorItems = this.errorItems.filter((errorUrl: string) => errorUrl !== url);
+    this.errorItems = this.errorItems.filter(
+      (errorUrl: string) => errorUrl !== url,
+    );
     this.itemEnd(url);
   }
 }

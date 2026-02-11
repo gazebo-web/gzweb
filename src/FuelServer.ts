@@ -1,6 +1,6 @@
-export const FUEL_HOST: string = 'fuel.gazebosim.org';
-export const FUEL_VERSION: string = '1.0';
-export const IGN_FUEL_HOST: string = 'fuel.ignitionrobotics.org';
+export const FUEL_HOST: string = "fuel.gazebosim.org";
+export const FUEL_VERSION: string = "1.0";
+export const IGN_FUEL_HOST: string = "fuel.ignitionrobotics.org";
 
 /**
  * Create a valid URI that points to the Fuel Server given a local filesystem
@@ -18,7 +18,10 @@ export const IGN_FUEL_HOST: string = 'fuel.ignitionrobotics.org';
  */
 export function createFuelUri(uri: string): string {
   // Check if it's already a Fuel URI.
-  if (uri.startsWith(`https://${FUEL_HOST}`) || uri.startsWith(`https://${IGN_FUEL_HOST}`)) {
+  if (
+    uri.startsWith(`https://${FUEL_HOST}`) ||
+    uri.startsWith(`https://${IGN_FUEL_HOST}`)
+  ) {
     return uri;
   }
 
@@ -28,15 +31,15 @@ export function createFuelUri(uri: string): string {
   // `fuel.gazebosim.org` can be directly mapped to a valid URL on
   // Fuel server.
   if (uri.indexOf(FUEL_HOST) > 0 || uri.indexOf(IGN_FUEL_HOST) > 0) {
-    const uriArray = uri.split('/').filter((element: string) => element !== '');
+    const uriArray = uri.split("/").filter((element: string) => element !== "");
     if (uri.indexOf(FUEL_HOST) > 0) {
       uriArray.splice(0, uriArray.indexOf(FUEL_HOST));
     } else {
       uriArray.splice(0, uriArray.indexOf(IGN_FUEL_HOST));
     }
     uriArray.splice(1, 0, FUEL_VERSION);
-    uriArray.splice(6, 0, 'files');
-    return 'https://' + uriArray.join('/');
+    uriArray.splice(6, 0, "files");
+    return "https://" + uriArray.join("/");
   }
 
   return uri;
@@ -48,10 +51,10 @@ export class FuelServer {
   private requestHeader = {};
 
   /**
-  * FuelServer is in charge of making requests to the Fuel servers.
-  * @param {string} host - The Server host url.
-  * @param {string} version - The version used.
-  **/
+   * FuelServer is in charge of making requests to the Fuel servers.
+   * @param {string} host - The Server host url.
+   * @param {string} version - The version used.
+   **/
   constructor() {
     this.host = FUEL_HOST;
     this.version = FUEL_VERSION;
@@ -71,12 +74,12 @@ export class FuelServer {
 
     // Make the request to get the files.
     fetch(filesUrl, { headers: this.requestHeader })
-      .then(res => res.json())
-      .then(json => {
-        const files = prepareURLs(json['file_tree'], filesUrl);
+      .then((res) => res.json())
+      .then((json) => {
+        const files = prepareURLs(json["file_tree"], filesUrl);
         callback(files);
       })
-      .catch(error => console.error(error));
+      .catch((error) => console.error(error));
 
     // Helper function to parse the file tree of the response into an array of
     // file paths. The file tree from the Server consists of file elements
@@ -86,7 +89,7 @@ export class FuelServer {
 
       for (var i = 0; i < fileTree.length; i++) {
         // Avoid the thumbnails folder.
-        if (fileTree[i].name === 'thumbnails') {
+        if (fileTree[i].name === "thumbnails") {
           continue;
         }
 
@@ -100,7 +103,7 @@ export class FuelServer {
       function extractFile(el: any): void {
         if (!el.children) {
           // Avoid config files as they are not used.
-          if (el.name.endsWith('.config')) {
+          if (el.name.endsWith(".config")) {
             return;
           }
 

@@ -1,3 +1,3 @@
 export class ModelUserData {
-  public viewAs: string = 'normal';
+  public viewAs: string = "normal";
 }

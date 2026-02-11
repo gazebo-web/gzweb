@@ -1,9 +1,9 @@
 export type AssetCb = (msg: any, error?: any) => void;
 
 export enum AssetError {
-  NOT_FOUND = 'asset_not_found',
-  URI_MISSING = 'asset_uri_missing',
-};
+  NOT_FOUND = "asset_not_found",
+  URI_MISSING = "asset_uri_missing",
+}
 
 /**
  * Type that represents a simulation asset that needs to be fetched from a websocket server.

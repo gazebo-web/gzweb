@@ -1,15 +1,14 @@
-import { BehaviorSubject, Observable } from 'rxjs';
-import { Root, Message, Type, parse } from 'protobufjs';
-import { Publisher } from './Publisher';
-import { Topic } from './Topic';
-import { Asset, AssetCb, AssetError } from './Asset';
+import { BehaviorSubject, Observable } from "rxjs";
+import { Root, Message, Type, parse } from "protobufjs";
+import { Publisher } from "./Publisher";
+import { Topic } from "./Topic";
+import { Asset, AssetCb, AssetError } from "./Asset";
 
 /**
  * The Transport class is in charge of managing the websocket connection to a
  * Gazebo websocket server.
  */
 export class Transport {
-
   /**
    * Scene Information behavior subject.
    * Components can subscribe to it to get the scene information once it is obtained.
@@ -53,14 +52,14 @@ export class Transport {
   /**
    * The world that is being used in the Simulation.
    */
-  private world: string = '';
+  private world: string = "";
 
   /**
    * Status connection behavior subject.
    * Internally keeps track of the connection state.
    * Uses a Behavior Subject because it has an initial state and stores a value.
    */
-  private status$ = new BehaviorSubject<string>('disconnected');
+  private status$ = new BehaviorSubject<string>("disconnected");
 
   /**
    * Connects to a websocket.
@@ -101,7 +100,7 @@ export class Transport {
    * @returns The Publisher instance.
    */
   public advertise(topic: string, msgTypeName: string): Publisher {
-    this.sendMessage(['adv', topic, msgTypeName, '']);
+    this.sendMessage(["adv", topic, msgTypeName, ""]);
 
     const msgDef = this.root!.lookupType(msgTypeName);
 
@@ -111,7 +110,7 @@ export class Transport {
       msgDef,
       (topic: string, msgTypeName: string, msg: string) => {
         this.publish(topic, msgTypeName, msg);
-      }
+      },
     );
   }
 
@@ -123,7 +122,7 @@ export class Transport {
    * @param msg The message to publish.
    */
   public publish(topic: string, msgTypeName: string, msg: string): void {
-    this.sendMessage(['pub_in', topic, msgTypeName, msg]);
+    this.sendMessage(["pub_in", topic, msgTypeName, msg]);
   }
 
   /**
@@ -137,10 +136,12 @@ export class Transport {
   public requestService(
     topic: string,
     msgTypeName: string,
-    msgProperties: {[key: string]: any;}
+    msgProperties: { [key: string]: any },
   ): void {
     if (!this.root) {
-      console.error('Unable to request service - Message definitions are not ready');
+      console.error(
+        "Unable to request service - Message definitions are not ready",
+      );
       return;
     }
 
@@ -159,13 +160,13 @@ export class Transport {
     // Serialized the message
     const buffer = msgDef.encode(msg).finish();
     if (!buffer || buffer === undefined || buffer.length === 0) {
-      console.error('Unable to serialize message.');
+      console.error("Unable to serialize message.");
       return;
     }
 
     const strBuf = new TextDecoder().decode(buffer);
 
-    this.sendMessage(['req', topic, msgTypeName, strBuf]);
+    this.sendMessage(["req", topic, msgTypeName, strBuf]);
   }
 
   /**
@@ -176,13 +177,16 @@ export class Transport {
   public subscribe(topic: Topic): void {
     this.topicMap.set(topic.name, topic);
 
-    const publisher = this.availableTopics.filter(pub => pub['topic'] === topic.name)[0];
-    if (publisher['msg_type'] === 'ignition.msgs.Image' ||
-        publisher['msg_type'] === 'gazebo.msgs.Image') {
-      this.sendMessage(['image', topic.name, '', '']);
-    }
-    else {
-      this.sendMessage(['sub', topic.name, '', '']);
+    const publisher = this.availableTopics.filter(
+      (pub) => pub["topic"] === topic.name,
+    )[0];
+    if (
+      publisher["msg_type"] === "ignition.msgs.Image" ||
+      publisher["msg_type"] === "gazebo.msgs.Image"
+    ) {
+      this.sendMessage(["image", topic.name, "", ""]);
+    } else {
+      this.sendMessage(["sub", topic.name, "", ""]);
     }
   }
 
@@ -199,7 +203,7 @@ export class Transport {
       }
 
       this.topicMap.delete(name);
-      this.sendMessage(['unsub', name, '', '']);
+      this.sendMessage(["unsub", name, "", ""]);
     }
   }
 
@@ -210,7 +214,7 @@ export class Transport {
    * @param rate Publish rate.
    */
   public throttle(topic: Topic, rate: number): void {
-    this.sendMessage(['throttle', topic.name, 'na', rate.toString()]);
+    this.sendMessage(["throttle", topic.name, "na", rate.toString()]);
   }
 
   /**
@@ -247,13 +251,13 @@ export class Transport {
   public getAsset(_uri: string, _cb: AssetCb) {
     let asset: Asset = {
       uri: _uri,
-      cb: _cb
+      cb: _cb,
     };
 
     console.log(`Getting asset via websocket - ${_uri}`);
 
     this.assetMap.set(_uri, asset);
-    this.sendMessage(['asset', '', '', _uri]);
+    this.sendMessage(["asset", "", "", _uri]);
   }
 
   /**
@@ -269,7 +273,7 @@ export class Transport {
   public sendMessage(msg: string[]): void {
     // Verify the message has four parts.
     if (msg.length !== 4) {
-      console.error('Message must have four parts', msg);
+      console.error("Message must have four parts", msg);
       return;
     }
 
@@ -277,8 +281,11 @@ export class Transport {
     // Note: Some messages need to be sent during the connection process.
     const connectionStatus = this.status$.getValue();
 
-    if (connectionStatus === 'error') {
-      console.error('Cannot send the message. Connection failed.', { status: connectionStatus, message: msg });
+    if (connectionStatus === "error") {
+      console.error("Cannot send the message. Connection failed.", {
+        status: connectionStatus,
+        message: msg,
+      });
       return;
     }
 
@@ -286,18 +293,21 @@ export class Transport {
     // authentication messages, world name, etc.
     const operation = msg[0];
     if (
-      operation === 'auth' ||
-      operation === 'protos' ||
-      operation === 'topics-types' ||
-      operation === 'worlds'
+      operation === "auth" ||
+      operation === "protos" ||
+      operation === "topics-types" ||
+      operation === "worlds"
     ) {
       this.ws.send(this.buildMsg(msg));
       return;
     }
 
     // Other messages should be sent when the connection status is connected or ready.
-    if (connectionStatus === 'disconnected') {
-      console.error('Trying to send a message but the websocket is disconnected.', msg);
+    if (connectionStatus === "disconnected") {
+      console.error(
+        "Trying to send a message but the websocket is disconnected.",
+        msg,
+      );
       return;
     }
 
@@ -319,9 +329,9 @@ export class Transport {
   private onOpen(key?: string): void {
     // An authorization key could be required to request the message definitions.
     if (key) {
-      this.sendMessage(['auth', '', '', key]);
+      this.sendMessage(["auth", "", "", key]);
     } else {
-      this.sendMessage(['protos', '', '', '']);
+      this.sendMessage(["protos", "", "", ""]);
     }
   }
 
@@ -334,7 +344,7 @@ export class Transport {
     this.topicMap.clear();
     this.availableTopics = [];
     this.root = null;
-    this.status$.next('disconnected');
+    this.status$.next("disconnected");
     this.sceneInfo$.next(null);
   }
 
@@ -352,26 +362,28 @@ export class Transport {
 
         // Handle the response.
         switch (content) {
-          case 'authorized':
+          case "authorized":
             // Get the message definitions.
-            this.sendMessage(['protos', '', '', '']);
+            this.sendMessage(["protos", "", "", ""]);
             break;
-          case 'invalid':
+          case "invalid":
             // TODO(germanmas) Throw a proper Unauthorized error.
-            console.error('Invalid key');
+            console.error("Invalid key");
             break;
           default:
             // Parse the message definitions.
-            this.root = parse(fileReader.result as string, {keepCase: true}).root;
+            this.root = parse(fileReader.result as string, {
+              keepCase: true,
+            }).root;
 
             // Request topics.
-            this.sendMessage(['topics-types', '', '', '']);
+            this.sendMessage(["topics-types", "", "", ""]);
 
             // Request world information.
-            this.sendMessage(['worlds', '', '', '']);
+            this.sendMessage(["worlds", "", "", ""]);
 
             // Now we can update the connection status.
-            this.status$.next('connected');
+            this.status$.next("connected");
             break;
         }
       };
@@ -387,13 +399,15 @@ export class Transport {
       }
 
       // Return if at any point, the websocket connection is lost.
-      if (this.status$.getValue() === 'disconnected') {
+      if (this.status$.getValue() === "disconnected") {
         return;
       }
 
       // Decode as UTF-8 to get the header.
-      const str = new TextDecoder('utf-8').decode(fileReader.result as BufferSource);
-      const frameParts = str.split(',');
+      const str = new TextDecoder("utf-8").decode(
+        fileReader.result as BufferSource,
+      );
+      const frameParts = str.split(",");
       const msgType = this.root.lookup(frameParts[2]) as Type;
       const buffer = new Uint8Array(fileReader.result as ArrayBuffer);
 
@@ -401,30 +415,34 @@ export class Transport {
       let msg;
       // get the actual msg payload without the header
       const msgData = buffer.slice(
-        frameParts[0].length + frameParts[1].length + frameParts[2].length + 3
+        frameParts[0].length + frameParts[1].length + frameParts[2].length + 3,
       );
 
       // do not decode image msg as it is raw compressed png data and not a
       // protobuf msg
-      if (frameParts[2] === 'ignition.msgs.Image' ||
-          frameParts[2] === 'gazebo.msgs.Image') {
+      if (
+        frameParts[2] === "ignition.msgs.Image" ||
+        frameParts[2] === "gazebo.msgs.Image"
+      ) {
         msg = msgData;
-      }
-      else {
+      } else {
         msg = msgType.decode(msgData);
       }
 
       // For frame format information see the WebsocketServer documentation at:
       // https://github.com/gazebosim/gz-launch/blob/ign-launch5/plugins/websocket_server/WebsocketServer.hh
-      if (frameParts[0] == 'asset') {
+      if (frameParts[0] == "asset") {
         // Error to pass to the callback function, in order for the requester to handle it.
         let error: string | undefined;
 
         // Check for errors. We can check if the type is a string to avoid comapring with large assets.
-        if (frameParts[2] === 'ignition.msgs.StringMsg' || frameParts[2] === 'gazebo.msgs.StringMsg') {
-          switch (msg['data']) {
+        if (
+          frameParts[2] === "ignition.msgs.StringMsg" ||
+          frameParts[2] === "gazebo.msgs.StringMsg"
+        ) {
+          switch (msg["data"]) {
             case AssetError.URI_MISSING:
-              console.error('Asset is missing an URI');
+              console.error("Asset is missing an URI");
               break;
             case AssetError.NOT_FOUND:
               console.error(`Asset not found via websocket - ${frameParts[1]}`);
@@ -432,7 +450,7 @@ export class Transport {
               error = AssetError.NOT_FOUND;
               break;
             default:
-              console.error(`Asset error:`, msg['data']);
+              console.error(`Asset error:`, msg["data"]);
               break;
           }
 
@@ -445,34 +463,35 @@ export class Transport {
         // Run the callback associated with the asset. This lets the requester
         // process the asset message.
         if (this.assetMap.has(frameParts[1])) {
-          this.assetMap.get(frameParts[1])!.cb(msg['data'], error);
+          this.assetMap.get(frameParts[1])!.cb(msg["data"], error);
         } else {
-          console.error(`No resource callback for ${this.assetMap.get(frameParts[1])!.uri}`);
+          console.error(
+            `No resource callback for ${this.assetMap.get(frameParts[1])!.uri}`,
+          );
         }
-      } else if (frameParts[0] == 'pub') {
-
+      } else if (frameParts[0] == "pub") {
         // Handle actions and messages.
         switch (frameParts[1]) {
-          case 'topics-types':
-            for (const pub of msg['publisher']) {
+          case "topics-types":
+            for (const pub of msg["publisher"]) {
               this.availableTopics.push(pub);
             }
             break;
-          case 'topics':
-            this.availableTopics = msg['data'];
+          case "topics":
+            this.availableTopics = msg["data"];
             break;
-          case 'worlds':
+          case "worlds":
             // The world name needs to be used to get the scene information.
-            this.world = msg['data'][0];
-            this.sendMessage(['scene', this.world, '', '']);
+            this.world = msg["data"][0];
+            this.sendMessage(["scene", this.world, "", ""]);
             break;
-          case 'scene':
+          case "scene":
             // Emit the scene information. Contains all the models used.
             this.sceneInfo$.next(msg);
 
             // Once we received the Scene Information, we can start working.
             // We emit the Ready status to reflect this.
-            this.status$.next('ready');
+            this.status$.next("ready");
             break;
           default:
             // Message from a subscribed topic. Get the topic and execute its
@@ -482,11 +501,13 @@ export class Transport {
             }
             break;
         }
-
-      } else if (frameParts[0] == 'req') {
+      } else if (frameParts[0] == "req") {
         // We are not handling response messages from service calls.
       } else {
-        console.warn('Unhandled websocket message with frame operation', frameParts[0]);
+        console.warn(
+          "Unhandled websocket message with frame operation",
+          frameParts[0],
+        );
       }
     };
 
@@ -499,7 +520,7 @@ export class Transport {
    * Handler for the error event of a Websocket.
    */
   private onError(event: Event): void {
-    this.status$.next('error');
+    this.status$.next("error");
     this.disconnect();
     console.error(event);
   }
@@ -513,6 +534,6 @@ export class Transport {
    * 4. Payload
    */
   private buildMsg(parts: string[]): string {
-    return parts.join(',');
+    return parts.join(",");
   }
 }
