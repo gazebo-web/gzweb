@@ -2490,9 +2490,55 @@ export class Scene {
               return;
             }
 
-            // Parse the GLTF data
+            // The GLTFLoader expects an ArrayBuffer for binary data (GLB files).
+            // However, the data received might be a Uint8Array or even a string depending on the transport.
+            // We need to detect if it's a binary GLB file (starts with "glTF" magic bytes) and convert it
+            // to a clean ArrayBuffer if necessary.
+
+            let resourceContent = data;
+            let isGLB = false;
+
+            // Check for GLB binary header "glTF" (0x67 0x6C 0x54 0x46)
+            if (typeof data === "string" && data.startsWith("glTF")) {
+              isGLB = true;
+            } else if (data instanceof Uint8Array && data.length >= 4) {
+              if (
+                data[0] === 0x67 &&
+                data[1] === 0x6c &&
+                data[2] === 0x54 &&
+                data[3] === 0x46
+              ) {
+                isGLB = true;
+              }
+            } else if (data instanceof ArrayBuffer && data.byteLength >= 4) {
+              const header = new Uint8Array(data, 0, 4);
+              if (
+                header[0] === 0x67 &&
+                header[1] === 0x6c &&
+                header[2] === 0x54 &&
+                header[3] === 0x46
+              ) {
+                isGLB = true;
+              }
+            }
+
+            // If it is a GLB file but in string format (e.g. from some websocket frames),
+            // convert the string to an ArrayBuffer.
+            if (isGLB && typeof data === "string") {
+              const len = data.length;
+              const array = new Uint8Array(len);
+              for (let i = 0; i < len; i++) {
+                array[i] = data.charCodeAt(i);
+              }
+              resourceContent = array.buffer;
+            } else if (data instanceof Uint8Array) {
+              // If it's a Uint8Array, use slice().buffer to get a fresh ArrayBuffer view
+              // of just the data we need, without any offset issues.
+              resourceContent = data.slice().buffer;
+            }
+
             this.gltfLoader.parse(
-              data,
+              resourceContent,
               uri,
               (gltf: any) => {
                 let mesh = gltf.scene;
