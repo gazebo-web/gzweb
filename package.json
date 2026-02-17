@@ -1,6 +1,6 @@
 {
   "name": "gzweb",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "A library for Gazebo and data visualization.",
   "type": "module",
   "engines": {
